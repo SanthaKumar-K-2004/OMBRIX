@@ -15,6 +15,7 @@
     "@ombrix/stego-interface": "workspace:*",
     "@ombrix/stego-png-lsb": "workspace:*",
     "@ombrix/stego-worker": "workspace:*",
+    "@ombrix/crypto-adapter": "workspace:*",
     "lucide-react": "^1.68.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

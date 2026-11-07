@@ -1,10 +1,11 @@
-import { Code2, Cpu, Lock, Shield } from 'lucide-react';
+import { Code2, Cpu, Shield } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import { BrandShowcase } from './components/BrandShowcase.js';
 import { CoreStudio } from './components/CoreStudio.js';
 import { Navbar, type ProductModule } from './components/Navbar.js';
 import { SuiteCards } from './components/SuiteCards.js';
+import { VaultStudio } from './components/VaultStudio.js';
 
 export const App: React.FC = () => {
   const [activeModule, setActiveModule] = useState<ProductModule>('core');
@@ -19,51 +20,7 @@ export const App: React.FC = () => {
         {/* Module Content */}
         {activeModule === 'core' && <CoreStudio />}
 
-        {activeModule === 'vault' && (
-          <div className="p-8 rounded-2xl bg-[#111827] border border-[#1E293B] space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#7C3AED]/20 border border-[#7C3AED]/40 flex items-center justify-center text-[#A855F7]">
-                <Lock className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold font-['Sora'] text-white">
-                  OMBRIX Vault — Key Management & Secret Containers
-                </h2>
-                <p className="text-xs text-[#94A3B8]">
-                  Cryptographic messaging scheduled for Phase 3
-                </p>
-              </div>
-            </div>
-            <p className="text-xs text-[#E2E8F0] leading-relaxed max-w-3xl">
-              OMBRIX Vault provides asymmetric public-key cryptography using vetted browser-native
-              libraries (libsodium sealed boxes and Ed25519 signatures). Encryption keys and signing
-              keys are strictly separated. No unencrypted private keys are persisted without
-              explicit, user-controlled password KDF derivation.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
-              <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#1E293B] space-y-2">
-                <div className="text-xs font-semibold text-[#A855F7]">Anonymous Sealed Boxes</div>
-                <div className="text-[11px] text-[#94A3B8]">
-                  Encrypt directly to recipient's X25519 public key without revealing sender
-                  identity in ciphertext.
-                </div>
-              </div>
-              <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#1E293B] space-y-2">
-                <div className="text-xs font-semibold text-[#3B82F6]">Independent Signatures</div>
-                <div className="text-[11px] text-[#94A3B8]">
-                  Separate Ed25519 key pairs ensure authentic sender verification without conflating
-                  encryption.
-                </div>
-              </div>
-              <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#1E293B] space-y-2">
-                <div className="text-xs font-semibold text-[#14B8A6]">Fingerprint Verification</div>
-                <div className="text-[11px] text-[#94A3B8]">
-                  Truncated 8-byte hexadecimal fingerprints allow out-of-band contact verification.
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {activeModule === 'vault' && <VaultStudio />}
 
         {activeModule === 'edge' && (
           <div className="p-8 rounded-2xl bg-[#111827] border border-[#1E293B] space-y-4">

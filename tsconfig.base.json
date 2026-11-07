@@ -27,7 +27,8 @@
       "@ombrix/payload-protocol": ["packages/payload-protocol/src/index.ts"],
       "@ombrix/stego-interface": ["packages/stego-interface/src/index.ts"],
       "@ombrix/stego-png-lsb": ["packages/stego-png-lsb/src/index.ts"],
-      "@ombrix/stego-worker": ["packages/stego-worker/src/index.ts"]
+      "@ombrix/stego-worker": ["packages/stego-worker/src/index.ts"],
+      "@ombrix/crypto-adapter": ["packages/crypto-adapter/src/index.ts"]
     }
   }
 }
