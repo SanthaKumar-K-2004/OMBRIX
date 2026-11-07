@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { ensureActiveIdentity, setActiveIdentity } from '../security/sessionIdentity.js';
 
 const STORAGE_KEY = 'ombrix_vault_contacts';
 
@@ -71,34 +72,55 @@ export const VaultStudio: React.FC = () => {
   const [contactError, setContactError] = useState<string | null>(null);
 
   // Initialize Libsodium and Generate Initial Session Keypair if empty
-  const generateNewIdentity = useCallback((name = 'My OMBRIX Identity') => {
-    const encPair = generateEncryptionKeyPair();
-    const signPair = generateSigningKeyPair();
+  const generateNewIdentity = useCallback(
+    (name = 'My OMBRIX Identity') => {
+      const encPair = generateEncryptionKeyPair();
+      const signPair = generateSigningKeyPair();
 
-    const encPkB64 = toBase64(encPair.publicKey);
-    const encSkB64 = toBase64(encPair.privateKey);
-    const signPkB64 = toBase64(signPair.publicKey);
-    const signSkB64 = toBase64(signPair.privateKey);
-    const fp = computeFingerprint(encPair.publicKey);
+      const encPkB64 = toBase64(encPair.publicKey);
+      const encSkB64 = toBase64(encPair.privateKey);
+      const signPkB64 = toBase64(signPair.publicKey);
+      const signSkB64 = toBase64(signPair.privateKey);
+      const fp = computeFingerprint(encPair.publicKey);
 
-    setIdentityName(name);
-    setEncPublicKey(encPkB64);
-    setEncPrivateKey(encSkB64);
-    setSignPublicKey(signPkB64);
-    setSignPrivateKey(signSkB64);
-    setFingerprint(fp);
+      setIdentityName(name);
+      setEncPublicKey(encPkB64);
+      setEncPrivateKey(encSkB64);
+      setSignPublicKey(signPkB64);
+      setSignPrivateKey(signSkB64);
+      setFingerprint(fp);
 
-    setVaultMessage({
-      text: 'New ephemeral keypairs generated for active session.',
-      type: 'success',
-    });
-  }, []);
+      const newId: VaultIdentityData = {
+        version: 1,
+        id: `identity_${Date.now()}`,
+        name,
+        encryptionKeyPair: { publicKey: encPkB64, privateKey: encSkB64 },
+        signingKeyPair: { publicKey: signPkB64, privateKey: signSkB64 },
+        fingerprint: fp,
+        contacts: contacts || [],
+        createdAt: Date.now(),
+      };
+      setActiveIdentity(newId);
+
+      setVaultMessage({
+        text: 'New ephemeral keypairs generated for active session.',
+        type: 'success',
+      });
+    },
+    [contacts],
+  );
 
   useEffect(() => {
     async function init() {
       try {
         await initCrypto();
-        generateNewIdentity();
+        const active = await ensureActiveIdentity();
+        setIdentityName(active.name);
+        setEncPublicKey(active.encryptionKeyPair.publicKey);
+        setEncPrivateKey(active.encryptionKeyPair.privateKey);
+        setSignPublicKey(active.signingKeyPair.publicKey);
+        setSignPrivateKey(active.signingKeyPair.privateKey);
+        setFingerprint(active.fingerprint);
       } catch (err) {
         console.error('Failed to initialize crypto adapter:', err);
       } finally {
@@ -106,7 +128,7 @@ export const VaultStudio: React.FC = () => {
       }
     }
     init();
-  }, [generateNewIdentity]);
+  }, []);
 
   // Persist contacts to localStorage (only public keys and trust records)
   useEffect(() => {
