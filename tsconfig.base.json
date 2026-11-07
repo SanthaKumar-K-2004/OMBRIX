@@ -20,6 +20,14 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@ombrix/image-validation": ["packages/image-validation/src/index.ts"],
+      "@ombrix/payload-protocol": ["packages/payload-protocol/src/index.ts"],
+      "@ombrix/stego-interface": ["packages/stego-interface/src/index.ts"],
+      "@ombrix/stego-png-lsb": ["packages/stego-png-lsb/src/index.ts"],
+      "@ombrix/stego-worker": ["packages/stego-worker/src/index.ts"]
+    }
   }
 }

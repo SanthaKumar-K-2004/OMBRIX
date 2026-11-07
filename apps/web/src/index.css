@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --color-obsidian: #0b0f19;
+  --color-obsidian-card: #111827;
+  --color-obsidian-elevated: #1e293b;
+  --color-obsidian-border: #334155;
+  --color-violet-core: #7c3aed;
+  --color-aurora-purple: #a855f7;
+  --color-neon-blue: #3b82f6;
+  --color-teal-accent: #14b8a6;
+  --color-slate-muted: #94a3b8;
+  --color-mist: #e2e8f0;
+
+  --font-display: "Sora", sans-serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: #0b0f19;
+  color: #e2e8f0;
+  min-height: 100vh;
+}
+
+/* Subtle glowing accent utilities */
+.glow-violet {
+  box-shadow: 0 0 25px -5px rgba(124, 58, 237, 0.4);
+}
+
+.glow-blue {
+  box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.4);
+}
+
+.glow-teal {
+  box-shadow: 0 0 25px -5px rgba(20, 184, 166, 0.4);
+}
+
+/* Background grid pattern */
+.bg-grid-pattern {
+  background-size: 32px 32px;
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}

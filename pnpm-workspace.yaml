@@ -5,3 +5,6 @@ packages:
 allowBuilds:
   '@biomejs/biome': true
   esbuild: true
+
+minimumReleaseAgeExclude:
+  - lucide-react@1.68.0
