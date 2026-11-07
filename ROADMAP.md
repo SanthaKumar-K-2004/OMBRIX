@@ -23,21 +23,21 @@ OMBRIX development follows an evidence-based, incremental engineering loop. Ever
 └────────────────────────────────────┬───────────────────────────────────┘
                                      │
 ┌────────────────────────────────────▼───────────────────────────────────┐
-│ Phase 2: Steganography Engine Baseline & Worker Sandbox                │  [ACTIVE]
+│ Phase 2: Steganography Engine Baseline & Worker Sandbox                │  [COMPLETED]
 │  • M4: Steganography Interface & Standard Contracts                   │
 │  • M5: Deterministic Sequential RGB LSB Embed / Extract                │
 │  • M6: Dedicated Web Worker Sandbox (Transferables & Cancellation)     │
 └────────────────────────────────────┬───────────────────────────────────┘
                                      │
 ┌────────────────────────────────────▼───────────────────────────────────┐
-│ Phase 3: Cryptographic Messaging & Vault (Upcoming)                    │  [PLANNED]
+│ Phase 3: Cryptographic Messaging & Vault                               │  [COMPLETED]
 │  • M7: Vetted Cryptographic Adapter (Libsodium Sealed Boxes, Ed25519)  │
 │  • M8: Key Management Vault & Fingerprint Verification                 │
 │  • M9: End-to-End Secure Studio Workflow                               │
 └────────────────────────────────────┬───────────────────────────────────┘
                                      │
 ┌────────────────────────────────────▼───────────────────────────────────┐
-│ Phase 4: Lens, Lab & Transmission Resilience (Upcoming)                │  [PLANNED]
+│ Phase 4: Lens, Lab & Transmission Resilience                           │  [COMPLETED]
 │  • M10: Carrier Lens (Inspection, Bitplane Analysis, Histograms)       │
 │  • M11: Stego Lab (Method Comparison, PVD, LSB Matching)               │
 │  • M12: Transit & Trace (Transformations, Resilience, Forensics)       │
@@ -126,14 +126,24 @@ OMBRIX development follows an evidence-based, incremental engineering loop. Ever
 
 ---
 
-### Phase 3 — Cryptographic Messaging & Vault [PLANNED]
-- **Milestone 7:** Vetted cryptographic library adapter (libsodium sealed boxes, Ed25519 signatures, Argon2id/scrypt KDF).
-- **Milestone 8:** OMBRIX Vault (key pair generation, fingerprint verification, encrypted backup).
-- **Milestone 9:** End-to-end Secure Studio workflow (encrypt → envelope → embed → export → import → extract → decrypt).
+### Phase 3 — Cryptographic Messaging & Vault [COMPLETED]
+- **Milestone 7:** Vetted cryptographic library adapter (`@ombrix/crypto-adapter`: Libsodium X25519 sealed boxes, Ed25519 detached signatures, Argon2id KDF, BLAKE2b key ID / fingerprints).
+- **Milestone 8:** OMBRIX Vault (`apps/web/src/components/VaultStudio.tsx`: Ephemeral keypair generation, fingerprint verification, contacts address book, Argon2id password-protected `.ombrix-vault` bundle export and restore).
+- **Milestone 9:** End-to-end Secure Studio workflow (`apps/web/src/components/CoreStudio.tsx`: Encrypted recipient framing, Ed25519 detached signing, LSB raster embedding, worker sandbox extraction, authenticated decryption, signature verification, and discrete security status badges).
 
 ---
 
-### Phase 4 — Lens, Lab & Transmission Resilience [PLANNED]
-- **Milestone 10:** Carrier Lens (metadata extraction, bitplane visualizer, channel histograms).
-- **Milestone 11:** Stego Lab (comparative benchmarks, LSB matching, PVD).
-- **Milestone 12:** Transit & Trace (simulated transformations, recovery testing, forensics).
+### Phase 4 — Lens, Lab & Transmission Resilience [COMPLETED]
+- **Milestone 10:** Carrier Lens (`@ombrix/carrier-lens` & `apps/web/src/components/LensStudio.tsx`):
+  - Advanced static PNG chunk and header inspection (IHDR, IDAT, color types, bit depths, compression).
+  - Multi-channel Bitplane Visualizer (isolating Bit 0 LSB through Bit 7 MSB for Red, Green, Blue, Alpha channels to visually inspect stego noise vs natural image gradients).
+  - Real-time 256-bin RGB frequency histograms and channel balance diagnostics.
+  - Pixel Difference Map comparing original carrier vs stego carrier with 100x amplification.
+- **Milestone 11:** Stego Lab (`@ombrix/stego-lab` & `apps/web/src/components/LabStudio.tsx`):
+  - Alternative steganographic baseline: LSB Matching (randomized $\pm 1$ bit flipping to resist elementary Chi-square attack patterns).
+  - Quantitative image quality benchmark suite: PSNR (Peak Signal-to-Noise Ratio), MSE (Mean Squared Error), SSIM approximation, and embedding throughput.
+  - Side-by-side comparative laboratory evaluating payload capacity vs visual/statistical distortion across algorithms.
+- **Milestone 12:** Transit & Trace (`@ombrix/transit-trace` & `apps/web/src/components/TransitStudio.tsx`):
+  - Transit Transformation Simulator: In-browser execution of real-world image operations (lossy JPEG compression at configurable quality, canvas bilinear downscale/upscale resizing, simulated messenger/social media recompression, and bit-flipping noise).
+  - Survival and recovery verification: Rigorous verification of payload/envelope survival across lossy pipelines, demonstrating why spatial LSB fails under lossy channels (educational transparency).
+  - Trace Forensics: Chi-square ($\chi^2$) sample pair analysis (Pairs of Values - PoVs) to calculate empirical p-values detecting spatial LSB tampering.

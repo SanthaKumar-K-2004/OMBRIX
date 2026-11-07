@@ -16,6 +16,9 @@
     "@ombrix/stego-png-lsb": "workspace:*",
     "@ombrix/stego-worker": "workspace:*",
     "@ombrix/crypto-adapter": "workspace:*",
+    "@ombrix/carrier-lens": "workspace:*",
+    "@ombrix/stego-lab": "workspace:*",
+    "@ombrix/transit-trace": "workspace:*",
     "lucide-react": "^1.68.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

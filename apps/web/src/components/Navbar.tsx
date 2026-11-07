@@ -1,8 +1,17 @@
-import { Cpu, Layers, Link as LinkIcon, Lock, Search, Workflow } from 'lucide-react';
+import { Cpu, FlaskConical, Layers, Lock, Radio, ZoomIn } from 'lucide-react';
 import type React from 'react';
 import { OmbrixLogo } from './OmbrixLogo.js';
 
-export type ProductModule = 'core' | 'vault' | 'link' | 'scan' | 'flow' | 'edge';
+export type ProductModule =
+  | 'core'
+  | 'vault'
+  | 'lens'
+  | 'lab'
+  | 'transit'
+  | 'link'
+  | 'scan'
+  | 'flow'
+  | 'edge';
 
 interface NavbarProps {
   activeModule: ProductModule;
@@ -28,28 +37,27 @@ export const Navbar: React.FC<NavbarProps> = ({ activeModule, onSelectModule }) 
       label: 'OMBRIX Vault',
       sublabel: 'Key Management',
       icon: Lock,
-      badge: 'Phase 3',
     },
     {
-      id: 'link',
-      label: 'OMBRIX Link',
-      sublabel: 'Secure Sharing',
-      icon: LinkIcon,
-      badge: 'Planned',
+      id: 'lens',
+      label: 'OMBRIX Lens',
+      sublabel: 'Visual Forensics',
+      icon: ZoomIn,
+      badge: 'Phase 4',
     },
     {
-      id: 'scan',
-      label: 'OMBRIX Scan',
-      sublabel: 'Media Forensics',
-      icon: Search,
-      badge: 'Planned',
+      id: 'lab',
+      label: 'OMBRIX Lab',
+      sublabel: 'Algorithm Lab',
+      icon: FlaskConical,
+      badge: 'Phase 4',
     },
     {
-      id: 'flow',
-      label: 'OMBRIX Flow',
-      sublabel: 'Batch Pipeline',
-      icon: Workflow,
-      badge: 'Planned',
+      id: 'transit',
+      label: 'OMBRIX Transit',
+      sublabel: 'Resilience & Trace',
+      icon: Radio,
+      badge: 'Phase 4',
     },
     {
       id: 'edge',

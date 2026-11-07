@@ -178,6 +178,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@ombrix/carrier-lens':
+        specifier: workspace:*
+        version: link:../../packages/carrier-lens
       '@ombrix/crypto-adapter':
         specifier: workspace:*
         version: link:../../packages/crypto-adapter
@@ -190,12 +193,18 @@ importers:
       '@ombrix/stego-interface':
         specifier: workspace:*
         version: link:../../packages/stego-interface
+      '@ombrix/stego-lab':
+        specifier: workspace:*
+        version: link:../../packages/stego-lab
       '@ombrix/stego-png-lsb':
         specifier: workspace:*
         version: link:../../packages/stego-png-lsb
       '@ombrix/stego-worker':
         specifier: workspace:*
         version: link:../../packages/stego-worker
+      '@ombrix/transit-trace':
+        specifier: workspace:*
+        version: link:../../packages/transit-trace
       lucide-react:
         specifier: ^1.68.0
         version: 1.68.0(@types/react@19.3.0)(react@19.3.1)
@@ -231,6 +240,12 @@ importers:
         specifier: ^6.0.0
         version: 6.4.5(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.33.0)
 
+  packages/carrier-lens:
+    dependencies:
+      '@ombrix/stego-interface':
+        specifier: workspace:*
+        version: link:../stego-interface
+
   packages/crypto-adapter:
     dependencies:
       libsodium-wrappers-sumo:
@@ -247,6 +262,22 @@ importers:
 
   packages/stego-interface: {}
 
+  packages/stego-lab:
+    dependencies:
+      '@ombrix/stego-interface':
+        specifier: workspace:*
+        version: link:../stego-interface
+    devDependencies:
+      '@ombrix/stego-png-lsb':
+        specifier: workspace:*
+        version: link:../stego-png-lsb
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.5
+        version: 3.2.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.33.0)
+
   packages/stego-png-lsb:
     dependencies:
       '@ombrix/stego-interface':
@@ -261,6 +292,22 @@ importers:
       '@ombrix/stego-png-lsb':
         specifier: workspace:*
         version: link:../stego-png-lsb
+
+  packages/transit-trace:
+    dependencies:
+      '@ombrix/stego-interface':
+        specifier: workspace:*
+        version: link:../stego-interface
+    devDependencies:
+      '@ombrix/stego-png-lsb':
+        specifier: workspace:*
+        version: link:../stego-png-lsb
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.5
+        version: 3.2.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.33.0)
 
 packages:
 

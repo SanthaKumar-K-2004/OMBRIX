@@ -1,4 +1,4 @@
-import { Cpu, Globe, Layers, Link as LinkIcon, Lock, Search, Shield, Workflow } from 'lucide-react';
+import { Cpu, FlaskConical, Layers, Lock, Radio, Shield, ZoomIn } from 'lucide-react';
 import type React from 'react';
 import type { ProductModule } from './Navbar.js';
 
@@ -22,61 +22,51 @@ export const SuiteCards: React.FC<SuiteCardsProps> = ({ onSelectModule }) => {
       id: 'vault' as ProductModule,
       name: 'OMBRIX Vault',
       tagline: 'Encrypted secret containers & key management',
-      status: 'Phase 3 (Next)',
-      statusColor: 'text-[#A855F7] border-[#A855F7]/30 bg-[#A855F7]/10',
+      status: 'Phase 3 Active',
+      statusColor: 'text-[#14B8A6] border-[#14B8A6]/30 bg-[#14B8A6]/10',
       icon: Lock,
       description:
-        'Vetted libsodium sealed boxes, Ed25519 digital signatures, public-key fingerprint verification, and encrypted backups.',
+        'Vetted libsodium sealed boxes, Ed25519 digital signatures, public-key fingerprint verification, and encrypted Argon2id backups.',
     },
     {
-      id: 'link' as ProductModule,
-      name: 'OMBRIX Link',
-      tagline: 'Secure sharing with access control & expiry',
-      status: 'Roadmap',
+      id: 'lens' as ProductModule,
+      name: 'OMBRIX Lens',
+      tagline: 'Carrier inspection & visual diagnostics',
+      status: 'Phase 4 Active',
       statusColor: 'text-[#3B82F6] border-[#3B82F6]/30 bg-[#3B82F6]/10',
-      icon: LinkIcon,
+      icon: ZoomIn,
       description:
-        'Ephemeral steganographic media links with tamper alarms, configurable expiration policies, and peer-to-peer payload transfers.',
+        'Multi-channel bitplane analysis (Bit 0 to Bit 7), 256-bin RGB frequency histograms, and 100x amplified difference maps.',
     },
     {
-      id: 'scan' as ProductModule,
-      name: 'OMBRIX Scan',
-      tagline: 'Stego detection & media forensics',
-      status: 'Roadmap',
-      statusColor: 'text-[#94A3B8] border-[#94A3B8]/30 bg-[#1E293B]',
-      icon: Search,
+      id: 'lab' as ProductModule,
+      name: 'OMBRIX Lab',
+      tagline: 'Algorithm comparison & distortion benchmarks',
+      status: 'Phase 4 Active',
+      statusColor: 'text-[#3B82F6] border-[#3B82F6]/30 bg-[#3B82F6]/10',
+      icon: FlaskConical,
       description:
-        'Statistical carrier diagnostics, sample pair analysis, bit-plane noise visualizers, and transformation resilience benchmarks.',
+        'Side-by-side empirical testing of Sequential LSB vs LSB Matching (±1), evaluating PSNR, MSE, SSIM, and throughput.',
     },
     {
-      id: 'flow' as ProductModule,
-      name: 'OMBRIX Flow',
-      tagline: 'Automation & batch processing (CLI / API / SDK)',
-      status: 'Roadmap',
-      statusColor: 'text-[#94A3B8] border-[#94A3B8]/30 bg-[#1E293B]',
-      icon: Workflow,
+      id: 'transit' as ProductModule,
+      name: 'OMBRIX Transit & Trace',
+      tagline: 'Transformation simulator & χ² forensics',
+      status: 'Phase 4 Active',
+      statusColor: 'text-[#3B82F6] border-[#3B82F6]/30 bg-[#3B82F6]/10',
+      icon: Radio,
       description:
-        'Headless command-line utilities, scriptable batch steganography pipelines, and automated test vector suites.',
+        'Stress test stego carriers against lossy JPEG, resizing, and noise, and detect LSB pairing anomalies via Westfeld Chi-Square analysis.',
     },
     {
       id: 'edge' as ProductModule,
       name: 'OMBRIX Edge',
       tagline: 'Developer toolkit (Rust / TypeScript / Python SDKs)',
       status: 'Active Spec',
-      statusColor: 'text-[#3B82F6] border-[#3B82F6]/30 bg-[#3B82F6]/10',
+      statusColor: 'text-[#A855F7] border-[#A855F7]/30 bg-[#A855F7]/10',
       icon: Cpu,
       description:
-        'Zero-dependency pure TypeScript packages (@ombrix/image-validation, @ombrix/payload-protocol, @ombrix/stego-interface, @ombrix/stego-png-lsb).',
-    },
-    {
-      id: 'core' as ProductModule,
-      name: 'OMBRIX Cloud',
-      tagline: 'Optional secure cloud workspace (self-hostable)',
-      status: 'Planned',
-      statusColor: 'text-[#94A3B8] border-[#94A3B8]/30 bg-[#1E293B]',
-      icon: Globe,
-      description:
-        'Self-hostable research instance for collaborative media steganalysis, benchmark regression tracking, and payload verification.',
+        'Zero-dependency pure TypeScript monorepo packages for validation, protocol framing, steganography, crypto, lens, lab, and transit.',
     },
   ];
 

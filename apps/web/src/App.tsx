@@ -3,8 +3,11 @@ import type React from 'react';
 import { useState } from 'react';
 import { BrandShowcase } from './components/BrandShowcase.js';
 import { CoreStudio } from './components/CoreStudio.js';
+import { LabStudio } from './components/LabStudio.js';
+import { LensStudio } from './components/LensStudio.js';
 import { Navbar, type ProductModule } from './components/Navbar.js';
 import { SuiteCards } from './components/SuiteCards.js';
+import { TransitStudio } from './components/TransitStudio.js';
 import { VaultStudio } from './components/VaultStudio.js';
 
 export const App: React.FC = () => {
@@ -21,6 +24,12 @@ export const App: React.FC = () => {
         {activeModule === 'core' && <CoreStudio />}
 
         {activeModule === 'vault' && <VaultStudio />}
+
+        {activeModule === 'lens' && <LensStudio />}
+
+        {activeModule === 'lab' && <LabStudio />}
+
+        {activeModule === 'transit' && <TransitStudio />}
 
         {activeModule === 'edge' && (
           <div className="p-8 rounded-2xl bg-[#111827] border border-[#1E293B] space-y-4">
