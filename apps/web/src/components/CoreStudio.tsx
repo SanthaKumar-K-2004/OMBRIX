@@ -3,8 +3,11 @@ import {
   type VaultIdentityData,
   buildSignDoc,
   computeKeyId,
+  decryptWithPasskey,
+  encryptWithPasskey,
   fromBase64,
   initCrypto,
+  isPasskeyEncrypted,
   openSeal,
   parseAnyKey32,
   seal,
@@ -41,6 +44,7 @@ import {
   Radar,
   Radio,
   RefreshCw,
+  Shield,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
@@ -166,7 +170,7 @@ export const CoreStudio: React.FC = () => {
     null,
   );
   const [decryptionStatus, setDecryptionStatus] = useState<
-    'plaintext' | 'decrypted' | 'failed' | null
+    'plaintext' | 'decrypted' | 'passkey_decrypted' | 'failed' | null
   >(null);
   const [signatureStatus, setSignatureStatus] = useState<
     'none' | 'verified_contact' | 'verified_unknown' | 'invalid'
@@ -400,6 +404,8 @@ export const CoreStudio: React.FC = () => {
   if (isChameleonEnabled) {
     const decoyBytesLength = new TextEncoder().encode(decoyText).length;
     effectivePayloadLength += decoyBytesLength + 28; // 28-byte Chameleon container header & MAC tags
+  } else if (passphrase.trim()) {
+    effectivePayloadLength += 48; // 48-byte OMBPASS1 container header + nonce + Poly1305 MAC
   }
   if (useEnvelope) {
     // 32 bytes minimum header
@@ -508,6 +514,9 @@ export const CoreStudio: React.FC = () => {
           decoyBytes,
           decoyPassphrase.trim(),
         );
+      } else if (passphrase.trim()) {
+        // Encrypt payload with the user's Passkey or 32-Byte Token using authenticated XSalsa20-Poly1305
+        corePayload = encryptWithPasskey(corePayload, passphrase.trim());
       }
 
       let payloadToEmbed: Uint8Array;
@@ -748,6 +757,28 @@ export const CoreStudio: React.FC = () => {
         }
 
         let contentBytes = plaintextBytes;
+
+        // Check if payload is encrypted with Passkey / 32-Byte Token
+        if (isPasskeyEncrypted(contentBytes)) {
+          if (!revealPassphrase.trim()) {
+            setDecryptionStatus('failed');
+            throw new Error(
+              'Payload is locked with a Passkey / 32-Byte Token. Please enter your passkey or token above and extract.',
+            );
+          }
+          try {
+            contentBytes = decryptWithPasskey(contentBytes, revealPassphrase.trim());
+            setDecryptionStatus('passkey_decrypted');
+          } catch (passErr: unknown) {
+            setDecryptionStatus('failed');
+            throw new Error(
+              passErr instanceof Error
+                ? passErr.message
+                : 'Incorrect passkey or 32-byte token. Poly1305 MAC verification failed.',
+            );
+          }
+        }
+
         if (isChameleonContainer(contentBytes)) {
           if (!revealPassphrase.trim()) {
             throw new Error(
@@ -841,6 +872,28 @@ export const CoreStudio: React.FC = () => {
         setSignatureStatus('none');
 
         let contentBytes = extractedBytes;
+
+        // Check if payload is encrypted with Passkey / 32-Byte Token
+        if (isPasskeyEncrypted(contentBytes)) {
+          if (!revealPassphrase.trim()) {
+            setDecryptionStatus('failed');
+            throw new Error(
+              'Payload is locked with a Passkey / 32-Byte Token. Please enter your passkey or token above and extract.',
+            );
+          }
+          try {
+            contentBytes = decryptWithPasskey(contentBytes, revealPassphrase.trim());
+            setDecryptionStatus('passkey_decrypted');
+          } catch (passErr: unknown) {
+            setDecryptionStatus('failed');
+            throw new Error(
+              passErr instanceof Error
+                ? passErr.message
+                : 'Incorrect passkey or 32-byte token. Poly1305 MAC verification failed.',
+            );
+          }
+        }
+
         if (isChameleonContainer(contentBytes)) {
           if (!revealPassphrase.trim()) {
             throw new Error(
@@ -2073,85 +2126,36 @@ export const CoreStudio: React.FC = () => {
 
                   {/* Status Badges */}
                   <div className="space-y-2">
-                    {/* Chameleon Dual-Layer Status */}
-                    {unlockedChameleonLayer === 'master' && (
-                      <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                          <div>
-                            <div className="font-semibold text-emerald-300">
-                              Chameleon Confidential Layer Unlocked
-                            </div>
-                            <div className="text-[11px] text-emerald-400/80">
-                              Master passkey authenticated. Confidential secret decrypted with zero
-                              decoy residue.
-                            </div>
+                    {/* Passkey Authenticated Status */}
+                    {decryptionStatus === 'passkey_decrypted' && (
+                      <div className="p-3 rounded-lg bg-[#7C3AED]/15 border border-[#7C3AED]/40 text-[#C084FC] text-xs flex items-center gap-2">
+                        <Lock className="w-4 h-4 flex-shrink-0 text-[#A855F7]" />
+                        <div>
+                          <div className="font-semibold text-white">
+                            Passkey Decryption Authenticated & Successful
+                          </div>
+                          <div className="text-[11px] text-[#C084FC]/90">
+                            Payload unlocked using your secret passkey / 32-byte token.
                           </div>
                         </div>
-                        <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] shrink-0">
-                          Master Layer
-                        </span>
                       </div>
                     )}
 
-                    {unlockedChameleonLayer === 'decoy' && (
-                      <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
-                          <div>
-                            <div className="font-semibold text-amber-300">
-                              Chameleon Decoy Layer Unlocked (Anti-Coercion)
-                            </div>
-                            <div className="text-[11px] text-amber-400/80">
-                              Decoy passkey verified. Plausible deniability active — Master layer
-                              remains mathematically undetectable.
-                            </div>
+                    {/* Chameleon Pluralistic Layer Status */}
+                    {unlockedChameleonLayer && (
+                      <div className="p-3 rounded-lg bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 text-xs flex items-center gap-2">
+                        <Shield className="w-4 h-4 flex-shrink-0 text-indigo-400" />
+                        <div>
+                          <div className="font-semibold text-white">
+                            Chameleon Multi-Layer Payload Unlocked (
+                            {unlockedChameleonLayer.toUpperCase()} Layer)
+                          </div>
+                          <div className="text-[11px] text-indigo-300/90">
+                            {unlockedChameleonLayer === 'master'
+                              ? 'Master vault payload unlocked with master secret.'
+                              : 'Decoy layer revealed with plausible deniability key.'}
                           </div>
                         </div>
-                        <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] shrink-0">
-                          Decoy Layer
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Chameleon Dual-Layer Status */}
-                    {unlockedChameleonLayer === 'master' && (
-                      <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                          <div>
-                            <div className="font-semibold text-emerald-300">
-                              Chameleon Confidential Layer Unlocked
-                            </div>
-                            <div className="text-[11px] text-emerald-400/80">
-                              Master passkey authenticated. Confidential secret decrypted with zero
-                              decoy residue.
-                            </div>
-                          </div>
-                        </div>
-                        <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] shrink-0">
-                          Master Layer
-                        </span>
-                      </div>
-                    )}
-
-                    {unlockedChameleonLayer === 'decoy' && (
-                      <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
-                          <div>
-                            <div className="font-semibold text-amber-300">
-                              Chameleon Decoy Layer Unlocked (Anti-Coercion)
-                            </div>
-                            <div className="text-[11px] text-amber-400/80">
-                              Decoy passkey verified. Plausible deniability active — Master layer
-                              remains mathematically undetectable.
-                            </div>
-                          </div>
-                        </div>
-                        <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] shrink-0">
-                          Decoy Layer
-                        </span>
                       </div>
                     )}
 

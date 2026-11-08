@@ -2,11 +2,11 @@ import { Shield } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { AirGapStudio } from './components/AirGapStudio.js';
-import { AuroraAtmosphere } from './components/AuroraAtmosphere.js';
 import { CoreStudio } from './components/CoreStudio.js';
 import { DemoShowcaseModal } from './components/DemoShowcaseModal.js';
 import { EdgeStudio } from './components/EdgeStudio.js';
 import { FlowStudio } from './components/FlowStudio.js';
+import { GhostFibers } from './components/GhostFibers.js';
 import { LabStudio } from './components/LabStudio.js';
 import { LensStudio } from './components/LensStudio.js';
 import { LinkStudio } from './components/LinkStudio.js';
@@ -32,19 +32,47 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-[#E2E8F0] flex flex-col font-sans relative overflow-x-hidden selection:bg-[#7C3AED]/30 selection:text-white">
-      {/* Atmospheric Aurora Multi-Engine Background */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-100">
-        <AuroraAtmosphere
-          colorStops={['#7C3AED', '#9333EA', '#3B82F6', '#06B6D4', '#14B8A6']}
-          amplitude={1.25}
-          blend={0.65}
-          speed={0.75}
-          height={0.6}
-          glow={0.8}
-          brightness={1.05}
+      {/* Atmospheric GhostFibers WebGL2 & CSS Background */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <GhostFibers
+          glowColor="#7C3AED"
+          lineColor="#38BDF8"
+          secondaryColor="#818CF8"
+          gradient="along"
+          speed={0.45}
+          scale={1.5}
+          rotation={22}
+          rollSpeed={0.2}
+          layers={3}
+          waves={2.4}
+          twist={1.4}
+          threads={64}
+          volume={1.5}
+          spread={1.6}
+          density={1.2}
+          thickness={1.5}
+          flow={0.5}
+          fiberStyle="lines"
+          tips={0.2}
+          foldGlow={1.8}
+          perspective={0.7}
+          depthOfField={0.75}
+          focusDepth={0}
+          particles={0.75}
+          sparkle={0.8}
+          glow={1.6}
+          brightness={1.7}
+          vignette={0.2}
+          grain={0.03}
+          mouseInteraction
+          hoverEffect="focus"
+          mouseStrength={1.2}
+          pulseOnClick
+          intro
+          lightMode={false}
         />
         {/* Subtle cybernetic dot grid overlay */}
-        <div className="absolute inset-0 bg-grid-pattern opacity-40 mix-blend-overlay" />
+        <div className="absolute inset-0 bg-grid-pattern opacity-25 mix-blend-overlay pointer-events-none" />
       </div>
 
       {/* Content Shell */}

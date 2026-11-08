@@ -1,12 +1,15 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
+  decryptWithPasskey,
   deriveBiometricKey,
   deriveKeyFromImage,
   deriveKeyFromPassphrase,
+  encryptWithPasskey,
   estimatePasskeyStrength,
   generateDicewarePassphrase,
   generateRandomPasskey32,
   initCrypto,
+  isPasskeyEncrypted,
   normalizeFormattedKey,
 } from '../src/index.js';
 
@@ -123,6 +126,65 @@ describe('Smart Passkey Generator & Derivation Engine', () => {
     it('evaluates short weak passwords properly', () => {
       const strength = estimatePasskeyStrength('12345');
       expect(strength.rating).toBe('Weak');
+    });
+  });
+
+  describe('Passkey Authenticated Encryption & Decryption', () => {
+    const secretMessage = new TextEncoder().encode(
+      'Confidential payload protected by 32-Byte Token',
+    );
+
+    it('encrypts and decrypts with formatted 32-Byte Token', () => {
+      const token = generateRandomPasskey32('formatted');
+      const encrypted = encryptWithPasskey(secretMessage, token);
+
+      expect(isPasskeyEncrypted(encrypted)).toBe(true);
+      expect(encrypted.length).toBeGreaterThan(secretMessage.length);
+
+      const decrypted = decryptWithPasskey(encrypted, token);
+      expect(new TextDecoder().decode(decrypted)).toBe(
+        'Confidential payload protected by 32-Byte Token',
+      );
+    });
+
+    it('encrypts and decrypts with Diceware memorable passphrase', () => {
+      const phrase = 'velvet-matrix-falcon-orbit';
+      const encrypted = encryptWithPasskey(secretMessage, phrase);
+
+      const decrypted = decryptWithPasskey(encrypted, phrase);
+      expect(new TextDecoder().decode(decrypted)).toBe(
+        'Confidential payload protected by 32-Byte Token',
+      );
+    });
+
+    it('encrypts and decrypts with arbitrary custom passphrase', () => {
+      const customKey = 'alphaxheros';
+      const encrypted = encryptWithPasskey(secretMessage, customKey);
+
+      const decrypted = decryptWithPasskey(encrypted, customKey);
+      expect(new TextDecoder().decode(decrypted)).toBe(
+        'Confidential payload protected by 32-Byte Token',
+      );
+    });
+
+    it('fails decryption with mismatched passkey or token', () => {
+      const correctToken = generateRandomPasskey32('formatted');
+      const wrongToken = generateRandomPasskey32('formatted');
+      const encrypted = encryptWithPasskey(secretMessage, correctToken);
+
+      expect(() => decryptWithPasskey(encrypted, wrongToken)).toThrow(
+        /Decryption failed: incorrect passkey, token mismatch/,
+      );
+    });
+
+    it('fails decryption on corrupt ciphertext or altered bytes', () => {
+      const token = generateRandomPasskey32('formatted');
+      const encrypted = encryptWithPasskey(secretMessage, token);
+      encrypted[encrypted.length - 1] ^= 0xff; // Tamper with MAC tag
+
+      expect(() => decryptWithPasskey(encrypted, token)).toThrow(
+        /Decryption failed: incorrect passkey, token mismatch/,
+      );
     });
   });
 });

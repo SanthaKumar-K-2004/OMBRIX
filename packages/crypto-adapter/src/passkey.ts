@@ -1,5 +1,5 @@
-import { InvalidKeyError } from './errors.js';
-import { toBase64 } from './fingerprint.js';
+import { DecryptionFailedError, InvalidKeyError } from './errors.js';
+import { parseAnyKey32, toBase64 } from './fingerprint.js';
 import { getSodium } from './sodium.js';
 
 /**
@@ -874,4 +874,76 @@ function sha256Pure(data: Uint8Array): Uint8Array {
   resView.setInt32(24, h6, false);
   resView.setInt32(28, h7, false);
   return result;
+}
+
+export const PASSKEY_MAGIC = new Uint8Array([0x4f, 0x4d, 0x42, 0x50, 0x41, 0x53, 0x53, 0x01]); // 'OMBPASS\x01'
+
+/**
+ * Checks whether the given byte payload is encrypted with an OMBRIX Passkey / 32-Byte Token.
+ */
+export function isPasskeyEncrypted(bytes: Uint8Array): boolean {
+  if (bytes.length < 48) return false;
+  return (
+    bytes[0] === 0x4f &&
+    bytes[1] === 0x4d &&
+    bytes[2] === 0x42 &&
+    bytes[3] === 0x50 &&
+    bytes[4] === 0x41 &&
+    bytes[5] === 0x53 &&
+    bytes[6] === 0x53 &&
+    bytes[7] === 0x01
+  );
+}
+
+/**
+ * Encrypts arbitrary data with a high-entropy passkey, memorable words, photo key, or 32-byte token.
+ * Uses Libsodium authenticated secretbox (XSalsa20-Poly1305) with a cryptographically random 24-byte nonce.
+ *
+ * Output format: [8 bytes 'OMBPASS\x01'][24 bytes nonce][ciphertext + 16 bytes Poly1305 auth tag]
+ */
+export function encryptWithPasskey(data: Uint8Array, passkey: string): Uint8Array {
+  const clean = passkey.trim();
+  if (!clean) {
+    throw new InvalidKeyError('Cannot encrypt with empty passkey or token.');
+  }
+  const key32 = parseAnyKey32(clean);
+  const sodium = getSodium();
+  const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES); // 24 bytes
+  const ciphertext = sodium.crypto_secretbox_easy(data, nonce, key32);
+
+  const container = new Uint8Array(8 + 24 + ciphertext.length);
+  container.set(PASSKEY_MAGIC, 0);
+  container.set(nonce, 8);
+  container.set(ciphertext, 32);
+  return container;
+}
+
+/**
+ * Decrypts a passkey-encrypted payload using the user's passkey or 32-byte token.
+ * Throws DecryptionFailedError if the passkey or token does not match or if the data was tampered with.
+ */
+export function decryptWithPasskey(container: Uint8Array, passkey: string): Uint8Array {
+  if (!isPasskeyEncrypted(container)) {
+    throw new DecryptionFailedError('Data is not a valid OMBRIX passkey-encrypted container.');
+  }
+  const clean = passkey.trim();
+  if (!clean) {
+    throw new InvalidKeyError('Passkey or token is required to decrypt this payload.');
+  }
+  const key32 = parseAnyKey32(clean);
+  const nonce = container.subarray(8, 32);
+  const ciphertext = container.subarray(32);
+
+  try {
+    const sodium = getSodium();
+    const plaintext = sodium.crypto_secretbox_open_easy(ciphertext, nonce, key32);
+    if (!plaintext) {
+      throw new Error('MAC verification failed');
+    }
+    return plaintext;
+  } catch (_err) {
+    throw new DecryptionFailedError(
+      'Decryption failed: incorrect passkey, token mismatch, or corrupted ciphertext.',
+    );
+  }
 }
