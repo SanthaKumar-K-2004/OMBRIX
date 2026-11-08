@@ -178,6 +178,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@nauverse/react-aurora-background':
+        specifier: ^2.0.0
+        version: 2.0.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@ombrix/batch-pipeline':
         specifier: workspace:*
         version: link:../../packages/batch-pipeline
@@ -920,6 +923,17 @@ packages:
     cpu: [x64]
     os: [linux]
     libc: [glibc]
+
+  '@nauverse/color-to-hsla@2.0.0':
+    resolution: {integrity: sha512-kS/g/21csy1nW/OhzUfW2zurc+YtpNwNqFU7NhfroRKpz+OBnGbUugYLxbG7FC59ID8mNLFCzW1fpyUo4YI91Q==}
+    engines: {node: '>=22.0.0'}
+
+  '@nauverse/react-aurora-background@2.0.0':
+    resolution: {integrity: sha512-aUM1324YlwpwQBnhxrClXONWSFi52xIc7XhVgtQNV4IPcUk79F54Xl7O8TsVqeortFTfeDfm2MRbVMsFCTfpnw==}
+    engines: {node: '>=22.0.0'}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
 
   '@rolldown/pluginutils@1.0.0-beta.27':
     resolution: {integrity: sha512-+d0F4MKMCbeVUJwG96uQ4SgAznZNSq93I3V+9NHA4OpvqG8mRCpGdKmK8l/dl02h2CCDHwW2FqilnTyDcAnqjA==}
@@ -2017,6 +2031,14 @@ snapshots:
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
+
+  '@nauverse/color-to-hsla@2.0.0': {}
+
+  '@nauverse/react-aurora-background@2.0.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+    dependencies:
+      '@nauverse/color-to-hsla': 2.0.0
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
 
   '@rolldown/pluginutils@1.0.0-beta.27': {}
 

@@ -1,7 +1,8 @@
-import { Shield } from 'lucide-react';
+import { CheckCircle2, Laptop, Layers } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { AirGapStudio } from './components/AirGapStudio.js';
+import { AuroraAtmosphere } from './components/AuroraAtmosphere.js';
 import { CoreStudio } from './components/CoreStudio.js';
 import { DemoShowcaseModal } from './components/DemoShowcaseModal.js';
 import { EdgeStudio } from './components/EdgeStudio.js';
@@ -30,7 +31,10 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-[#E2E8F0] flex flex-col font-sans bg-grid-pattern">
+    <div className="min-h-screen bg-[#0B0F19] text-[#E2E8F0] flex flex-col font-sans relative overflow-x-hidden">
+      {/* GPU-Accelerated Dynamic Aurora Atmosphere */}
+      <AuroraAtmosphere />
+
       {/* Top Navbar */}
       <Navbar
         activeModule={activeModule}
@@ -67,21 +71,24 @@ export const App: React.FC = () => {
         {activeModule === 'relay' && <RelayStudio />}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-[#1E293B] bg-[#0B0F19] py-6 text-xs text-[#64748B]">
+      {/* Footer Matching Target Mockup */}
+      <footer className="border-t border-[#1E293B]/70 bg-[#090D16]/90 backdrop-blur-md py-4 text-xs text-[#64748B] relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-white">OMBRIX™</span>
-            <span>—</span>
-            <span className="italic">Beyond what the eye can see.</span>
+            <span className="font-semibold text-white tracking-wide">OMBRIX™</span>
+            <span className="text-[#334155]">—</span>
+            <span className="text-[#94A3B8]">Beyond what the eye can see.</span>
           </div>
           <div className="flex items-center gap-4 text-[11px]">
-            <span className="flex items-center gap-1.5 text-[#14B8A6]">
-              <Shield className="w-3.5 h-3.5" />
+            <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               <span>Zero-Server Architecture</span>
             </span>
             <span className="text-[#334155]">•</span>
-            <span>Local-First Sandbox</span>
+            <span className="flex items-center gap-1.5 text-[#94A3B8]">
+              <Laptop className="w-3.5 h-3.5 text-[#38BDF8]" />
+              <span>Local-First Sandbox</span>
+            </span>
             <span className="text-[#334155]">•</span>
             <button
               type="button"
@@ -89,9 +96,10 @@ export const App: React.FC = () => {
                 setActiveModule('core');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="text-[#94A3B8] hover:text-white transition-colors"
+              className="flex items-center gap-1.5 text-[#94A3B8] hover:text-white transition-colors"
             >
-              Core Stego Engine
+              <Layers className="w-3.5 h-3.5 text-[#C084FC]" />
+              <span>Core Stego Engine</span>
             </button>
           </div>
         </div>
