@@ -1473,6 +1473,72 @@ export const CoreStudio: React.FC = () => {
                 )}
               </div>
 
+              {/* Chameleon Dual-Layer (Anti-Coercion Plausible Deniability) */}
+              <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#1E293B] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-[#F59E0B]" />
+                    <span className="text-xs font-semibold text-white">
+                      Chameleon Dual-Layer (Anti-Coercion)
+                    </span>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-[#94A3B8] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isChameleonEnabled}
+                      onChange={(e) => setIsChameleonEnabled(e.target.checked)}
+                      className="rounded bg-[#111827] border-[#334155] text-[#F59E0B] focus:ring-[#F59E0B]"
+                    />
+                    <span>Enable Dual-Layer Deniability</span>
+                  </label>
+                </div>
+                <p className="text-[11px] text-[#94A3B8] leading-relaxed">
+                  Embeds an authentic decoy payload alongside your confidential secret. If forced to
+                  surrender a passkey under duress, the decoy passkey reveals only the harmless
+                  decoy, leaving no mathematical trace of the master layer.
+                </p>
+
+                {isChameleonEnabled && (
+                  <div className="space-y-3 pt-2 border-t border-[#1E293B] text-xs">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="decoy-payload-input"
+                        className="text-[#94A3B8] flex items-center justify-between"
+                      >
+                        <span>Decoy Message (Surrendered under Duress)</span>
+                        <span className="font-mono text-[#64748B]">{decoyText.length} chars</span>
+                      </label>
+                      <textarea
+                        id="decoy-payload-input"
+                        value={decoyText}
+                        onChange={(e) => setDecoyText(e.target.value)}
+                        rows={2}
+                        className="w-full p-2.5 rounded-lg bg-[#111827] border border-[#1E293B] text-white text-xs font-mono focus:outline-none focus:border-[#F59E0B] resize-y"
+                        placeholder="Enter harmless decoy message..."
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label htmlFor="decoy-passkey-input" className="text-[#94A3B8] block">
+                        Decoy Passkey (Surrender this if coerced)
+                      </label>
+                      <input
+                        id="decoy-passkey-input"
+                        type="text"
+                        value={decoyPassphrase}
+                        onChange={(e) => setDecoyPassphrase(e.target.value)}
+                        placeholder="Enter decoy passkey..."
+                        className="w-full p-2 rounded-lg bg-[#111827] border border-[#1E293B] text-white text-xs font-mono focus:outline-none focus:border-[#F59E0B]"
+                      />
+                      <div className="text-[10px] text-[#64748B]">
+                        Your confidential payload uses your primary passkey above. The decoy payload
+                        uses this decoy passkey.
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Protocol & Encryption Options */}
               <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#1E293B] space-y-4">
                 <div className="flex items-center justify-between">
@@ -2007,6 +2073,47 @@ export const CoreStudio: React.FC = () => {
 
                   {/* Status Badges */}
                   <div className="space-y-2">
+                    {/* Chameleon Dual-Layer Status */}
+                    {unlockedChameleonLayer === 'master' && (
+                      <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <div>
+                            <div className="font-semibold text-emerald-300">
+                              Chameleon Confidential Layer Unlocked
+                            </div>
+                            <div className="text-[11px] text-emerald-400/80">
+                              Master passkey authenticated. Confidential secret decrypted with zero
+                              decoy residue.
+                            </div>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] shrink-0">
+                          Master Layer
+                        </span>
+                      </div>
+                    )}
+
+                    {unlockedChameleonLayer === 'decoy' && (
+                      <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                          <div>
+                            <div className="font-semibold text-amber-300">
+                              Chameleon Decoy Layer Unlocked (Anti-Coercion)
+                            </div>
+                            <div className="text-[11px] text-amber-400/80">
+                              Decoy passkey verified. Plausible deniability active — Master layer
+                              remains mathematically undetectable.
+                            </div>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] shrink-0">
+                          Decoy Layer
+                        </span>
+                      </div>
+                    )}
+
                     {/* Chameleon Dual-Layer Status */}
                     {unlockedChameleonLayer === 'master' && (
                       <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between">

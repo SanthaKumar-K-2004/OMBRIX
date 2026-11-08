@@ -2,13 +2,30 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { type Plugin, defineConfig } from 'vite';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * Dev-only plugin to allow Vite HMR WebSocket on localhost while strictly preserving
+ * connect-src 'none' in production builds and in index.html.
+ */
+function devCspPlugin(): Plugin {
+  return {
+    name: 'dev-csp-hmr',
+    apply: 'serve',
+    transformIndexHtml(html) {
+      return html.replace(
+        "connect-src 'none'",
+        "connect-src 'self' ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:*",
+      );
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), devCspPlugin()],
   resolve: {
     alias: {
       '@ombrix/image-validation': path.resolve(
