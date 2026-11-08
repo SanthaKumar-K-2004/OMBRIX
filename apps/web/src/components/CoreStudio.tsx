@@ -19,6 +19,7 @@ import { pngLsbSequential } from '@ombrix/stego-png-lsb';
 import { StegoWorkerClient } from '@ombrix/stego-worker';
 import {
   AlertTriangle,
+  Camera,
   CheckCircle2,
   Copy,
   Download,
@@ -29,11 +30,14 @@ import {
   Key,
   Loader2,
   Lock,
+  Radar,
+  Radio,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
   UserCheck,
   XCircle,
+  ZoomIn,
 } from 'lucide-react';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -42,6 +46,7 @@ import {
   getActiveIdentity,
   getSavedContacts,
 } from '../security/sessionIdentity.js';
+import { studioDataBus } from '../services/studioDataBus.js';
 
 export const CoreStudio: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'hide' | 'reveal'>('hide');
@@ -928,6 +933,67 @@ export const CoreStudio: React.FC = () => {
                       <Download className="w-3.5 h-3.5" />
                       <span>Download PNG</span>
                     </a>
+                  </div>
+
+                  {/* Cross-Studio Actions Row */}
+                  <div className="pt-2 border-t border-[#14B8A6]/20 flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-medium text-[#14B8A6] mr-1">Handoff:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        studioDataBus.sendCarrierToModule('lens', {
+                          dataUrl: embeddedImageUrl,
+                          name: 'stego-embedded.png',
+                          source: 'core-studio',
+                        });
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0B0F19] hover:bg-[#1E293B] border border-[#1E293B] hover:border-[#3B82F6]/50 text-[11px] text-[#E2E8F0] transition-colors"
+                    >
+                      <ZoomIn className="w-3 h-3 text-[#3B82F6]" />
+                      <span>Analyze in Lens</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        studioDataBus.sendCarrierToModule('scan', {
+                          dataUrl: embeddedImageUrl,
+                          name: 'stego-embedded.png',
+                          source: 'core-studio',
+                        });
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0B0F19] hover:bg-[#1E293B] border border-[#1E293B] hover:border-[#06B6D4]/50 text-[11px] text-[#E2E8F0] transition-colors"
+                    >
+                      <Radar className="w-3 h-3 text-[#06B6D4]" />
+                      <span>Scan Forensics</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        studioDataBus.sendCarrierToModule('airgap', {
+                          dataUrl: embeddedImageUrl,
+                          name: 'stego-embedded.png',
+                          source: 'core-studio',
+                        });
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0B0F19] hover:bg-[#1E293B] border border-[#1E293B] hover:border-[#A855F7]/50 text-[11px] text-[#E2E8F0] transition-colors"
+                    >
+                      <Camera className="w-3 h-3 text-[#A855F7]" />
+                      <span>Transmit via Air-Gap</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        studioDataBus.sendCarrierToModule('transit', {
+                          dataUrl: embeddedImageUrl,
+                          name: 'stego-embedded.png',
+                          source: 'core-studio',
+                        });
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0B0F19] hover:bg-[#1E293B] border border-[#1E293B] hover:border-[#14B8A6]/50 text-[11px] text-[#E2E8F0] transition-colors"
+                    >
+                      <Radio className="w-3 h-3 text-[#14B8A6]" />
+                      <span>Test in Transit</span>
+                    </button>
                   </div>
                 </div>
               )}

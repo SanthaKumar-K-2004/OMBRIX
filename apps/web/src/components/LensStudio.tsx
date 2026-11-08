@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { studioDataBus } from '../services/studioDataBus.js';
 
 export const LensStudio: React.FC = () => {
   const [_carrierFile, setCarrierFile] = useState<File | null>(null);
@@ -99,6 +100,22 @@ export const LensStudio: React.FC = () => {
       setCarrierError(msg);
     }
   }, []);
+
+  // Listen for incoming carriers from Studio Data Bus
+  useEffect(() => {
+    const unsubscribe = studioDataBus.subscribeCarrier(async (payload) => {
+      if (!payload?.dataUrl) return;
+      try {
+        const res = await fetch(payload.dataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], payload.name || 'carrier.png', { type: 'image/png' });
+        await handleCarrierSelect(file);
+      } catch (_err) {
+        // Ignore fallback
+      }
+    });
+    return unsubscribe;
+  }, [handleCarrierSelect]);
 
   // Handle Secondary Comparison Carrier Load
   const handleCompareSelect = useCallback(async (file: File) => {

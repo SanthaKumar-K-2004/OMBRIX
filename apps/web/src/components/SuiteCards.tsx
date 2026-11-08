@@ -1,4 +1,5 @@
 import {
+  Camera,
   Cpu,
   FlaskConical,
   Layers,
@@ -6,6 +7,7 @@ import {
   Lock,
   Radar,
   Radio,
+  Server,
   Shield,
   Split,
   ZoomIn,
@@ -108,6 +110,26 @@ export const SuiteCards: React.FC<SuiteCardsProps> = ({ onSelectModule }) => {
       icon: Radar,
       description:
         'Empirical forensic workbench combining RS analysis, Sample Pair Analysis (SPA), Chi-Square PoV testing, and 2nd-derivative Laplacian noise heatmaps.',
+    },
+    {
+      id: 'airgap' as ProductModule,
+      name: 'OMBRIX Air-Gap',
+      tagline: 'Physical Optical Transport & Frame Protocol',
+      status: 'Phase 10 & 11 Active',
+      statusColor: 'text-[#A855F7] border-[#A855F7]/30 bg-[#A855F7]/10',
+      icon: Camera,
+      description:
+        'Camera-readable visual optical frames (OMB_OPT_V1), dynamic frame player, animated scanner simulation, and out-of-order CRC32 assembly.',
+    },
+    {
+      id: 'relay' as ProductModule,
+      name: 'OMBRIX Relay',
+      tagline: 'Zero-Knowledge Blind Transport & Burn Store',
+      status: 'Phase 10 & 11 Active',
+      statusColor: 'text-[#14B8A6] border-[#14B8A6]/30 bg-[#14B8A6]/10',
+      icon: Server,
+      description:
+        'Blind envelope storage using 32-byte capability bearer tokens, single-use burn-after-read guarantees, and zero key or plaintext exposure.',
     },
   ];
 

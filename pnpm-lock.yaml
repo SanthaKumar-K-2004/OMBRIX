@@ -196,9 +196,15 @@ importers:
       '@ombrix/link-sharing':
         specifier: workspace:*
         version: link:../../packages/link-sharing
+      '@ombrix/optical-airgap':
+        specifier: workspace:*
+        version: link:../../packages/optical-airgap
       '@ombrix/payload-protocol':
         specifier: workspace:*
         version: link:../../packages/payload-protocol
+      '@ombrix/relay-core':
+        specifier: workspace:*
+        version: link:../../packages/relay-core
       '@ombrix/stego-advanced':
         specifier: workspace:*
         version: link:../../packages/stego-advanced

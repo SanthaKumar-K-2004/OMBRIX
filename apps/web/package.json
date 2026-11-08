@@ -24,6 +24,8 @@
     "@ombrix/edge-sdk": "workspace:*",
     "@ombrix/stego-advanced": "workspace:*",
     "@ombrix/stego-forensics": "workspace:*",
+    "@ombrix/relay-core": "workspace:*",
+    "@ombrix/optical-airgap": "workspace:*",
     "lucide-react": "^1.68.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

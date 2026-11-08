@@ -1,6 +1,7 @@
-import { Check, Copy, Database, Key, Shield, Sparkles, X } from 'lucide-react';
+import { Check, Copy, Database, Key, Radar, Shield, Sparkles, X, ZoomIn } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { studioDataBus } from '../services/studioDataBus.js';
 
 interface DemoShowcaseModalProps {
   isOpen: boolean;
@@ -16,6 +17,41 @@ export const DemoShowcaseModal: React.FC<DemoShowcaseModalProps> = ({ isOpen, on
     navigator.clipboard.writeText(value);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const loadReferenceCarrier = (type: 'gradient' | 'flat', targetModule: 'scan' | 'lens') => {
+    const size = type === 'gradient' ? 64 : 32;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const imgData = ctx.createImageData(size, size);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const idx = (y * size + x) * 4;
+        if (type === 'gradient') {
+          imgData.data[idx] = Math.round((x / size) * 255);
+          imgData.data[idx + 1] = Math.round((y / size) * 255);
+          imgData.data[idx + 2] = Math.round(((x + y) / (2 * size)) * 255);
+        } else {
+          imgData.data[idx] = 128;
+          imgData.data[idx + 1] = 128;
+          imgData.data[idx + 2] = 128;
+        }
+        imgData.data[idx + 3] = 255;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    const dataUrl = canvas.toDataURL('image/png');
+
+    studioDataBus.sendCarrierToModule(targetModule, {
+      dataUrl,
+      name: `${type}-reference.png`,
+      source: 'demo-dataset',
+    });
+    onClose();
   };
 
   return (
@@ -134,18 +170,59 @@ export const DemoShowcaseModal: React.FC<DemoShowcaseModalProps> = ({ isOpen, on
               <span>Reference Carriers</span>
             </h3>
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-3 rounded-xl bg-[#111827] border border-[#1E293B] space-y-1">
-                <span className="font-semibold text-white">Gradient Carrier 64x64</span>
-                <p className="text-[11px] text-[#64748B]">
-                  4,096 pixels with continuous spatial variation. Ideal for testing RS and SPA
-                  baseline.
-                </p>
+              <div className="p-3.5 rounded-xl bg-[#111827] border border-[#1E293B] space-y-2.5">
+                <div className="space-y-1">
+                  <span className="font-semibold text-white">Gradient Carrier 64x64</span>
+                  <p className="text-[11px] text-[#64748B]">
+                    4,096 pixels with continuous spatial variation. Ideal for testing RS and SPA
+                    baseline.
+                  </p>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => loadReferenceCarrier('gradient', 'scan')}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg bg-[#06B6D4]/10 hover:bg-[#06B6D4]/20 border border-[#06B6D4]/30 text-[11px] text-[#06B6D4] font-medium transition-colors"
+                  >
+                    <Radar className="w-3 h-3" />
+                    <span>Scan</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => loadReferenceCarrier('gradient', 'lens')}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg bg-[#3B82F6]/10 hover:bg-[#3B82F6]/20 border border-[#3B82F6]/30 text-[11px] text-[#3B82F6] font-medium transition-colors"
+                  >
+                    <ZoomIn className="w-3 h-3" />
+                    <span>Lens</span>
+                  </button>
+                </div>
               </div>
-              <div className="p-3 rounded-xl bg-[#111827] border border-[#1E293B] space-y-1">
-                <span className="font-semibold text-white">Flat Neutral Gray 32x32</span>
-                <p className="text-[11px] text-[#64748B]">
-                  1,024 uniform pixels. Demonstrates zero high-frequency residual noise.
-                </p>
+
+              <div className="p-3.5 rounded-xl bg-[#111827] border border-[#1E293B] space-y-2.5">
+                <div className="space-y-1">
+                  <span className="font-semibold text-white">Flat Neutral Gray 32x32</span>
+                  <p className="text-[11px] text-[#64748B]">
+                    1,024 uniform pixels. Demonstrates zero high-frequency residual noise.
+                  </p>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => loadReferenceCarrier('flat', 'scan')}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg bg-[#06B6D4]/10 hover:bg-[#06B6D4]/20 border border-[#06B6D4]/30 text-[11px] text-[#06B6D4] font-medium transition-colors"
+                  >
+                    <Radar className="w-3 h-3" />
+                    <span>Scan</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => loadReferenceCarrier('flat', 'lens')}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg bg-[#3B82F6]/10 hover:bg-[#3B82F6]/20 border border-[#3B82F6]/30 text-[11px] text-[#3B82F6] font-medium transition-colors"
+                  >
+                    <ZoomIn className="w-3 h-3" />
+                    <span>Lens</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

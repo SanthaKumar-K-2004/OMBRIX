@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { studioDataBus } from '../services/studioDataBus.js';
 
 export const ScanStudio: React.FC = () => {
   const [carrierData, setCarrierData] = useState<CarrierImage | null>(null);
@@ -152,6 +153,22 @@ export const ScanStudio: React.FC = () => {
     };
     reader.readAsArrayBuffer(file);
   }, []);
+
+  // Listen for incoming carriers from Studio Data Bus
+  useEffect(() => {
+    const unsubscribe = studioDataBus.subscribeCarrier(async (payload) => {
+      if (!payload?.dataUrl) return;
+      try {
+        const res = await fetch(payload.dataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], payload.name || 'carrier.png', { type: 'image/png' });
+        handleCarrierUpload(file);
+      } catch (_err) {
+        // Fallback
+      }
+    });
+    return unsubscribe;
+  }, [handleCarrierUpload]);
 
   const runForensicsScan = (carrier: CarrierImage) => {
     setIsScanning(true);

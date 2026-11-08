@@ -1,4 +1,5 @@
 import {
+  Camera,
   Cpu,
   Database,
   FlaskConical,
@@ -7,6 +8,7 @@ import {
   Lock,
   Radar,
   Radio,
+  Server,
   Split,
   ZoomIn,
 } from 'lucide-react';
@@ -19,10 +21,12 @@ export type ProductModule =
   | 'lens'
   | 'lab'
   | 'transit'
+  | 'scan'
+  | 'airgap'
+  | 'relay'
   | 'link'
   | 'flow'
-  | 'edge'
-  | 'scan';
+  | 'edge';
 
 interface NavbarProps {
   activeModule: ProductModule;
@@ -73,6 +77,27 @@ export const Navbar: React.FC<NavbarProps> = ({
       icon: Radio,
     },
     {
+      id: 'scan',
+      label: 'Scan',
+      sublabel: 'Forensics Lab',
+      icon: Radar,
+      badge: 'Phase 6',
+    },
+    {
+      id: 'airgap',
+      label: 'Air-Gap',
+      sublabel: 'Optical Transport',
+      icon: Camera,
+      badge: 'New',
+    },
+    {
+      id: 'relay',
+      label: 'Relay',
+      sublabel: 'Zero-Knowledge Store',
+      icon: Server,
+      badge: 'New',
+    },
+    {
       id: 'link',
       label: 'Link',
       sublabel: 'Ephemeral Sharing',
@@ -92,13 +117,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       sublabel: 'Developer SDK',
       icon: Cpu,
       badge: 'SDK v1',
-    },
-    {
-      id: 'scan',
-      label: 'Scan',
-      sublabel: 'Forensics Lab',
-      icon: Radar,
-      badge: 'Phase 6',
     },
   ];
 

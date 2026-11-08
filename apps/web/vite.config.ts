@@ -25,6 +25,32 @@ export default defineConfig({
       ),
       '@ombrix/stego-png-lsb': path.resolve(__dirname, '../../packages/stego-png-lsb/src/index.ts'),
       '@ombrix/stego-worker': path.resolve(__dirname, '../../packages/stego-worker/src/index.ts'),
+      '@ombrix/crypto-adapter': path.resolve(
+        __dirname,
+        '../../packages/crypto-adapter/src/index.ts',
+      ),
+      '@ombrix/carrier-lens': path.resolve(__dirname, '../../packages/carrier-lens/src/index.ts'),
+      '@ombrix/stego-lab': path.resolve(__dirname, '../../packages/stego-lab/src/index.ts'),
+      '@ombrix/transit-trace': path.resolve(__dirname, '../../packages/transit-trace/src/index.ts'),
+      '@ombrix/link-sharing': path.resolve(__dirname, '../../packages/link-sharing/src/index.ts'),
+      '@ombrix/batch-pipeline': path.resolve(
+        __dirname,
+        '../../packages/batch-pipeline/src/index.ts',
+      ),
+      '@ombrix/edge-sdk': path.resolve(__dirname, '../../packages/edge-sdk/src/index.ts'),
+      '@ombrix/stego-advanced': path.resolve(
+        __dirname,
+        '../../packages/stego-advanced/src/index.ts',
+      ),
+      '@ombrix/stego-forensics': path.resolve(
+        __dirname,
+        '../../packages/stego-forensics/src/index.ts',
+      ),
+      '@ombrix/optical-airgap': path.resolve(
+        __dirname,
+        '../../packages/optical-airgap/src/index.ts',
+      ),
+      '@ombrix/relay-core': path.resolve(__dirname, '../../packages/relay-core/src/index.ts'),
     },
   },
   worker: {

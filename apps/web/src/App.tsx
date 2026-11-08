@@ -1,6 +1,7 @@
 import { Shield } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { AirGapStudio } from './components/AirGapStudio.js';
 import { BrandShowcase } from './components/BrandShowcase.js';
 import { CoreStudio } from './components/CoreStudio.js';
 import { DemoShowcaseModal } from './components/DemoShowcaseModal.js';
@@ -10,14 +11,25 @@ import { LabStudio } from './components/LabStudio.js';
 import { LensStudio } from './components/LensStudio.js';
 import { LinkStudio } from './components/LinkStudio.js';
 import { Navbar, type ProductModule } from './components/Navbar.js';
+import { RelayStudio } from './components/RelayStudio.js';
 import { ScanStudio } from './components/ScanStudio.js';
 import { SuiteCards } from './components/SuiteCards.js';
 import { TransitStudio } from './components/TransitStudio.js';
 import { VaultStudio } from './components/VaultStudio.js';
+import { studioDataBus } from './services/studioDataBus.js';
 
 export const App: React.FC = () => {
   const [activeModule, setActiveModule] = useState<ProductModule>('core');
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
+
+  // Subscribe to cross-studio programmatic navigation
+  useEffect(() => {
+    const unsubscribe = studioDataBus.subscribeNavigation((targetModule) => {
+      setActiveModule(targetModule);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    return unsubscribe;
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-[#E2E8F0] flex flex-col font-sans bg-grid-pattern">
@@ -51,6 +63,10 @@ export const App: React.FC = () => {
         {activeModule === 'edge' && <EdgeStudio />}
 
         {activeModule === 'scan' && <ScanStudio />}
+
+        {activeModule === 'airgap' && <AirGapStudio />}
+
+        {activeModule === 'relay' && <RelayStudio />}
 
         {/* Brand System & Design Tokens Showcase */}
         <BrandShowcase />
