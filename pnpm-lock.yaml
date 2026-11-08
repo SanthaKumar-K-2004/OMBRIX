@@ -199,6 +199,12 @@ importers:
       '@ombrix/payload-protocol':
         specifier: workspace:*
         version: link:../../packages/payload-protocol
+      '@ombrix/stego-advanced':
+        specifier: workspace:*
+        version: link:../../packages/stego-advanced
+      '@ombrix/stego-forensics':
+        specifier: workspace:*
+        version: link:../../packages/stego-forensics
       '@ombrix/stego-interface':
         specifier: workspace:*
         version: link:../../packages/stego-interface
@@ -297,6 +303,12 @@ importers:
       '@ombrix/payload-protocol':
         specifier: workspace:*
         version: link:../payload-protocol
+      '@ombrix/stego-advanced':
+        specifier: workspace:*
+        version: link:../stego-advanced
+      '@ombrix/stego-forensics':
+        specifier: workspace:*
+        version: link:../stego-forensics
       '@ombrix/stego-interface':
         specifier: workspace:*
         version: link:../stego-interface
@@ -319,6 +331,21 @@ importers:
         version: link:../crypto-adapter
 
   packages/payload-protocol: {}
+
+  packages/stego-advanced:
+    dependencies:
+      '@ombrix/stego-interface':
+        specifier: workspace:*
+        version: link:../stego-interface
+
+  packages/stego-forensics:
+    dependencies:
+      '@ombrix/stego-interface':
+        specifier: workspace:*
+        version: link:../stego-interface
+      '@ombrix/transit-trace':
+        specifier: workspace:*
+        version: link:../transit-trace
 
   packages/stego-interface: {}
 

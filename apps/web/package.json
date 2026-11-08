@@ -22,6 +22,8 @@
     "@ombrix/link-sharing": "workspace:*",
     "@ombrix/batch-pipeline": "workspace:*",
     "@ombrix/edge-sdk": "workspace:*",
+    "@ombrix/stego-advanced": "workspace:*",
+    "@ombrix/stego-forensics": "workspace:*",
     "lucide-react": "^1.68.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

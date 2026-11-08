@@ -1,4 +1,4 @@
-import { Cpu, FlaskConical, Layers, Link2, Lock, Radio, Split, ZoomIn } from 'lucide-react';
+import { Cpu, FlaskConical, Layers, Link2, Lock, Radar, Radio, Split, ZoomIn } from 'lucide-react';
 import type React from 'react';
 import { OmbrixLogo } from './OmbrixLogo.js';
 
@@ -10,7 +10,8 @@ export type ProductModule =
   | 'transit'
   | 'link'
   | 'flow'
-  | 'edge';
+  | 'edge'
+  | 'scan';
 
 interface NavbarProps {
   activeModule: ProductModule;
@@ -75,6 +76,13 @@ export const Navbar: React.FC<NavbarProps> = ({ activeModule, onSelectModule }) 
       sublabel: 'Developer SDK',
       icon: Cpu,
       badge: 'SDK v1',
+    },
+    {
+      id: 'scan',
+      label: 'Scan',
+      sublabel: 'Forensics Lab',
+      icon: Radar,
+      badge: 'Phase 6',
     },
   ];
 

@@ -20,7 +20,9 @@
     "@ombrix/stego-lab": "workspace:*",
     "@ombrix/transit-trace": "workspace:*",
     "@ombrix/link-sharing": "workspace:*",
-    "@ombrix/batch-pipeline": "workspace:*"
+    "@ombrix/batch-pipeline": "workspace:*",
+    "@ombrix/stego-advanced": "workspace:*",
+    "@ombrix/stego-forensics": "workspace:*"
   },
   "scripts": {
     "build": "tsc -b",

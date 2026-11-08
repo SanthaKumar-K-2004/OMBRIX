@@ -1,4 +1,15 @@
-import { Cpu, FlaskConical, Layers, Link2, Lock, Radio, Shield, Split, ZoomIn } from 'lucide-react';
+import {
+  Cpu,
+  FlaskConical,
+  Layers,
+  Link2,
+  Lock,
+  Radar,
+  Radio,
+  Shield,
+  Split,
+  ZoomIn,
+} from 'lucide-react';
 import type React from 'react';
 import type { ProductModule } from './Navbar.js';
 
@@ -87,6 +98,16 @@ export const SuiteCards: React.FC<SuiteCardsProps> = ({ onSelectModule }) => {
       icon: Cpu,
       description:
         'Unified TypeScript SDK export combining all 10 OMBRIX modules into a single ergonomic public API surface.',
+    },
+    {
+      id: 'scan' as ProductModule,
+      name: 'OMBRIX Scan',
+      tagline: 'Multi-Detector Forensic Steganalysis',
+      status: 'Phase 6 Active',
+      statusColor: 'text-[#06B6D4] border-[#06B6D4]/30 bg-[#06B6D4]/10',
+      icon: Radar,
+      description:
+        'Empirical forensic workbench combining RS analysis, Sample Pair Analysis (SPA), Chi-Square PoV testing, and 2nd-derivative Laplacian noise heatmaps.',
     },
   ];
 

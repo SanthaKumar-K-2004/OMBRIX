@@ -97,4 +97,25 @@ describe('@ombrix/edge-sdk - Public Unified Facade', () => {
     expect(opened.carrierVerified).toBe(true);
     expect(new TextDecoder().decode(opened.payloadBytes)).toBe('Ephemeral Link Secret');
   });
+
+  it('executes research engines (PVD, DWT, DCT) and forensics scan via Ombrix facade', async () => {
+    const carrier = createTestCarrier(64, 64);
+    const payload = new TextEncoder().encode('Phase 6 Research Engine Test');
+
+    // PVD
+    const stegoPvd = await Ombrix.embedPvd(carrier, payload);
+    const extractedPvd = await Ombrix.extractPvd(stegoPvd);
+    expect(extractedPvd).toEqual(payload);
+
+    // DWT
+    const stegoDwt = await Ombrix.embedDwt(carrier, payload);
+    const extractedDwt = await Ombrix.extractDwt(stegoDwt);
+    expect(extractedDwt).toEqual(payload);
+
+    // Forensics Scan
+    const scanReport = Ombrix.scan(stegoPvd);
+    expect(scanReport.verdict).toBeDefined();
+    expect(scanReport.overallAnomalyScore).toBeGreaterThanOrEqual(0);
+    expect(scanReport.caveats.length).toBeGreaterThan(0);
+  });
 });

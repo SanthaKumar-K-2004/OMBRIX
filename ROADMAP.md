@@ -48,6 +48,13 @@ OMBRIX development follows an evidence-based, incremental engineering loop. Ever
 │  • M13: OMBRIX Link (Ephemeral Containers, TTL, Hash Ring Validation)  │
 │  • M14: OMBRIX Flow (Batch Pipeline, Capacity Planning, Worker Pool)   │
 │  • M15: OMBRIX Edge (Public SDK Facade, CLI & Developer Playground)    │
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼───────────────────────────────────┐
+│ Phase 6: Research-Grade Steganography & Steganalysis                   │  [ACTIVE]
+│  • M16: Advanced Engines (PVD, Haar DWT Multi-Band, JPEG 8x8 DCT)      │
+│  • M17: Advanced Steganalysis (Fridrich RS, Sample Pair Analysis, SPA) │
+│  • M18: OMBRIX Scan & Research Lab Studio (Consensus Forensics Suite)  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -173,4 +180,27 @@ OMBRIX development follows an evidence-based, incremental engineering loop. Ever
   - Unified, ergonomic TypeScript SDK facade exposing all 9 OMBRIX modules under a single cohesive interface (`Ombrix.embed`, `Ombrix.extract`, `Ombrix.inspect`, `Ombrix.benchmark`, `Ombrix.simulateTransit`, `Ombrix.createShareLink`, `Ombrix.batchProcess`).
   - Browser and CLI/Node environment compatibility.
   - Interactive Developer Playground in `EdgeStudio.tsx` featuring live syntax examples, parameter generators, and SDK export.
+
+---
+
+### Phase 6 — Research-Grade Steganography & Steganalysis [COMPLETED]
+- **Milestone 16: Research Steganography Engines (`@ombrix/stego-advanced`):**
+  - **PVD (Pixel Value Differencing):** Wu & Tsai (2003) spatial adaptive algorithm. Partitions pixels into adjacent pairs, computes differences, and adaptively allocates more bits into edge/textured regions while embedding fewer bits in smooth regions (HVS masking).
+  - **2D Haar Discrete Wavelet Transform (DWT):** Multi-resolution frequency decomposition into $LL, LH, HL, HH$ sub-bands. Integer wavelet reconstruction with imperceptible detail-band coefficient modulation.
+  - **JPEG 8x8 DCT Coefficient-Domain Engine:** Forward/Inverse DCT with standard $Q_{50}$ quantization matrices. Modulates quantized AC coefficients (avoiding zeros and ones) to implement true JPEG codec-domain steganography.
+- **Milestone 17: Advanced Steganalysis & Forensics (`@ombrix/stego-forensics`):**
+  - **RS Steganalysis (Fridrich et al., 2001):** Dual-mask ($M, -M$) local variation analysis measuring Regular ($R$) and Singular ($S$) block distributions to estimate hidden payload ratios ($\hat{\alpha} \in [0, 1]$) with mathematical curve fitting.
+  - **Sample Pair Analysis (SPA / Dumitrescu et al., 2003):** Closed-form algebraic estimation of relative payload length across color channels.
+  - **Spatial Noise Residual Variance:** 2nd-derivative Laplacian kernel filtering isolating high-frequency noise profiles to distinguish natural sensor noise from steganographic perturbations.
+- **Milestone 18: OMBRIX Scan & Research Lab Studio (`ScanStudio.tsx` & `LabStudio.tsx` in `apps/web`):**
+  - Full-featured **OMBRIX Scan** forensic workbench analyzing suspect images with multi-detector consensus (RS, SPA, $\chi^2$, Noise Residual), accompanied by required scientific caveats and false-positive disclosure.
+  - Integration of PVD, DWT, and DCT into the comparative **OMBRIX Lab** benchmark matrix evaluating PSNR, SSIM, MSE, throughput, and steganalysis detectability.
+
+---
+
+### Phase 7 — Release Hardening & Production Polish [UPCOMING]
+- Comprehensive security and dependency audit (zero telemetry, local-first integrity).
+- End-to-end user workflows, accessibility audits, and cross-browser production readiness.
+- Final documentation and build packaging.
+
 

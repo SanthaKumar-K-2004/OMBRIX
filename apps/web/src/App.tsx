@@ -9,6 +9,7 @@ import { LabStudio } from './components/LabStudio.js';
 import { LensStudio } from './components/LensStudio.js';
 import { LinkStudio } from './components/LinkStudio.js';
 import { Navbar, type ProductModule } from './components/Navbar.js';
+import { ScanStudio } from './components/ScanStudio.js';
 import { SuiteCards } from './components/SuiteCards.js';
 import { TransitStudio } from './components/TransitStudio.js';
 import { VaultStudio } from './components/VaultStudio.js';
@@ -39,6 +40,8 @@ export const App: React.FC = () => {
         {activeModule === 'flow' && <FlowStudio />}
 
         {activeModule === 'edge' && <EdgeStudio />}
+
+        {activeModule === 'scan' && <ScanStudio />}
 
         {/* Brand System & Design Tokens Showcase */}
         <BrandShowcase />

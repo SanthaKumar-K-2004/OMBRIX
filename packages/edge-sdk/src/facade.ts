@@ -38,6 +38,8 @@ import {
   serializeLinkUri,
 } from '@ombrix/link-sharing';
 import { type Omb1Envelope, parseEnvelope, serializeEnvelope } from '@ombrix/payload-protocol';
+import { haarDwtStego, jpegDctStego, pvdStego } from '@ombrix/stego-advanced';
+import { type ForensicsConsensusReport, analyzeConsensus } from '@ombrix/stego-forensics';
 import type { CarrierImage } from '@ombrix/stego-interface';
 import { type StegoBenchmarkResult, pngLsbMatching, runStegoBenchmark } from '@ombrix/stego-lab';
 import { pngLsbSequential } from '@ombrix/stego-png-lsb';
@@ -264,6 +266,41 @@ export async function runBatchExtract(
   return await executeBatchExtract(tasks, options);
 }
 
+/** Run comprehensive multi-detector forensics scan (RS, SPA, Chi-Square, Noise Residual) */
+export function scan(carrier: CarrierImage): ForensicsConsensusReport {
+  return analyzeConsensus(carrier);
+}
+
+/** Embed via Pixel Value Differencing (Wu & Tsai 2003) */
+export async function embedPvd(carrier: CarrierImage, payload: Uint8Array): Promise<CarrierImage> {
+  return await pvdStego.embed(carrier, payload);
+}
+
+/** Extract via Pixel Value Differencing */
+export async function extractPvd(carrier: CarrierImage): Promise<Uint8Array> {
+  return await pvdStego.extract(carrier);
+}
+
+/** Embed via 2D Haar Discrete Wavelet Transform */
+export async function embedDwt(carrier: CarrierImage, payload: Uint8Array): Promise<CarrierImage> {
+  return await haarDwtStego.embed(carrier, payload);
+}
+
+/** Extract via 2D Haar Discrete Wavelet Transform */
+export async function extractDwt(carrier: CarrierImage): Promise<Uint8Array> {
+  return await haarDwtStego.extract(carrier);
+}
+
+/** Embed via JPEG 8x8 DCT Coefficient Domain */
+export async function embedDct(carrier: CarrierImage, payload: Uint8Array): Promise<CarrierImage> {
+  return await jpegDctStego.embed(carrier, payload);
+}
+
+/** Extract via JPEG 8x8 DCT Coefficient Domain */
+export async function extractDct(carrier: CarrierImage): Promise<Uint8Array> {
+  return await jpegDctStego.extract(carrier);
+}
+
 export const Ombrix = {
   init,
   embed,
@@ -272,6 +309,13 @@ export const Ombrix = {
   benchmark,
   simulateTransit,
   detectStego,
+  scan,
+  embedPvd,
+  extractPvd,
+  embedDwt,
+  extractDwt,
+  embedDct,
+  extractDct,
   createShareLink,
   openShareLink,
   auditBatchCarriers: runBatchAudit,

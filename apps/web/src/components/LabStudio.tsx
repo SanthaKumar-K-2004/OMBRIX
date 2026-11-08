@@ -1,4 +1,5 @@
 import { validatePngOrThrow } from '@ombrix/image-validation';
+import { haarDwtStego, jpegDctStego, pvdStego } from '@ombrix/stego-advanced';
 import type { CarrierImage } from '@ombrix/stego-interface';
 import { type StegoBenchmarkResult, pngLsbMatching, runStegoBenchmark } from '@ombrix/stego-lab';
 import { pngLsbSequential } from '@ombrix/stego-png-lsb';
@@ -104,6 +105,9 @@ export const LabStudio: React.FC = () => {
       const results = await runStegoBenchmark(carrierData, payloadBytes, [
         pngLsbSequential,
         pngLsbMatching,
+        pvdStego,
+        haarDwtStego,
+        jpegDctStego,
       ]);
       setBenchmarkResults(results);
     } catch (err) {
@@ -125,7 +129,8 @@ export const LabStudio: React.FC = () => {
             </span>
           </h2>
           <p className="text-sm text-[#94A3B8]">
-            Side-by-side empirical algorithm benchmarking: Sequential LSB vs LSB Matching (±1).
+            Side-by-side empirical algorithm benchmarking: Sequential LSB vs LSB Matching (±1) vs
+            PVD vs Haar DWT vs JPEG 8×8 DCT.
           </p>
         </div>
 

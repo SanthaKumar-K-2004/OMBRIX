@@ -34,6 +34,8 @@ export default defineWorkspace([
         '@ombrix/link-sharing': path.resolve(__dirname, 'packages/link-sharing/src/index.ts'),
         '@ombrix/batch-pipeline': path.resolve(__dirname, 'packages/batch-pipeline/src/index.ts'),
         '@ombrix/edge-sdk': path.resolve(__dirname, 'packages/edge-sdk/src/index.ts'),
+        '@ombrix/stego-advanced': path.resolve(__dirname, 'packages/stego-advanced/src/index.ts'),
+        '@ombrix/stego-forensics': path.resolve(__dirname, 'packages/stego-forensics/src/index.ts'),
       },
     },
   },
