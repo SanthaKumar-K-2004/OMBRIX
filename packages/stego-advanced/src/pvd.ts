@@ -86,6 +86,13 @@ export class PvdStegoMethod implements StegoMethod {
     }
 
     const capacity = this.calculateCapacity(carrier, options);
+    const totalPixels = carrier.width * carrier.height;
+    const totalPairs = Math.floor(totalPixels / 2);
+    if (totalPairs * 3 < 32 || capacity.usableBytes === 0) {
+      throw new InsufficientCapacityError(
+        'Carrier image is too small for PVD embedding (minimum 11 pixel pairs / 32 bits required for length header).',
+      );
+    }
     if (payload.length > capacity.usableBytes) {
       throw new InsufficientCapacityError(
         `Payload size (${payload.length} bytes) exceeds usable PVD capacity (${capacity.usableBytes} bytes).`,
@@ -101,8 +108,6 @@ export class PvdStegoMethod implements StegoMethod {
     bitBuffer.set(payload, 4);
 
     let bitCursor = 0;
-    const totalPixels = carrier.width * carrier.height;
-    const totalPairs = Math.floor(totalPixels / 2);
 
     for (let c = 0; c < 3 && bitCursor < totalPayloadBits; c++) {
       for (let pairIdx = 0; pairIdx < totalPairs && bitCursor < totalPayloadBits; pairIdx++) {

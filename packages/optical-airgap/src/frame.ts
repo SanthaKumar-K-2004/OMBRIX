@@ -27,6 +27,9 @@ export function chunkIntoOpticalFrames(
   if (data.length === 0) {
     throw new Error('Cannot chunk empty buffer into optical frames');
   }
+  if (!Number.isFinite(maxBytesPerFrame) || maxBytesPerFrame <= 0) {
+    throw new Error('maxBytesPerFrame must be a positive integer greater than 0');
+  }
 
   const overallCrc = crc32(data);
   const sequenceId = `seq_${data.length}_${overallCrc.toString(16)}`;
@@ -65,6 +68,18 @@ export function parseOpticalFrame(str: string): OpticalFrame {
   const parsed = JSON.parse(str) as OpticalFrame;
   if (parsed.magic !== 'OMB_OPT_V1') {
     throw new Error(`Invalid optical frame magic: expected OMB_OPT_V1, got ${parsed.magic}`);
+  }
+
+  if (
+    typeof parsed.frameIndex !== 'number' ||
+    typeof parsed.totalFrames !== 'number' ||
+    parsed.totalFrames <= 0 ||
+    parsed.frameIndex < 0 ||
+    parsed.frameIndex >= parsed.totalFrames
+  ) {
+    throw new Error(
+      `Malformed optical frame index bounds: frameIndex=${parsed.frameIndex}, totalFrames=${parsed.totalFrames}`,
+    );
   }
 
   // Verify chunk integrity

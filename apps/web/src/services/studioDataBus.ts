@@ -44,6 +44,10 @@ class StudioDataBus {
     return this.activeCarrier;
   }
 
+  clearActiveCarrier(): void {
+    this.activeCarrier = null;
+  }
+
   subscribeCarrier(listener: CarrierListener): () => void {
     this.carrierListeners.add(listener);
     if (this.activeCarrier) {
@@ -91,6 +95,10 @@ class StudioDataBus {
 
   getActiveCiphertext(): BusCiphertextPayload | null {
     return this.activeCiphertext;
+  }
+
+  clearActiveCiphertext(): void {
+    this.activeCiphertext = null;
   }
 
   subscribeCiphertext(listener: CiphertextListener): () => void {

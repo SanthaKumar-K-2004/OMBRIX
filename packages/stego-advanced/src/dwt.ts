@@ -110,6 +110,13 @@ export class HaarDwtStegoMethod implements StegoMethod {
     }
 
     const capacity = this.calculateCapacity(carrier, options);
+    const blockRows = Math.floor(carrier.height / 2);
+    const blockCols = Math.floor(carrier.width / 2);
+    if (blockRows * blockCols * 3 < 32 || capacity.usableBytes === 0) {
+      throw new InsufficientCapacityError(
+        'Carrier image is too small for Haar DWT embedding (minimum 11 2x2 blocks / 32 bits required for length header).',
+      );
+    }
     if (payload.length > capacity.usableBytes) {
       throw new InsufficientCapacityError(
         `Payload size (${payload.length} bytes) exceeds usable Haar DWT capacity (${capacity.usableBytes} bytes).`,
@@ -124,8 +131,6 @@ export class HaarDwtStegoMethod implements StegoMethod {
     bitBuffer.set(payload, 4);
 
     let bitCursor = 0;
-    const blockRows = Math.floor(carrier.height / 2);
-    const blockCols = Math.floor(carrier.width / 2);
     const width = carrier.width;
 
     for (let c = 0; c < 3 && bitCursor < totalPayloadBits; c++) {

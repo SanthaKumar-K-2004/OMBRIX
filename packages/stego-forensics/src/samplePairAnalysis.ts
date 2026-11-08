@@ -19,27 +19,49 @@ export function analyzeSamplePairs(carrier: CarrierImage): SpaAnalysisResult {
   // Scan adjacent horizontal and vertical pairs across R, G, B channels
   for (let c = 0; c < 3; c++) {
     for (let y = 0; y < height; y++) {
-      for (let x = 0; x + 1 < width; x++) {
+      for (let x = 0; x < width; x++) {
         const idx0 = (y * width + x) * 4 + c;
-        const idx1 = (y * width + (x + 1)) * 4 + c;
-
         const u = data[idx0] ?? 0;
-        const v = data[idx1] ?? 0;
 
-        const diff = Math.abs(u - v);
+        // Horizontal neighbor (x + 1)
+        if (x + 1 < width) {
+          const idx1 = (y * width + (x + 1)) * 4 + c;
+          const v = data[idx1] ?? 0;
+          const diff = Math.abs(u - v);
 
-        if (diff === 0) {
-          countZ++;
-        } else if (diff === 1) {
-          const qu = Math.floor(u / 2);
-          const qv = Math.floor(v / 2);
-          if (qu === qv) {
-            countX++;
-          } else {
-            countY++;
+          if (diff === 0) {
+            countZ++;
+          } else if (diff === 1) {
+            const qu = Math.floor(u / 2);
+            const qv = Math.floor(v / 2);
+            if (qu === qv) {
+              countX++;
+            } else {
+              countY++;
+            }
           }
+          totalPairs++;
         }
-        totalPairs++;
+
+        // Vertical neighbor (y + 1)
+        if (y + 1 < height) {
+          const idx1 = ((y + 1) * width + x) * 4 + c;
+          const v = data[idx1] ?? 0;
+          const diff = Math.abs(u - v);
+
+          if (diff === 0) {
+            countZ++;
+          } else if (diff === 1) {
+            const qu = Math.floor(u / 2);
+            const qv = Math.floor(v / 2);
+            if (qu === qv) {
+              countX++;
+            } else {
+              countY++;
+            }
+          }
+          totalPairs++;
+        }
       }
     }
   }
@@ -65,8 +87,16 @@ export function analyzeSamplePairs(carrier: CarrierImage): SpaAnalysisResult {
     rawP = (2 * diffXY) / basePairs;
   }
 
+  if (!Number.isFinite(rawP) || Number.isNaN(rawP)) {
+    rawP = 0;
+  }
   const estimatedPayloadRatio = Math.max(0, Math.min(1, rawP));
-  const confidence = Math.max(0, Math.min(1, estimatedPayloadRatio * 0.8 + 0.1));
+
+  let confidence = estimatedPayloadRatio * 0.8 + 0.1;
+  if (!Number.isFinite(confidence) || Number.isNaN(confidence)) {
+    confidence = 0;
+  }
+  confidence = Math.max(0, Math.min(1, confidence));
 
   let classification: 'clean' | 'suspect' | 'stego_detected' = 'clean';
   if (estimatedPayloadRatio > 0.2) {

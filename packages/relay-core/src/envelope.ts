@@ -28,7 +28,7 @@ export function createOpaqueRelayEnvelope(
   const now = Date.now();
   const ttlSeconds = options.ttlSeconds ?? DEFAULT_RELAY_TTL_SECONDS;
   const expiresAt = now + ttlSeconds * 1000;
-  const maxRetrievals = options.maxRetrievals ?? 1;
+  const maxRetrievals = Math.max(1, options.maxRetrievals ?? 1);
 
   const recipientKeyIdHex = options.recipientKeyId ? toHex(options.recipientKeyId) : undefined;
 

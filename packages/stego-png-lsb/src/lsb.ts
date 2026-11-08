@@ -93,6 +93,11 @@ export class PngLsbSequentialMethod implements StegoMethod {
     if (signal?.aborted) throw new StegoAbortError();
 
     const capacity = this.calculateCapacity(carrier, options);
+    if (carrier.width * carrier.height < 11 || capacity.usableBytes === 0) {
+      throw new InsufficientCapacityError(
+        'Carrier image is too small to embed steganographic payload (minimum 11 pixels / 32 bits required for length header).',
+      );
+    }
     if (payload.length > capacity.usableBytes) {
       throw new InsufficientCapacityError(
         `Payload size (${payload.length} bytes) exceeds carrier usable capacity (${capacity.usableBytes} bytes).`,

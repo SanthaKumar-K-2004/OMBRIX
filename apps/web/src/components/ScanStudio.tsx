@@ -54,6 +54,15 @@ export const ScanStudio: React.FC = () => {
     });
   }, [scanReport, carrierData]);
 
+  // Clean up object URL when carrier preview changes or unmounts
+  useEffect(() => {
+    return () => {
+      if (carrierPreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(carrierPreview);
+      }
+    };
+  }, [carrierPreview]);
+
   // Load Clean Synthetic Image
   const loadSyntheticCarrier = useCallback((isStego: boolean) => {
     const width = 128;

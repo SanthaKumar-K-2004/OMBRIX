@@ -210,6 +210,13 @@ export class JpegDctStegoMethod implements StegoMethod {
     }
 
     const capacity = this.calculateCapacity(carrier, options);
+    const blockRows = Math.floor(carrier.height / 8);
+    const blockCols = Math.floor(carrier.width / 8);
+    if (blockRows * blockCols * 12 < 32 || capacity.usableBytes === 0) {
+      throw new InsufficientCapacityError(
+        'Carrier image is too small for JPEG DCT embedding (minimum 3 8x8 blocks / 32 bits required for length header).',
+      );
+    }
     if (payload.length > capacity.usableBytes) {
       throw new InsufficientCapacityError(
         `Payload size (${payload.length} bytes) exceeds usable JPEG DCT capacity (${capacity.usableBytes} bytes).`,
@@ -224,8 +231,6 @@ export class JpegDctStegoMethod implements StegoMethod {
     bitBuffer.set(payload, 4);
 
     let bitCursor = 0;
-    const blockRows = Math.floor(carrier.height / 8);
-    const blockCols = Math.floor(carrier.width / 8);
     const width = carrier.width;
 
     for (let c = 0; c < 3 && bitCursor < totalPayloadBits; c++) {

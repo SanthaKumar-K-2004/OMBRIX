@@ -56,6 +56,23 @@ export const LensStudio: React.FC = () => {
   const [diffResult, setDiffResult] = useState<DifferenceMapResult | null>(null);
   const diffCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Clean up object URLs when previews change or unmount
+  useEffect(() => {
+    return () => {
+      if (carrierPreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(carrierPreview);
+      }
+    };
+  }, [carrierPreview]);
+
+  useEffect(() => {
+    return () => {
+      if (comparePreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(comparePreview);
+      }
+    };
+  }, [comparePreview]);
+
   // Handle Primary Carrier Load
   const handleCarrierSelect = useCallback(async (file: File) => {
     setCarrierFile(file);

@@ -158,8 +158,16 @@ export function analyzeRsSteganalysis(carrier: CarrierImage): RsAnalysisResult {
     }
   }
 
+  if (!Number.isFinite(estimatedPayloadRatio) || Number.isNaN(estimatedPayloadRatio)) {
+    estimatedPayloadRatio = 0;
+  }
   estimatedPayloadRatio = Math.max(0, Math.min(1, estimatedPayloadRatio));
-  const confidence = Math.max(0, Math.min(1, estimatedPayloadRatio * 0.7 + asymmetry * 1.5));
+
+  let confidence = estimatedPayloadRatio * 0.7 + asymmetry * 1.5;
+  if (!Number.isFinite(confidence) || Number.isNaN(confidence)) {
+    confidence = 0;
+  }
+  confidence = Math.max(0, Math.min(1, confidence));
 
   let classification: 'clean' | 'suspect' | 'stego_detected' = 'clean';
   if (estimatedPayloadRatio > 0.2 || asymmetry > 0.1) {
