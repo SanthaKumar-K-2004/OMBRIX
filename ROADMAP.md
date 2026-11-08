@@ -16,7 +16,7 @@ OMBRIX development follows an evidence-based, incremental engineering loop. Ever
 └────────────────────────────────────┬───────────────────────────────────┘
                                      │
 ┌────────────────────────────────────▼───────────────────────────────────┐
-│ Phase 1: Reliable Core Foundation & Application Shell                  │  [ACTIVE]
+│ Phase 1: Reliable Core Foundation & Application Shell                  │  [COMPLETED]
 │  • M1: Web Application Shell (Vite 6, React 19, Design Tokens)         │
 │  • M2: Static PNG Image Validation & Bomb Defense                      │
 │  • M3: OMB1 Binary Payload Envelope Protocol                           │
