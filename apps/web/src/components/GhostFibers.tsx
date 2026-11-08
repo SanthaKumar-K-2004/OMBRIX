@@ -95,8 +95,8 @@ type Target = {
 type Camera = { eye: number[]; viewProj: number[]; orient: number[] };
 type Nearest = { gap: number; s: number; ribbon: number; depth: number };
 
-const MAX_RENDER_DIM = 2000;
-const BLOOM_LEVELS = 4;
+const MAX_RENDER_DIM = 1600;
+const BLOOM_LEVELS = 3;
 const INTRO_SECONDS = 2.0;
 const CAMERA = 7.5;
 const FOV = 0.56;
@@ -825,6 +825,7 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
       focus: CAMERA + settingsRef.current.focusDepth * 3,
       pulse: { s: 0, age: 9, strength: 0, ribbon: 0 },
       camera: null as Camera | null,
+      lastNear: null as Nearest | null,
     };
     let raf = 0;
     let last = 0;
@@ -919,8 +920,8 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
       if (!camera) return null;
       let best: Nearest | null = null;
       for (let ribbon = 0; ribbon < s.layers; ribbon += 1) {
-        for (let i = 0; i <= 64; i += 1) {
-          const u = i / 64 - 0.5;
+        for (let i = 0; i <= 24; i += 1) {
+          const u = i / 24 - 0.5;
           const local = centerLocal(u, state.time, ribbon, s.waves).map(
             (c) => c * s.scale * state.fit,
           );
@@ -937,7 +938,7 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
       const s = settingsRef.current;
       const width = Math.max(1, container.clientWidth);
       const height = Math.max(1, container.clientHeight);
-      const baseDpr = Math.min(s.dpr || window.devicePixelRatio || 1, 1.5);
+      const baseDpr = Math.min(s.dpr || window.devicePixelRatio || 1, 1.0);
       const longest = Math.max(width, height) * baseDpr;
       const ratio = longest > MAX_RENDER_DIM ? (baseDpr * MAX_RENDER_DIM) / longest : baseDpr;
       const pixelWidth = Math.max(1, Math.round(width * ratio));
@@ -1198,7 +1199,10 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
       const resting = CAMERA + s.focusDepth * 3;
       let focusGoal = resting;
       if (active && s.hover === 0) {
-        const near = nearestOnRibbon(s, hover.x, hover.y);
+        if (state.frame % 3 === 0 || !state.lastNear) {
+          state.lastNear = nearestOnRibbon(s, hover.x, hover.y);
+        }
+        const near = state.lastNear;
         if (near)
           focusGoal =
             resting + (near.depth - resting) * hover.presence * Math.min(1, s.mouseStrength);
@@ -1307,12 +1311,17 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
   return (
     <div
       ref={containerRef}
-      className={['relative h-full w-full overflow-hidden', className].filter(Boolean).join(' ')}
+      className={[
+        'ghost-fibers-container relative h-full w-full overflow-hidden select-none',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={style}
       {...rest}
     >
       {/* Universal Luminous Plasma Wave & Fiber Stream (Runs smoothly on all GPUs, mobile devices, and displays) */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden select-none will-change-transform">
         {/* Floating Cybernetic Plasma Aurora Beams */}
         <div
           className="absolute -top-[15%] left-[5%] w-[65vw] h-[550px] rounded-full animate-aurora-drift opacity-80"
@@ -1351,7 +1360,7 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
       {/* WebGL2 Particle & Fiber Stream Canvas */}
       <canvas
         ref={canvasRef}
-        className={`absolute inset-0 block h-full w-full pointer-events-none transition-opacity duration-1000 ${
+        className={`ghost-fibers-canvas absolute inset-0 block h-full w-full pointer-events-none will-change-transform transition-opacity duration-1000 ${
           hasWebGL ? 'opacity-95' : 'opacity-0'
         }`}
       />
