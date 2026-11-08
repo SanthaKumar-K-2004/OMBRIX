@@ -876,7 +876,7 @@ export const CoreStudio: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Studio Header & Tab Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-[#111827] via-[#0F172A] to-[#111827] border border-[#1E293B] shadow-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-[#111827]/90 via-[#0F172A]/90 to-[#111827]/90 backdrop-blur-xl border border-[#1E293B]/80 shadow-2xl">
         <div>
           <h2 className="text-xl font-bold font-['Sora'] text-white flex items-center gap-2.5">
             <span>OMBRIX Steganography Engine</span>
@@ -936,7 +936,7 @@ export const CoreStudio: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Carrier Upload & Inspection */}
           <div className="lg:col-span-6 space-y-4">
-            <div className="p-5 rounded-xl bg-[#111827] border border-[#1E293B] space-y-4">
+            <div className="p-5 rounded-xl bg-[#111827]/85 backdrop-blur-xl border border-[#1E293B]/80 shadow-2xl space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                   <ImageIcon className="w-4 h-4 text-[#A855F7]" />
@@ -1102,7 +1102,7 @@ export const CoreStudio: React.FC = () => {
 
           {/* Right Column: Payload Input, Protocol Framing & Embedding */}
           <div className="lg:col-span-6 space-y-4">
-            <div className="p-5 rounded-xl bg-[#111827] border border-[#1E293B] space-y-4">
+            <div className="p-5 rounded-xl bg-[#111827]/85 backdrop-blur-xl border border-[#1E293B]/80 shadow-2xl space-y-4">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <FileText className="w-4 h-4 text-[#3B82F6]" />
                 <span>2. Stego Algorithm & Payload Configuration</span>
@@ -1918,7 +1918,7 @@ export const CoreStudio: React.FC = () => {
         /* Reveal (Extract) Tab */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-6 space-y-4">
-            <div className="p-5 rounded-xl bg-[#111827] border border-[#1E293B] space-y-4">
+            <div className="p-5 rounded-xl bg-[#111827]/85 backdrop-blur-xl border border-[#1E293B]/80 shadow-2xl space-y-4">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <ImageIcon className="w-4 h-4 text-[#3B82F6]" />
                 <span>Upload Stego Carrier Image</span>
@@ -2049,7 +2049,7 @@ export const CoreStudio: React.FC = () => {
 
           {/* Reveal Result Column */}
           <div className="lg:col-span-6 space-y-4">
-            <div className="p-5 rounded-xl bg-[#111827] border border-[#1E293B] space-y-4">
+            <div className="p-5 rounded-xl bg-[#111827]/85 backdrop-blur-xl border border-[#1E293B]/80 shadow-2xl space-y-4">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <FileText className="w-4 h-4 text-[#14B8A6]" />
                 <span>Extracted Secret Information</span>

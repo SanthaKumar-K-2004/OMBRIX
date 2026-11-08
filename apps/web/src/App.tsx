@@ -32,19 +32,19 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-[#E2E8F0] flex flex-col font-sans relative overflow-x-hidden selection:bg-[#7C3AED]/30 selection:text-white">
-      {/* Atmospheric Aurora WebGL Shader Background */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-45">
+      {/* Atmospheric Aurora Multi-Engine Background */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-100">
         <AuroraAtmosphere
-          colorStops={['#0B0F19', '#7C3AED', '#A855F7', '#3B82F6', '#14B8A6']}
-          amplitude={1.1}
-          blend={0.55}
-          speed={0.65}
-          height={0.55}
-          glow={0.65}
-          brightness={0.9}
+          colorStops={['#7C3AED', '#9333EA', '#3B82F6', '#06B6D4', '#14B8A6']}
+          amplitude={1.25}
+          blend={0.65}
+          speed={0.75}
+          height={0.6}
+          glow={0.8}
+          brightness={1.05}
         />
         {/* Subtle cybernetic dot grid overlay */}
-        <div className="absolute inset-0 bg-grid-pattern opacity-60 mix-blend-overlay" />
+        <div className="absolute inset-0 bg-grid-pattern opacity-40 mix-blend-overlay" />
       </div>
 
       {/* Content Shell */}

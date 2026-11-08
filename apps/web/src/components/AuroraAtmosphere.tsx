@@ -558,9 +558,72 @@ export const AuroraAtmosphere: React.FC<AuroraAtmosphereProps> = ({
       className={['relative h-full w-full overflow-hidden', className].filter(Boolean).join(' ')}
       style={style}
     >
+      {/* Universal Fluid CSS Aurora Waves (Guaranteed to animate in all browsers & GPU environments) */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {/* Layer 1: High-Contrast Primary Aurora Borealis Curtain */}
+        <div
+          className="absolute -inset-[20px] -top-[10%] h-[75vh] w-[110%] animate-aurora-ribbon opacity-85"
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(115deg, #7c3aed 8%, #9333ea 16%, #3b82f6 24%, #06b6d4 32%, #14b8a6 40%, #7c3aed 48%)',
+            backgroundSize: '300% 200%',
+            filter: 'blur(32px)',
+            maskImage: 'radial-gradient(ellipse 110% 80% at 50% 15%, black 45%, transparent 90%)',
+            WebkitMaskImage:
+              'radial-gradient(ellipse 110% 80% at 50% 15%, black 45%, transparent 90%)',
+          }}
+        />
+
+        {/* Layer 2: Counter-Flowing Spectral Light Ribbon (Screen Blended) */}
+        <div
+          className="absolute -inset-[20px] -top-[5%] h-[65vh] w-[110%] animate-aurora-reverse opacity-75 mix-blend-screen"
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(65deg, #06b6d4 10%, #3b82f6 18%, #a855f7 28%, #7c3aed 36%, #14b8a6 46%)',
+            backgroundSize: '260% 180%',
+            filter: 'blur(36px)',
+            maskImage: 'radial-gradient(ellipse 100% 75% at 50% 20%, black 40%, transparent 85%)',
+            WebkitMaskImage:
+              'radial-gradient(ellipse 100% 75% at 50% 20%, black 40%, transparent 85%)',
+          }}
+        />
+
+        {/* Layer 3: Vibrant Floating Plasma Crests */}
+        {/* Violet Core Crest */}
+        <div
+          className="absolute -top-[12%] left-[8%] w-[52vw] h-[420px] rounded-full animate-aurora-drift opacity-85"
+          style={{
+            background:
+              'radial-gradient(ellipse at center, rgba(124, 58, 237, 0.95) 0%, rgba(147, 51, 234, 0.55) 40%, transparent 72%)',
+            filter: 'blur(45px)',
+          }}
+        />
+
+        {/* Neon Cyan & Electric Blue Crest */}
+        <div
+          className="absolute -top-[8%] right-[6%] w-[48vw] h-[400px] rounded-full animate-aurora-pulse opacity-80"
+          style={{
+            background:
+              'radial-gradient(ellipse at center, rgba(6, 182, 212, 0.9) 0%, rgba(59, 130, 246, 0.6) 42%, transparent 72%)',
+            filter: 'blur(48px)',
+          }}
+        />
+
+        {/* Teal & Emerald Horizon Shimmer */}
+        <div
+          className="absolute top-[18%] left-[22%] w-[58vw] h-[340px] rounded-full animate-aurora-drift opacity-75"
+          style={{
+            background:
+              'radial-gradient(ellipse at center, rgba(20, 184, 166, 0.85) 0%, rgba(168, 85, 247, 0.45) 45%, transparent 72%)',
+            filter: 'blur(52px)',
+          }}
+        />
+      </div>
+
+      {/* WebGL2 Canvas Overlay for Micro-Simplex Noise and Dynamic Pointer Warp */}
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 block h-full w-full pointer-events-none"
+        className="absolute inset-0 block h-full w-full pointer-events-none mix-blend-screen opacity-90"
       />
     </div>
   );
