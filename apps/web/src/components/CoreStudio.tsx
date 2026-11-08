@@ -25,30 +25,27 @@ import type { CapacityReport, CarrierImage } from '@ombrix/stego-interface';
 import { pngLsbSequential } from '@ombrix/stego-png-lsb';
 import { StegoWorkerClient } from '@ombrix/stego-worker';
 import {
-  Activity,
   AlertTriangle,
-  ArrowRight,
   Camera,
   CheckCircle2,
   Copy,
   Download,
   Eye,
+  EyeOff,
   FileText,
-  FolderOpen,
   Image as ImageIcon,
   Key,
-  Layers,
   Loader2,
   Lock,
   Maximize2,
   Radar,
   Radio,
+  RefreshCw,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
   UserCheck,
   XCircle,
-  Zap,
   ZoomIn,
 } from 'lucide-react';
 import type React from 'react';
@@ -59,13 +56,18 @@ import {
   getSavedContacts,
 } from '../security/sessionIdentity.js';
 import { studioDataBus } from '../services/studioDataBus.js';
+import {
+  isChameleonContainer,
+  packChameleonContainer,
+  unpackChameleonContainer,
+} from '../utils/chameleon.js';
 import { smartCompress, smartDecompress } from '../utils/compression.js';
 import {
   type ExtractedSecretFile,
   packFilePayload,
   unpackFilePayload,
 } from '../utils/filePayload.js';
-import { HeroPerspectiveLayers } from './HeroPerspectiveLayers.js';
+import { type GhostCarrierTheme, generateGhostCarrier } from '../utils/ghostCarrier.js';
 import { SmartPasskeyAssistant } from './SmartPasskeyAssistant.js';
 import { SplitComparisonSlider } from './SplitComparisonSlider.js';
 
@@ -125,6 +127,8 @@ export const CoreStudio: React.FC = () => {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [capacity, setCapacity] = useState<CapacityReport | null>(null);
   const [carrierImageData, setCarrierImageData] = useState<ImageData | null>(null);
+  const [isGeneratingGhost, setIsGeneratingGhost] = useState(false);
+  const [ghostTheme, setGhostTheme] = useState<GhostCarrierTheme>('nebula');
 
   // Hide (Embed) State
   const [payloadMode, setPayloadMode] = useState<'text' | 'image'>('text');
@@ -135,6 +139,12 @@ export const CoreStudio: React.FC = () => {
   const [secretImageDims, setSecretImageDims] = useState<{ width: number; height: number } | null>(
     null,
   );
+  // Chameleon Anti-Coercion (Dual-Layer) State
+  const [isChameleonEnabled, setIsChameleonEnabled] = useState(false);
+  const [decoyText, setDecoyText] = useState(
+    'Team sync notes: Design sprint postponed to Thursday 3:00 PM.',
+  );
+  const [decoyPassphrase, setDecoyPassphrase] = useState('decoy-safe-pass');
   const [useEnvelope, setUseEnvelope] = useState(true);
   const [isEmbedding, setIsEmbedding] = useState(false);
   const [embedProgress, setEmbedProgress] = useState(0);
@@ -152,6 +162,9 @@ export const CoreStudio: React.FC = () => {
   const [extractedPayloadText, setExtractedPayloadText] = useState<string | null>(null);
   const [extractedSecretFile, setExtractedSecretFile] = useState<ExtractedSecretFile | null>(null);
   const [extractedEnvelope, setExtractedEnvelope] = useState<Omb1Envelope | null>(null);
+  const [unlockedChameleonLayer, setUnlockedChameleonLayer] = useState<'master' | 'decoy' | null>(
+    null,
+  );
   const [decryptionStatus, setDecryptionStatus] = useState<
     'plaintext' | 'decrypted' | 'failed' | null
   >(null);
@@ -297,6 +310,27 @@ export const CoreStudio: React.FC = () => {
     [selectedMethod],
   );
 
+  // Handle 1-Click Procedural Ghost Carrier Synthesis
+  const handleGenerateGhostCarrier = useCallback(
+    async (theme?: GhostCarrierTheme) => {
+      setIsGeneratingGhost(true);
+      setValidationError(null);
+      setEmbedError(null);
+      try {
+        const selected = theme ?? ghostTheme;
+        if (theme) setGhostTheme(theme);
+        const ghost = await generateGhostCarrier(selected, 1920, 1080);
+        await handleCarrierSelect(ghost.file);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setValidationError(`Ghost carrier generation failed: ${msg}`);
+      } finally {
+        setIsGeneratingGhost(false);
+      }
+    },
+    [ghostTheme, handleCarrierSelect],
+  );
+
   // Handle Secret Image selection
   const handleSecretImageSelect = useCallback(async (file: File) => {
     setSecretImageFile(file);
@@ -363,6 +397,10 @@ export const CoreStudio: React.FC = () => {
 
   const activePayloadBytes = compressedPayloadBytes ?? rawPayloadBytes;
   let effectivePayloadLength = activePayloadBytes.length;
+  if (isChameleonEnabled) {
+    const decoyBytesLength = new TextEncoder().encode(decoyText).length;
+    effectivePayloadLength += decoyBytesLength + 28; // 28-byte Chameleon container header & MAC tags
+  }
   if (useEnvelope) {
     // 32 bytes minimum header
     let headerSize = 32;
@@ -445,6 +483,33 @@ export const CoreStudio: React.FC = () => {
     embedAbortRef.current = controller;
 
     try {
+      let corePayload = activePayloadBytes;
+
+      if (isChameleonEnabled) {
+        if (!passphrase.trim()) {
+          throw new Error(
+            'Primary Passkey is required as the Master Key for Chameleon Dual-Layer steganography.',
+          );
+        }
+        if (!decoyPassphrase.trim()) {
+          throw new Error('Decoy Passkey is required for Chameleon Dual-Layer steganography.');
+        }
+        if (passphrase.trim() === decoyPassphrase.trim()) {
+          throw new Error(
+            'Primary Passkey and Decoy Passkey must be different to establish plausible deniability.',
+          );
+        }
+        const decoyBytes = new TextEncoder().encode(
+          decoyText.trim() || 'No decoy notes available.',
+        );
+        corePayload = packChameleonContainer(
+          activePayloadBytes,
+          passphrase.trim(),
+          decoyBytes,
+          decoyPassphrase.trim(),
+        );
+      }
+
       let payloadToEmbed: Uint8Array;
 
       if (useEnvelope) {
@@ -452,7 +517,7 @@ export const CoreStudio: React.FC = () => {
         const randomMsgId = new Uint8Array(16);
         crypto.getRandomValues(randomMsgId);
 
-        let payloadData: Uint8Array = activePayloadBytes;
+        let payloadData: Uint8Array = corePayload;
         let recipientKeyId: Uint8Array | undefined;
 
         if (cryptoSuite === 'X25519_XSALSA20_POLY1305') {
@@ -469,7 +534,7 @@ export const CoreStudio: React.FC = () => {
           if (recPkBytes.length !== 32) {
             throw new Error('Recipient public key must resolve to 32 bytes.');
           }
-          payloadData = seal(activePayloadBytes, recPkBytes);
+          payloadData = seal(corePayload, recPkBytes);
           recipientKeyId = computeKeyId(recPkBytes);
         }
 
@@ -506,7 +571,7 @@ export const CoreStudio: React.FC = () => {
 
         payloadToEmbed = serializeEnvelope(envelope);
       } else {
-        payloadToEmbed = activePayloadBytes;
+        payloadToEmbed = corePayload;
       }
 
       const stegoCarrier = await workerClientRef.current.embed(
@@ -571,6 +636,7 @@ export const CoreStudio: React.FC = () => {
     setExtractedPayloadText(null);
     setExtractedSecretFile(null);
     setExtractedEnvelope(null);
+    setUnlockedChameleonLayer(null);
     setDecryptionStatus(null);
     setSignatureStatus('none');
     setVerifiedContactName(null);
@@ -601,6 +667,7 @@ export const CoreStudio: React.FC = () => {
     setExtractedPayloadText(null);
     setExtractedSecretFile(null);
     setExtractedEnvelope(null);
+    setUnlockedChameleonLayer(null);
     setDecryptionStatus(null);
     setSignatureStatus('none');
     setVerifiedContactName(null);
@@ -680,7 +747,21 @@ export const CoreStudio: React.FC = () => {
           setDecryptionStatus('plaintext');
         }
 
-        const restoredBytes = await smartDecompress(plaintextBytes);
+        let contentBytes = plaintextBytes;
+        if (isChameleonContainer(contentBytes)) {
+          if (!revealPassphrase.trim()) {
+            throw new Error(
+              'Chameleon Dual-Layer container detected. A passkey (Master or Decoy) is required to unlock the embedded payload.',
+            );
+          }
+          const cham = unpackChameleonContainer(contentBytes, revealPassphrase.trim());
+          setUnlockedChameleonLayer(cham.layer);
+          contentBytes = cham.data;
+        } else {
+          setUnlockedChameleonLayer(null);
+        }
+
+        const restoredBytes = await smartDecompress(contentBytes);
         const secretFile = unpackFilePayload(restoredBytes);
         if (secretFile) {
           setExtractedSecretFile(secretFile);
@@ -754,11 +835,26 @@ export const CoreStudio: React.FC = () => {
           setSignatureStatus('none');
         }
       } else {
-        // OMBRIX Stealth Matrix Payload
-        setDetectedMethodName('OMBRIX Stealth Matrix (±1 Adaptive Edge-Scattered)');
+        // OMBRIX Quad-Hybrid / Stealth Matrix Payload
+        setDetectedMethodName('OMBRIX Hyper-Matrix (Quad-Hybrid Frequency & Edge Scattered)');
         setDecryptionStatus('decrypted');
         setSignatureStatus('none');
-        const restoredBytes = await smartDecompress(extractedBytes);
+
+        let contentBytes = extractedBytes;
+        if (isChameleonContainer(contentBytes)) {
+          if (!revealPassphrase.trim()) {
+            throw new Error(
+              'Chameleon Dual-Layer container detected. A passkey (Master or Decoy) is required to unlock the embedded payload.',
+            );
+          }
+          const cham = unpackChameleonContainer(contentBytes, revealPassphrase.trim());
+          setUnlockedChameleonLayer(cham.layer);
+          contentBytes = cham.data;
+        } else {
+          setUnlockedChameleonLayer(null);
+        }
+
+        const restoredBytes = await smartDecompress(contentBytes);
         const secretFile = unpackFilePayload(restoredBytes);
         if (secretFile) {
           setExtractedSecretFile(secretFile);
@@ -779,159 +875,154 @@ export const CoreStudio: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Studio Header & Tab Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-[#111827] via-[#0F172A] to-[#111827] border border-[#1E293B] shadow-xl">
+        <div>
+          <h2 className="text-xl font-bold font-['Sora'] text-white flex items-center gap-2.5">
+            <span>OMBRIX Steganography Engine</span>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#14B8A6]/20 border border-[#14B8A6]/40 text-[#14B8A6] font-mono">
+              Undetectable Stealth
+            </span>
+          </h2>
+          <p className="text-xs text-[#94A3B8] mt-1">
+            Universal carrier encoding with cryptographic scattering, edge-adaptive masking, and ±1
+            LSB matching.
+          </p>
+        </div>
+
+        <div
+          className="inline-flex p-1 rounded-xl bg-[#0B0F19] border border-[#1E293B]"
+          role="tablist"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'hide'}
+            onClick={() => {
+              setActiveTab('hide');
+              studioDataBus.setCoreTab('hide');
+            }}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'hide'
+                ? 'bg-gradient-to-r from-[#7C3AED] to-[#A855F7] text-white shadow-[0_0_15px_rgba(124,58,237,0.4)]'
+                : 'text-[#94A3B8] hover:text-white'
+            }`}
+          >
+            <EyeOff className="w-4 h-4 text-[#C084FC]" />
+            <span>Hide Secret (Encode)</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'reveal'}
+            onClick={() => {
+              setActiveTab('reveal');
+              studioDataBus.setCoreTab('reveal');
+            }}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'reveal'
+                ? 'bg-gradient-to-r from-[#3B82F6] to-[#14B8A6] text-white shadow-[0_0_15px_rgba(59,130,246,0.4)]'
+                : 'text-[#94A3B8] hover:text-white'
+            }`}
+          >
+            <Eye className="w-4 h-4 text-[#38BDF8]" />
+            <span>Reveal Secret (Decode)</span>
+          </button>
+        </div>
+      </div>
+
       {/* Mode Content */}
       {activeTab === 'hide' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Brand Hero + 3D Perspective Graphic + Tab Switcher + Features + Carrier Dropzone */}
-          <div className="lg:col-span-6 space-y-5">
-            {/* Hero Capsule Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1E1B4B]/80 border border-[#7C3AED]/40 shadow-[0_0_12px_rgba(124,58,237,0.25)]">
-              <span className="text-[10px] font-bold tracking-widest text-[#C084FC] uppercase font-mono">
-                STEGANOGRAPHY ENGINE
-              </span>
-            </div>
-
-            {/* Headline & Subtitle */}
-            <div className="space-y-1.5">
-              <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white font-['Sora']">
-                OMBRIX
-                <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#38BDF8] bg-clip-text text-transparent">
-                  ™
-                </span>
-              </h1>
-              <p className="text-base sm:text-lg font-medium text-white/90">
-                Beyond what the eye can see.
-              </p>
-              <p className="text-xs sm:text-sm text-[#94A3B8] leading-relaxed max-w-xl">
-                A universal carrier encoding platform with cryptographic scattering, edge-adaptive
-                masking, and ±1 LSB matching.
-              </p>
-            </div>
-
-            {/* 3D Perspective Floating Layers Graphic */}
-            <HeroPerspectiveLayers carrierPreviewUrl={carrierPreview} />
-
-            {/* Mode Switcher Tabs */}
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={true}
-                onClick={() => {
-                  setActiveTab('hide');
-                  studioDataBus.setCoreTab('hide');
-                }}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold transition-all shadow-lg bg-gradient-to-r from-[#7C3AED] via-[#9333EA] to-[#A855F7] text-white shadow-[0_0_20px_rgba(124,58,237,0.5)] border border-[#C084FC]/50"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>Hide Secret (Encode)</span>
-                <ArrowRight className="w-3.5 h-3.5 opacity-70" />
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={false}
-                onClick={() => {
-                  setActiveTab('reveal');
-                  studioDataBus.setCoreTab('reveal');
-                }}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold transition-all shadow-lg bg-[#111827]/80 hover:bg-[#1E293B] text-[#94A3B8] hover:text-white border border-[#1E293B]"
-              >
-                <Eye className="w-3.5 h-3.5 text-[#38BDF8]" />
-                <span>Reveal Secret (Decode)</span>
-              </button>
-            </div>
-
-            {/* Feature Badges Row */}
-            <div className="grid grid-cols-3 gap-2.5">
-              <div className="flex items-center gap-2.5 p-2.5 sm:p-3 rounded-xl bg-[#0D1322]/80 border border-[#1E293B] backdrop-blur-md">
-                <div className="w-8 h-8 rounded-lg bg-[#7C3AED]/20 border border-[#7C3AED]/40 flex items-center justify-center text-[#C084FC] shrink-0">
-                  <ShieldCheck className="w-4 h-4" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Column: Carrier Upload & Inspection */}
+          <div className="lg:col-span-6 space-y-4">
+            <div className="p-5 rounded-xl bg-[#111827] border border-[#1E293B] space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-[#A855F7]" />
+                  <span>1. Carrier Image (PNG, JPG, WEBP, BMP)</span>
+                </h3>
+                <div className="flex items-center gap-2">
+                  {carrierImageData && (
+                    <span className="flex items-center gap-1 text-xs text-[#14B8A6] font-medium mr-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Ready
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleGenerateGhostCarrier();
+                    }}
+                    disabled={isGeneratingGhost}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#7C3AED]/30 to-[#3B82F6]/30 hover:from-[#7C3AED]/50 hover:to-[#3B82F6]/50 border border-[#7C3AED]/40 text-xs font-medium text-white transition-all shadow-[0_0_10px_rgba(124,58,237,0.25)]"
+                  >
+                    {isGeneratingGhost ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C084FC]" />
+                        <span>Synthesizing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 text-[#C084FC]" />
+                        <span>Ghost-Gen Carrier</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-white truncate">Undetectable</div>
-                  <div className="text-[10px] text-[#64748B] truncate">Stealth (±1)</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5 p-2.5 sm:p-3 rounded-xl bg-[#0D1322]/80 border border-[#1E293B] backdrop-blur-md">
-                <div className="w-8 h-8 rounded-lg bg-[#3B82F6]/20 border border-[#3B82F6]/40 flex items-center justify-center text-[#38BDF8] shrink-0">
-                  <Zap className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-white truncate">High</div>
-                  <div className="text-[10px] text-[#64748B] truncate">Capacity</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5 p-2.5 sm:p-3 rounded-xl bg-[#0D1322]/80 border border-[#1E293B] backdrop-blur-md">
-                <div className="w-8 h-8 rounded-lg bg-[#A855F7]/20 border border-[#A855F7]/40 flex items-center justify-center text-[#E879F9] shrink-0">
-                  <Layers className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-white truncate">Multiple</div>
-                  <div className="text-[10px] text-[#64748B] truncate">Carriers</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Carrier Dropzone Card */}
-            <div className="p-5 rounded-2xl bg-[#0D1322]/90 border border-[#1E293B] shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-[#7C3AED]/20 border border-[#7C3AED]/40 flex items-center justify-center text-[#C084FC]">
-                    <ImageIcon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-semibold text-white">
-                      1. Carrier Image (PNG, JPG, WEBP, BMP)
-                    </h3>
-                    <p className="text-[11px] text-[#64748B]">
-                      Select or drop any carrier image (PNG, JPG, WEBP, BMP)
-                    </p>
-                  </div>
-                </div>
-                {carrierImageData && (
-                  <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 font-mono">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Ready for Embedding
-                  </span>
-                )}
               </div>
 
               {/* Dropzone */}
               <label
                 htmlFor="carrier-input"
-                className={`relative flex flex-col items-center justify-center p-6 sm:p-8 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${
+                className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
                   carrierPreview
-                    ? 'border-[#7C3AED]/50 bg-[#090D16]/90'
-                    : 'border-[#6366F1]/30 hover:border-[#818CF8]/80 bg-[#090D16]/70 hover:bg-[#090D16]'
+                    ? 'border-[#7C3AED]/40 bg-[#0B0F19]'
+                    : 'border-[#334155] hover:border-[#7C3AED] bg-[#0B0F19]/50 hover:bg-[#0B0F19]'
                 }`}
               >
                 {carrierPreview ? (
-                  <div className="relative w-full max-h-56 flex flex-col items-center justify-center overflow-hidden rounded-xl">
+                  <div className="relative w-full max-h-56 flex items-center justify-center overflow-hidden rounded-lg">
                     <img
                       src={carrierPreview}
                       alt="Carrier Preview"
-                      className="max-h-56 object-contain rounded-xl border border-[#1E293B]"
+                      className="max-h-56 object-contain rounded-lg"
                     />
-                    <div className="mt-2 text-xs text-[#94A3B8] flex items-center gap-2">
-                      <span>Click to change carrier image</span>
-                    </div>
                   </div>
                 ) : (
                   <div className="text-center space-y-3">
-                    <div className="w-12 h-12 mx-auto rounded-xl bg-[#1E1B4B]/80 border border-[#7C3AED]/40 flex items-center justify-center text-[#C084FC] shadow-[0_0_20px_rgba(124,58,237,0.35)]">
-                      <ImageIcon className="w-6 h-6" />
+                    <div className="w-10 h-10 mx-auto rounded-full bg-[#7C3AED]/10 flex items-center justify-center text-[#A855F7]">
+                      <ImageIcon className="w-5 h-5" />
                     </div>
-                    <div className="text-sm text-white font-medium">
-                      Drag &amp; drop any carrier image here
+                    <div className="space-y-0.5">
+                      <div className="text-sm text-[#E2E8F0] font-medium">
+                        Select or drop any carrier image (PNG, JPG, WEBP, BMP)
+                      </div>
+                      <div className="text-xs text-[#94A3B8]">
+                        Automatic lossless RGB raster conversion & high-capacity analysis
+                      </div>
                     </div>
-                    <div className="text-xs text-[#64748B] max-w-sm mx-auto">
-                      Automatic lossless RGB raster conversion &amp; high-capacity analysis
-                    </div>
-                    <div className="pt-1">
-                      <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1E293B]/90 hover:bg-[#334155] border border-[#334155] text-xs font-semibold text-white shadow-sm transition-all pointer-events-none">
-                        <FolderOpen className="w-3.5 h-3.5 text-[#C084FC]" />
-                        <span>Choose Image</span>
-                      </span>
+                    {/* Instant Ghost Carrier Synthesis Bar */}
+                    <div className="pt-2 border-t border-[#1E293B] space-y-1.5">
+                      <div className="text-[10px] text-[#64748B] uppercase tracking-wider font-semibold">
+                        Or synthesize untraceable zero-provenance carrier:
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-1.5">
+                        {(['nebula', 'cyber', 'quantum', 'aurora'] as const).map((theme) => (
+                          <button
+                            key={theme}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              handleGenerateGhostCarrier(theme);
+                            }}
+                            className="px-2.5 py-1 rounded-md bg-[#111827] hover:bg-[#1E293B] border border-[#334155] hover:border-[#7C3AED] text-[11px] text-[#E2E8F0] capitalize transition-all"
+                          >
+                            {theme}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -949,7 +1040,7 @@ export const CoreStudio: React.FC = () => {
 
               {/* Validation Error Alert */}
               {validationError && (
-                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2.5">
+                <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2.5">
                   <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-red-400" />
                   <div>
                     <div className="font-semibold">Validation Rejected</div>
@@ -965,41 +1056,39 @@ export const CoreStudio: React.FC = () => {
                     Carrier Specifications
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                    <div className="p-2.5 rounded-lg bg-[#090D16] border border-[#1E293B]">
+                    <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
                       <div className="text-[#64748B]">Resolution</div>
                       <div className="font-mono text-white font-semibold">
                         {carrierImageData.width} × {carrierImageData.height}
                       </div>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-[#090D16] border border-[#1E293B]">
+                    <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
                       <div className="text-[#64748B]">Pixel Count</div>
                       <div className="font-mono text-white font-semibold">
                         {(carrierImageData.width * carrierImageData.height).toLocaleString()} px
                       </div>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-[#090D16] border border-[#1E293B]">
+                    <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
                       <div className="text-[#64748B]">Security Tier</div>
                       <div className="font-mono text-[#14B8A6] font-semibold">
-                        {selectedMethod === 'stego-hyper-matrix'
-                          ? 'Undetectable (Quad-Hybrid)'
-                          : selectedMethod === 'stego-stealth-matrix'
-                            ? 'Undetectable (±1)'
-                            : 'Standard'}
+                        {selectedMethod === 'stego-stealth-matrix'
+                          ? 'Undetectable (±1)'
+                          : 'Standard'}
                       </div>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-[#090D16] border border-[#1E293B]">
+                    <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
                       <div className="text-[#64748B]">Usable Capacity</div>
                       <div className="font-mono text-[#14B8A6] font-semibold">
                         {capacity.usableBytes.toLocaleString()} bytes
                       </div>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-[#090D16] border border-[#1E293B]">
+                    <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
                       <div className="text-[#64748B]">Channels Used</div>
                       <div className="font-mono text-[#94A3B8] font-semibold">
                         RGB (3 bits/pixel)
                       </div>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-[#090D16] border border-[#1E293B]">
+                    <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
                       <div className="text-[#64748B]">Format</div>
                       <div className="font-mono text-[#94A3B8] font-semibold">
                         {validationResult?.colorTypeName || 'RGBA Raster'}
@@ -1012,73 +1101,62 @@ export const CoreStudio: React.FC = () => {
           </div>
 
           {/* Right Column: Payload Input, Protocol Framing & Embedding */}
-          <div className="lg:col-span-6 space-y-5">
-            <div className="p-5 sm:p-6 rounded-2xl bg-[#0D1322]/90 border border-[#1E293B] shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]/60">
-                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-[#A855F7]" />
-                  <span>2. Stego Algorithm &amp; Payload Configuration</span>
-                </h3>
-              </div>
+          <div className="lg:col-span-6 space-y-4">
+            <div className="p-5 rounded-xl bg-[#111827] border border-[#1E293B] space-y-4">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#3B82F6]" />
+                <span>2. Stego Algorithm & Payload Configuration</span>
+              </h3>
 
               {/* Steganography Algorithm Engine Selector */}
-              <div className="space-y-3 p-4 rounded-xl bg-[#090D16]/90 border border-[#1E293B]">
+              <div className="space-y-3 p-3.5 rounded-xl bg-[#0B0F19] border border-[#1E293B]">
                 <div className="flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1.5 text-white font-semibold">
                     <Sparkles className="w-3.5 h-3.5 text-[#A855F7]" />
                     <span>Steganography Engine</span>
-                    <span
-                      title="Wavelet and coordinate scattering spatial engines"
-                      className="cursor-help text-[#64748B] hover:text-[#94A3B8]"
-                    >
-                      ⓘ
-                    </span>
                   </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#14B8A6]/10 border border-[#14B8A6]/30 text-[#14B8A6] font-mono flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#14B8A6]" />
                     <span>Undetectable</span>
                   </span>
                 </div>
 
-                {/* Engine Selector Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {/* Flagship Quad-Hybrid */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMethod('stego-hyper-matrix')}
-                    className={`p-3 rounded-xl text-left border transition-all ${
-                      selectedMethod === 'stego-hyper-matrix'
-                        ? 'bg-gradient-to-r from-[#7C3AED]/20 to-[#3B82F6]/20 border-[#7C3AED] shadow-[0_0_15px_rgba(124,58,237,0.3)] ring-1 ring-[#7C3AED]/50'
-                        : 'bg-[#111827]/70 border-[#1E293B] hover:border-[#334155]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <Activity className="w-3.5 h-3.5 text-[#C084FC]" />
-                        <span className="text-xs font-semibold text-white">Hyper-Matrix</span>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#7C3AED]/20 text-[#C084FC] font-medium font-mono">
-                          Quad-Hybrid
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-[10px] text-[#94A3B8] mt-1 line-clamp-2">
-                      Wavelet frequency + edge masking + PRNG scatter + ±1 matching
-                    </div>
-                    <div className="mt-2">
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#7C3AED]/30 border border-[#A855F7]/40 text-[#E879F9] font-medium inline-block">
-                        Recommended ✓
+                {/* Flagship Quad-Hybrid Option */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedMethod('stego-hyper-matrix')}
+                  className={`w-full p-3 rounded-lg text-left border transition-all ${
+                    selectedMethod === 'stego-hyper-matrix'
+                      ? 'bg-gradient-to-r from-[#7C3AED]/20 to-[#3B82F6]/20 border-[#7C3AED] shadow-[0_0_15px_rgba(124,58,237,0.25)]'
+                      : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5 text-[#C084FC]" />
+                      <span className="text-xs font-semibold text-white">Hyper-Matrix</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#7C3AED]/20 text-[#C084FC] font-medium font-mono">
+                        Quad-Hybrid
                       </span>
                     </div>
-                  </button>
+                    <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium">
+                      Recommended
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-[#94A3B8] mt-1 pl-6">
+                    Wavelet frequency + edge masking + PRNG scatter + ±1 matching
+                  </div>
+                </button>
 
-                  {/* Stealth Matrix */}
+                {/* Specialized Engines Grid */}
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setSelectedMethod('stego-stealth-matrix')}
-                    className={`p-3 rounded-xl text-left border transition-all ${
+                    className={`p-2.5 rounded-lg text-left border transition-all ${
                       selectedMethod === 'stego-stealth-matrix'
-                        ? 'bg-[#14B8A6]/15 border-[#14B8A6] shadow-[0_0_12px_rgba(20,184,166,0.25)] ring-1 ring-[#14B8A6]/50'
-                        : 'bg-[#111827]/70 border-[#1E293B] hover:border-[#334155]'
+                        ? 'bg-[#14B8A6]/15 border-[#14B8A6] shadow-[0_0_12px_rgba(20,184,166,0.2)]'
+                        : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -1087,19 +1165,18 @@ export const CoreStudio: React.FC = () => {
                         ±1
                       </span>
                     </div>
-                    <div className="text-[10px] text-[#94A3B8] mt-1">
+                    <div className="text-[11px] text-[#94A3B8] mt-0.5">
                       PRNG scatter &amp; ±1 matching
                     </div>
                   </button>
 
-                  {/* Haar Wavelet */}
                   <button
                     type="button"
                     onClick={() => setSelectedMethod('stego-dwt')}
-                    className={`p-3 rounded-xl text-left border transition-all ${
+                    className={`p-2.5 rounded-lg text-left border transition-all ${
                       selectedMethod === 'stego-dwt'
-                        ? 'bg-[#3B82F6]/15 border-[#3B82F6] shadow-[0_0_12px_rgba(59,130,246,0.25)] ring-1 ring-[#3B82F6]/50'
-                        : 'bg-[#111827]/70 border-[#1E293B] hover:border-[#334155]'
+                        ? 'bg-[#3B82F6]/15 border-[#3B82F6] shadow-[0_0_12px_rgba(59,130,246,0.2)]'
+                        : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -1108,19 +1185,18 @@ export const CoreStudio: React.FC = () => {
                         DWT
                       </span>
                     </div>
-                    <div className="text-[10px] text-[#94A3B8] mt-1">
+                    <div className="text-[11px] text-[#94A3B8] mt-0.5">
                       Diagonal high-frequency subband
                     </div>
                   </button>
 
-                  {/* PVD Differencing */}
                   <button
                     type="button"
                     onClick={() => setSelectedMethod('stego-pvd')}
-                    className={`p-3 rounded-xl text-left border transition-all ${
+                    className={`p-2.5 rounded-lg text-left border transition-all ${
                       selectedMethod === 'stego-pvd'
-                        ? 'bg-[#F59E0B]/15 border-[#F59E0B] shadow-[0_0_12px_rgba(245,158,11,0.25)] ring-1 ring-[#F59E0B]/50'
-                        : 'bg-[#111827]/70 border-[#1E293B] hover:border-[#334155]'
+                        ? 'bg-[#F59E0B]/15 border-[#F59E0B] shadow-[0_0_12px_rgba(245,158,11,0.2)]'
+                        : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -1129,19 +1205,18 @@ export const CoreStudio: React.FC = () => {
                         PVD
                       </span>
                     </div>
-                    <div className="text-[10px] text-[#94A3B8] mt-1">
+                    <div className="text-[11px] text-[#94A3B8] mt-0.5">
                       Edge-adaptive contrast masking
                     </div>
                   </button>
 
-                  {/* Sequential LSB - Spanning 2 columns */}
                   <button
                     type="button"
                     onClick={() => setSelectedMethod('png-lsb-sequential')}
-                    className={`sm:col-span-2 p-3 rounded-xl text-left border transition-all ${
+                    className={`p-2.5 rounded-lg text-left border transition-all ${
                       selectedMethod === 'png-lsb-sequential'
-                        ? 'bg-[#94A3B8]/15 border-[#94A3B8] shadow-[0_0_12px_rgba(148,163,184,0.2)] ring-1 ring-[#94A3B8]/50'
-                        : 'bg-[#111827]/70 border-[#1E293B] hover:border-[#334155]'
+                        ? 'bg-[#94A3B8]/15 border-[#94A3B8] shadow-[0_0_12px_rgba(148,163,184,0.2)]'
+                        : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -1150,14 +1225,14 @@ export const CoreStudio: React.FC = () => {
                         Raster
                       </span>
                     </div>
-                    <div className="text-[10px] text-[#94A3B8] mt-0.5">
+                    <div className="text-[11px] text-[#94A3B8] mt-0.5">
                       Deterministic sequential scan
                     </div>
                   </button>
                 </div>
 
                 {/* Single-line Dynamic Technical Status Bar */}
-                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#111827]/80 border border-[#1E293B] text-[11px]">
+                <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-[#111827] border border-[#1E293B] text-[11px]">
                   <div className="flex items-center gap-1.5 text-[#94A3B8]">
                     <ShieldCheck className="w-3.5 h-3.5 text-[#14B8A6]" />
                     <span>Defense:</span>
@@ -1173,7 +1248,7 @@ export const CoreStudio: React.FC = () => {
                               : 'Sequential Raster Bit-Plane Scan'}
                     </span>
                   </div>
-                  <span className="font-mono text-[10px] text-[#38BDF8] font-semibold">
+                  <span className="font-mono text-[10px] text-[#38BDF8]">
                     {selectedMethod === 'stego-hyper-matrix'
                       ? 'PSNR >52 dB'
                       : selectedMethod === 'stego-stealth-matrix'
@@ -1185,17 +1260,17 @@ export const CoreStudio: React.FC = () => {
                             : 'Linear'}
                   </span>
                 </div>
-              </div>
 
-              {/* Lock with Passkey (Optional) Section */}
-              <div className="p-4 rounded-xl bg-[#090D16]/90 border border-[#1E293B]">
-                <SmartPasskeyAssistant
-                  idPrefix="encode-passkey"
-                  value={passphrase}
-                  onChange={(newKey) => setPassphrase(newKey)}
-                  mode="encode"
-                  placeholder="Enter passkey, or pick Memorable Words, Photo Key, 32-Byte Token, or Biometrics..."
-                />
+                {/* Smart Passkey Assistant for Encode */}
+                <div className="pt-2 border-t border-[#1E293B]">
+                  <SmartPasskeyAssistant
+                    idPrefix="encode-passkey"
+                    value={passphrase}
+                    onChange={(newKey) => setPassphrase(newKey)}
+                    mode="encode"
+                    placeholder="Enter passkey, or pick Memorable Words, Photo Key, 32-Byte Token, or Biometrics..."
+                  />
+                </div>
               </div>
 
               {/* Secret Payload Mode Selector & Inputs */}
@@ -1328,6 +1403,72 @@ export const CoreStudio: React.FC = () => {
                         />
                       </label>
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* Chameleon Dual-Layer (Anti-Coercion Plausible Deniability) */}
+              <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#1E293B] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-[#F59E0B]" />
+                    <span className="text-xs font-semibold text-white">
+                      Chameleon Dual-Layer (Anti-Coercion)
+                    </span>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-[#94A3B8] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isChameleonEnabled}
+                      onChange={(e) => setIsChameleonEnabled(e.target.checked)}
+                      className="rounded bg-[#111827] border-[#334155] text-[#F59E0B] focus:ring-[#F59E0B]"
+                    />
+                    <span>Enable Dual-Layer Deniability</span>
+                  </label>
+                </div>
+                <p className="text-[11px] text-[#94A3B8] leading-relaxed">
+                  Embeds an authentic decoy payload alongside your confidential secret. If forced to
+                  surrender a passkey under duress, the decoy passkey reveals only the harmless
+                  decoy, leaving no mathematical trace of the master layer.
+                </p>
+
+                {isChameleonEnabled && (
+                  <div className="space-y-3 pt-2 border-t border-[#1E293B] text-xs">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="decoy-payload-input"
+                        className="text-[#94A3B8] flex items-center justify-between"
+                      >
+                        <span>Decoy Message (Surrendered under Duress)</span>
+                        <span className="font-mono text-[#64748B]">{decoyText.length} chars</span>
+                      </label>
+                      <textarea
+                        id="decoy-payload-input"
+                        value={decoyText}
+                        onChange={(e) => setDecoyText(e.target.value)}
+                        rows={2}
+                        className="w-full p-2.5 rounded-lg bg-[#111827] border border-[#1E293B] text-white text-xs font-mono focus:outline-none focus:border-[#F59E0B] resize-y"
+                        placeholder="Enter harmless decoy message..."
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label htmlFor="decoy-passkey-input" className="text-[#94A3B8] block">
+                        Decoy Passkey (Surrender this if coerced)
+                      </label>
+                      <input
+                        id="decoy-passkey-input"
+                        type="text"
+                        value={decoyPassphrase}
+                        onChange={(e) => setDecoyPassphrase(e.target.value)}
+                        placeholder="Enter decoy passkey..."
+                        className="w-full p-2 rounded-lg bg-[#111827] border border-[#1E293B] text-white text-xs font-mono focus:outline-none focus:border-[#F59E0B]"
+                      />
+                      <div className="text-[10px] text-[#64748B]">
+                        Your confidential payload uses your primary passkey above. The decoy payload
+                        uses this decoy passkey.
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1536,7 +1677,7 @@ export const CoreStudio: React.FC = () => {
                 </div>
               )}
 
-              {/* Full-width Glowing Action Button */}
+              {/* Action Buttons */}
               <div className="pt-2 flex items-center gap-3">
                 <button
                   type="button"
@@ -1548,7 +1689,7 @@ export const CoreStudio: React.FC = () => {
                     (payloadMode === 'image' && !secretImageBytes) ||
                     (Boolean(capacity) && effectivePayloadLength > (capacity?.usableBytes ?? 0))
                   }
-                  className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#7C3AED] via-[#9333EA] to-[#3B82F6] hover:from-[#6D28D9] hover:to-[#2563EB] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold shadow-[0_0_25px_rgba(124,58,237,0.5)] hover:shadow-[0_0_35px_rgba(124,58,237,0.7)] transition-all cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-[0_0_20px_rgba(124,58,237,0.3)] transition-all"
                 >
                   {isEmbedding ? (
                     <>
@@ -1557,8 +1698,8 @@ export const CoreStudio: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4 text-white" />
-                      <span>Embed &amp; Conceal Payload</span>
+                      <EyeOff className="w-4 h-4" />
+                      <span>Embed & Conceal Payload</span>
                     </>
                   )}
                 </button>
@@ -1709,156 +1850,38 @@ export const CoreStudio: React.FC = () => {
         </div>
       ) : (
         /* Reveal (Extract) Tab */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Brand Hero + 3D Perspective Graphic + Tab Switcher + Features + Stego Upload */}
-          <div className="lg:col-span-6 space-y-5">
-            {/* Hero Capsule Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1E1B4B]/80 border border-[#7C3AED]/40 shadow-[0_0_12px_rgba(124,58,237,0.25)]">
-              <span className="text-[10px] font-bold tracking-widest text-[#C084FC] uppercase font-mono">
-                STEGANOGRAPHY ENGINE
-              </span>
-            </div>
-
-            {/* Headline & Subtitle */}
-            <div className="space-y-1.5">
-              <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white font-['Sora']">
-                OMBRIX
-                <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#38BDF8] bg-clip-text text-transparent">
-                  ™
-                </span>
-              </h1>
-              <p className="text-base sm:text-lg font-medium text-white/90">
-                Beyond what the eye can see.
-              </p>
-              <p className="text-xs sm:text-sm text-[#94A3B8] leading-relaxed max-w-xl">
-                Universal carrier decoding with automatic algorithm identification, zero data leaks,
-                and authenticated recipient verification.
-              </p>
-            </div>
-
-            {/* 3D Perspective Floating Layers Graphic */}
-            <HeroPerspectiveLayers carrierPreviewUrl={revealPreview} />
-
-            {/* Mode Switcher Tabs */}
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={false}
-                onClick={() => {
-                  setActiveTab('hide');
-                  studioDataBus.setCoreTab('hide');
-                }}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold transition-all shadow-lg bg-[#111827]/80 hover:bg-[#1E293B] text-[#94A3B8] hover:text-white border border-[#1E293B]"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>Hide Secret (Encode)</span>
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={true}
-                onClick={() => {
-                  setActiveTab('reveal');
-                  studioDataBus.setCoreTab('reveal');
-                }}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold transition-all shadow-lg bg-gradient-to-r from-[#3B82F6] to-[#14B8A6] text-white shadow-[0_0_20px_rgba(59,130,246,0.5)] border border-[#38BDF8]/50"
-              >
-                <Eye className="w-3.5 h-3.5 text-white" />
-                <span>Reveal Secret (Decode)</span>
-                <ArrowRight className="w-3.5 h-3.5 opacity-70" />
-              </button>
-            </div>
-
-            {/* Feature Badges Row */}
-            <div className="grid grid-cols-3 gap-2.5">
-              <div className="flex items-center gap-2.5 p-2.5 sm:p-3 rounded-xl bg-[#0D1322]/80 border border-[#1E293B] backdrop-blur-md">
-                <div className="w-8 h-8 rounded-lg bg-[#7C3AED]/20 border border-[#7C3AED]/40 flex items-center justify-center text-[#C084FC] shrink-0">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-white truncate">Auto Detect</div>
-                  <div className="text-[10px] text-[#64748B] truncate">All 5 Engines</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5 p-2.5 sm:p-3 rounded-xl bg-[#0D1322]/80 border border-[#1E293B] backdrop-blur-md">
-                <div className="w-8 h-8 rounded-lg bg-[#3B82F6]/20 border border-[#3B82F6]/40 flex items-center justify-center text-[#38BDF8] shrink-0">
-                  <Zap className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-white truncate">Zero-Leak</div>
-                  <div className="text-[10px] text-[#64748B] truncate">Worker Sandbox</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5 p-2.5 sm:p-3 rounded-xl bg-[#0D1322]/80 border border-[#1E293B] backdrop-blur-md">
-                <div className="w-8 h-8 rounded-lg bg-[#A855F7]/20 border border-[#A855F7]/40 flex items-center justify-center text-[#E879F9] shrink-0">
-                  <Layers className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-white truncate">Lossless</div>
-                  <div className="text-[10px] text-[#64748B] truncate">Integrity Check</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Stego Carrier Upload Dropzone Card */}
-            <div className="p-5 rounded-2xl bg-[#0D1322]/90 border border-[#1E293B] shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-[#3B82F6]/20 border border-[#3B82F6]/40 flex items-center justify-center text-[#38BDF8]">
-                    <ImageIcon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-semibold text-white">
-                      Upload Stego Carrier Image
-                    </h3>
-                    <p className="text-[11px] text-[#64748B]">
-                      PNG, JPG, WEBP, or BMP carrier containing hidden secrets
-                    </p>
-                  </div>
-                </div>
-                {revealPreview && (
-                  <span className="flex items-center gap-1 text-[11px] text-cyan-400 font-medium px-2.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 font-mono">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Carrier Loaded
-                  </span>
-                )}
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-6 space-y-4">
+            <div className="p-5 rounded-xl bg-[#111827] border border-[#1E293B] space-y-4">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-[#3B82F6]" />
+                <span>Upload Stego Carrier Image</span>
+              </h3>
 
               <label
                 htmlFor="reveal-input"
-                className={`relative flex flex-col items-center justify-center p-6 sm:p-8 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${
+                className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
                   revealPreview
-                    ? 'border-[#3B82F6]/50 bg-[#090D16]/90'
-                    : 'border-[#38BDF8]/30 hover:border-[#38BDF8]/80 bg-[#090D16]/70 hover:bg-[#090D16]'
+                    ? 'border-[#3B82F6]/40 bg-[#0B0F19]'
+                    : 'border-[#334155] hover:border-[#3B82F6] bg-[#0B0F19]/50 hover:bg-[#0B0F19]'
                 }`}
               >
                 {revealPreview ? (
-                  <div className="relative w-full max-h-56 flex flex-col items-center justify-center overflow-hidden rounded-xl">
-                    <img
-                      src={revealPreview}
-                      alt="Stego Candidate"
-                      className="max-h-56 object-contain rounded-xl border border-[#1E293B]"
-                    />
-                    <div className="mt-2 text-xs text-[#94A3B8] flex items-center gap-2">
-                      <span>Click to select another carrier</span>
-                    </div>
-                  </div>
+                  <img
+                    src={revealPreview}
+                    alt="Stego Candidate"
+                    className="max-h-56 object-contain rounded-lg"
+                  />
                 ) : (
-                  <div className="text-center space-y-3">
-                    <div className="w-12 h-12 mx-auto rounded-xl bg-[#1E1B4B]/80 border border-[#3B82F6]/40 flex items-center justify-center text-[#38BDF8] shadow-[0_0_20px_rgba(59,130,246,0.35)]">
-                      <Eye className="w-6 h-6" />
+                  <div className="text-center space-y-2">
+                    <div className="w-10 h-10 mx-auto rounded-full bg-[#3B82F6]/10 flex items-center justify-center text-[#3B82F6]">
+                      <Eye className="w-5 h-5" />
                     </div>
-                    <div className="text-sm text-white font-medium">
-                      Select or drop stego carrier image
+                    <div className="text-sm text-[#E2E8F0] font-medium">
+                      Select or drop stego carrier image (PNG, JPG, WEBP, BMP)
                     </div>
-                    <div className="text-xs text-[#64748B] max-w-sm mx-auto">
+                    <div className="text-xs text-[#94A3B8]">
                       Universal decoder with automatic algorithm detection
-                    </div>
-                    <div className="pt-1">
-                      <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1E293B]/90 hover:bg-[#334155] border border-[#334155] text-xs font-semibold text-white shadow-sm transition-all pointer-events-none">
-                        <FolderOpen className="w-3.5 h-3.5 text-[#38BDF8]" />
-                        <span>Choose Stego Image</span>
-                      </span>
                     </div>
                   </div>
                 )}
@@ -1875,27 +1898,14 @@ export const CoreStudio: React.FC = () => {
               </label>
 
               {revealValidationError && (
-                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                   <span>{revealValidationError}</span>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Right Column: Passkey, Sender Verify, Extract Action & Decoded Output */}
-          <div className="lg:col-span-6 space-y-5">
-            {/* Decryption Configuration Card */}
-            <div className="p-5 sm:p-6 rounded-2xl bg-[#0D1322]/90 border border-[#1E293B] shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]/60">
-                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                  <Key className="w-4 h-4 text-[#38BDF8]" />
-                  <span>2. Unlock Passkey &amp; Verification</span>
-                </h3>
-              </div>
 
               {/* Smart Passkey Assistant for Decode */}
-              <div className="p-4 rounded-xl bg-[#090D16]/90 border border-[#1E293B]">
+              <div className="p-3.5 rounded-xl bg-[#0B0F19] border border-[#1E293B]">
                 <SmartPasskeyAssistant
                   idPrefix="decode-passkey"
                   value={revealPassphrase}
@@ -1906,7 +1916,7 @@ export const CoreStudio: React.FC = () => {
               </div>
 
               {/* Optional Sender Public Key for Verification */}
-              <div className="space-y-1.5 p-3.5 rounded-xl bg-[#090D16]/90 border border-[#1E293B]">
+              <div className="space-y-1.5 p-3 rounded-lg bg-[#0B0F19] border border-[#1E293B]">
                 <label
                   htmlFor="sender-pubkey-verify"
                   className="text-xs text-[#94A3B8] flex items-center gap-1.5"
@@ -1920,7 +1930,7 @@ export const CoreStudio: React.FC = () => {
                   value={senderPublicKeyInput}
                   onChange={(e) => setSenderPublicKeyInput(e.target.value)}
                   placeholder="Auto-checks contacts and identity, or paste custom Base64 key..."
-                  className="w-full p-2.5 rounded-lg bg-[#111827] border border-[#334155] text-white font-mono text-xs focus:outline-none focus:border-[#3B82F6]"
+                  className="w-full p-2 rounded bg-[#111827] border border-[#334155] text-white font-mono text-[11px] focus:outline-none focus:border-[#3B82F6]"
                 />
                 <div className="text-[10px] text-[#64748B]">
                   Leave blank to automatically check against your saved Vault contacts and session
@@ -1928,13 +1938,12 @@ export const CoreStudio: React.FC = () => {
                 </div>
               </div>
 
-              {/* Full-width Extract Button */}
               <div className="pt-2 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleExtract}
                   disabled={!revealPreview || isExtracting || Boolean(revealValidationError)}
-                  className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#3B82F6] via-[#2563EB] to-[#14B8A6] hover:from-[#1D4ED8] hover:to-[#0D9488] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold shadow-[0_0_25px_rgba(59,130,246,0.5)] hover:shadow-[0_0_35px_rgba(59,130,246,0.7)] transition-all cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#3B82F6] hover:bg-[#2563EB] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all"
                 >
                   {isExtracting ? (
                     <>
@@ -1943,7 +1952,7 @@ export const CoreStudio: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4" />
+                      <RefreshCw className="w-4 h-4" />
                       <span>Extract Embedded Payload</span>
                     </>
                   )}
@@ -1953,7 +1962,7 @@ export const CoreStudio: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => extractAbortRef.current?.abort()}
-                    className="px-4 py-3.5 rounded-xl bg-[#1E293B] hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-[#334155] transition-colors"
+                    className="px-3 py-2.5 rounded-lg bg-[#1E293B] hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-[#334155] transition-colors"
                   >
                     Cancel
                   </button>
@@ -1961,7 +1970,7 @@ export const CoreStudio: React.FC = () => {
               </div>
 
               {extractError && (
-                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2">
+                <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2">
                   <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="font-semibold">Extraction Failed</div>
@@ -1970,9 +1979,11 @@ export const CoreStudio: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Extracted Secret Information Card */}
-            <div className="p-5 sm:p-6 rounded-2xl bg-[#0D1322]/90 border border-[#1E293B] shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl space-y-4">
+          {/* Reveal Result Column */}
+          <div className="lg:col-span-6 space-y-4">
+            <div className="p-5 rounded-xl bg-[#111827] border border-[#1E293B] space-y-4">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <FileText className="w-4 h-4 text-[#14B8A6]" />
                 <span>Extracted Secret Information</span>
@@ -1996,6 +2007,47 @@ export const CoreStudio: React.FC = () => {
 
                   {/* Status Badges */}
                   <div className="space-y-2">
+                    {/* Chameleon Dual-Layer Status */}
+                    {unlockedChameleonLayer === 'master' && (
+                      <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <div>
+                            <div className="font-semibold text-emerald-300">
+                              Chameleon Confidential Layer Unlocked
+                            </div>
+                            <div className="text-[11px] text-emerald-400/80">
+                              Master passkey authenticated. Confidential secret decrypted with zero
+                              decoy residue.
+                            </div>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] shrink-0">
+                          Master Layer
+                        </span>
+                      </div>
+                    )}
+
+                    {unlockedChameleonLayer === 'decoy' && (
+                      <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                          <div>
+                            <div className="font-semibold text-amber-300">
+                              Chameleon Decoy Layer Unlocked (Anti-Coercion)
+                            </div>
+                            <div className="text-[11px] text-amber-400/80">
+                              Decoy passkey verified. Plausible deniability active — Master layer
+                              remains mathematically undetectable.
+                            </div>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] shrink-0">
+                          Decoy Layer
+                        </span>
+                      </div>
+                    )}
+
                     {/* Decryption Status */}
                     {decryptionStatus === 'decrypted' && (
                       <div className="p-3 rounded-lg bg-[#14B8A6]/10 border border-[#14B8A6]/30 text-[#14B8A6] text-xs flex items-center gap-2">

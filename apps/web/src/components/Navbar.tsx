@@ -1,23 +1,19 @@
 import {
-  BookOpen,
   Camera,
   ChevronDown,
   Cpu,
   Database,
-  ExternalLink,
+  Eye,
+  EyeOff,
   FlaskConical,
-  Home,
   Link2,
   Lock,
   Menu,
-  Moon,
-  Play,
   Radar,
   Radio,
   Server,
-  Settings,
+  Shield,
   Split,
-  Sun,
   Wrench,
   X,
   ZoomIn,
@@ -55,9 +51,10 @@ interface SecondaryTool {
   badge?: string;
 }
 
-export const CORE_MODULE_DEF = {
-  id: 'core' as const,
-  label: 'Core Stego Engine',
+export const PRIMARY_TOOL = {
+  id: 'core' as ProductModule,
+  label: 'Core Steganography',
+  sublabel: 'Deterministic & stealth stego engine',
 };
 
 const SECONDARY_TOOLS: SecondaryTool[] = [
@@ -146,10 +143,16 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectModule,
   onOpenDemoModal,
 }) => {
+  const [activeCoreTab, setActiveCoreTab] = useState<'hide' | 'reveal'>('hide');
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    return studioDataBus.subscribeCoreTab((tab) => {
+      setActiveCoreTab(tab);
+    });
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -162,8 +165,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelectHome = () => {
-    studioDataBus.setCoreTab('hide');
+  const handleSelectCoreTab = (tab: 'hide' | 'reveal') => {
+    studioDataBus.setCoreTab(tab);
     onSelectModule('core');
     setIsToolsOpen(false);
     setIsMobileMenuOpen(false);
@@ -178,86 +181,73 @@ export const Navbar: React.FC<NavbarProps> = ({
   const activeSecondaryTool = SECONDARY_TOOLS.find((t) => t.id === activeModule);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[#1E293B]/80 bg-[#0B0F19]/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-[#1E293B] bg-[#0B0F19]/95 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-3">
-          {/* Brand Logo & Tagline */}
+        <div className="flex items-center justify-between h-16 gap-4">
+          {/* Logo & Tagline */}
           <button
             type="button"
             className="flex items-center gap-3 cursor-pointer shrink-0 bg-transparent border-0 p-0 text-left focus:outline-none focus:ring-2 focus:ring-[#7C3AED] rounded-lg"
-            onClick={handleSelectHome}
+            onClick={() => handleSelectCoreTab('hide')}
             aria-label="OMBRIX Home"
           >
-            <OmbrixLogo tagline={false} />
+            <OmbrixLogo tagline={true} />
           </button>
 
-          {/* Center Navigation Pill Bar (Matching Reference) */}
-          <nav className="hidden md:flex items-center p-1 bg-[#111827]/90 border border-[#1E293B] rounded-xl shadow-inner text-xs">
-            {/* Home */}
+          {/* Primary Action Tabs (Center) */}
+          <nav className="hidden md:flex items-center p-1 bg-[#131B2E] border border-[#1E293B] rounded-xl shadow-inner">
             <button
               type="button"
-              onClick={handleSelectHome}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium transition-all ${
-                activeModule === 'core'
-                  ? 'bg-gradient-to-r from-[#7C3AED] to-[#A855F7] text-white shadow-[0_0_12px_rgba(124,58,237,0.4)]'
+              onClick={() => handleSelectCoreTab('hide')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all ${
+                activeModule === 'core' && activeCoreTab === 'hide'
+                  ? 'bg-gradient-to-r from-[#7C3AED] to-[#A855F7] text-white shadow-[0_0_15px_rgba(124,58,237,0.4)]'
                   : 'text-[#94A3B8] hover:text-[#E2E8F0] hover:bg-[#1E293B]/50'
               }`}
             >
-              <Home className="w-3.5 h-3.5" />
-              <span>Home</span>
+              <EyeOff className="w-4 h-4 text-[#C084FC]" />
+              <span>Hide Secret (Encode)</span>
             </button>
 
-            {/* Engine */}
             <button
               type="button"
-              onClick={() => handleSelectTool('lab')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium transition-all ${
-                activeModule === 'lab'
-                  ? 'bg-gradient-to-r from-[#7C3AED] to-[#3B82F6] text-white shadow-[0_0_12px_rgba(59,130,246,0.4)]'
+              onClick={() => handleSelectCoreTab('reveal')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all ${
+                activeModule === 'core' && activeCoreTab === 'reveal'
+                  ? 'bg-gradient-to-r from-[#3B82F6] to-[#14B8A6] text-white shadow-[0_0_15px_rgba(59,130,246,0.4)]'
                   : 'text-[#94A3B8] hover:text-[#E2E8F0] hover:bg-[#1E293B]/50'
               }`}
             >
-              <Cpu className="w-3.5 h-3.5" />
-              <span>Engine</span>
+              <Eye className="w-4 h-4 text-[#38BDF8]" />
+              <span>Reveal Secret (Decode)</span>
             </button>
+          </nav>
 
-            {/* Datasets */}
-            <button
-              type="button"
-              onClick={onOpenDemoModal}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium text-[#94A3B8] hover:text-[#E2E8F0] hover:bg-[#1E293B]/50 transition-all"
-            >
-              <Database className="w-3.5 h-3.5 text-[#06B6D4]" />
-              <span>Datasets</span>
-            </button>
-
-            {/* Tools Dropdown */}
+          {/* Right Controls & Secondary Tools Dropdown */}
+          <div className="hidden lg:flex items-center gap-3">
+            {/* Advanced Tools Dropdown */}
             <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setIsToolsOpen((prev) => !prev)}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium transition-all ${
-                  activeSecondaryTool && activeModule !== 'lab'
-                    ? 'bg-[#7C3AED]/20 text-white border border-[#7C3AED]/40'
-                    : 'text-[#94A3B8] hover:text-[#E2E8F0] hover:bg-[#1E293B]/50'
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  activeSecondaryTool
+                    ? 'bg-[#7C3AED]/20 border-[#7C3AED]/50 text-white shadow-[0_0_10px_rgba(124,58,237,0.25)]'
+                    : 'bg-[#1E293B]/70 hover:bg-[#1E293B] border-[#334155] text-[#94A3B8] hover:text-[#E2E8F0]'
                 }`}
               >
                 <Wrench className="w-3.5 h-3.5 text-[#A855F7]" />
-                <span>
-                  {activeSecondaryTool && activeModule !== 'lab'
-                    ? activeSecondaryTool.label
-                    : 'Tools'}
-                </span>
+                <span>{activeSecondaryTool ? activeSecondaryTool.label : 'Advanced Tools'}</span>
                 <ChevronDown
-                  className={`w-3 h-3 transition-transform duration-200 ${isToolsOpen ? 'rotate-180' : ''}`}
+                  className={`w-3.5 h-3.5 transition-transform duration-200 ${isToolsOpen ? 'rotate-180' : ''}`}
                 />
               </button>
 
               {/* Dropdown Menu */}
               {isToolsOpen && (
-                <div className="absolute left-0 mt-2 w-80 rounded-xl bg-[#0F172A] border border-[#334155] shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#64748B] border-b border-[#1E293B]">
-                    Specialized Modules
+                <div className="absolute right-0 mt-2 w-80 rounded-xl bg-[#0F172A] border border-[#334155] shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#64748B] border-b border-[#1E293B]">
+                    Specialized Forensic & Security Modules
                   </div>
 
                   <div className="py-2 space-y-3 max-h-[70vh] overflow-y-auto">
@@ -306,77 +296,33 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* Docs */}
-            <a
-              href="https://github.com/SanthaKumar-K-2004/OMBRIX#readme"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium text-[#94A3B8] hover:text-[#E2E8F0] hover:bg-[#1E293B]/50 transition-all"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Docs</span>
-              <ExternalLink className="w-3 h-3 text-[#64748B]" />
-            </a>
-          </nav>
-
-          {/* Right Action Icons & Demo Button (Matching Reference) */}
-          <div className="hidden md:flex items-center gap-2.5">
-            {/* Theme Toggle Button */}
-            <button
-              type="button"
-              onClick={() => setIsDarkMode((prev) => !prev)}
-              className="p-2 rounded-lg bg-[#111827] hover:bg-[#1E293B] border border-[#1E293B] text-[#94A3B8] hover:text-white transition-colors"
-              title={isDarkMode ? 'Theme: Dark (Active)' : 'Theme: Light'}
-              aria-label="Toggle Theme"
-            >
-              {isDarkMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-            </button>
-
-            {/* Settings / Vault Shortcut Button */}
-            <button
-              type="button"
-              onClick={() => handleSelectTool('vault')}
-              className={`p-2 rounded-lg border transition-colors ${
-                activeModule === 'vault'
-                  ? 'bg-[#7C3AED]/20 border-[#7C3AED] text-white'
-                  : 'bg-[#111827] hover:bg-[#1E293B] border-[#1E293B] text-[#94A3B8] hover:text-white'
-              }`}
-              title="Vault & Settings"
-              aria-label="Vault & Settings"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-
-            {/* Glowing Demo Action Button */}
+            {/* Demo Vectors Quick Launcher */}
             {onOpenDemoModal && (
               <button
                 type="button"
                 onClick={onOpenDemoModal}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#7C3AED] via-[#A855F7] to-[#3B82F6] hover:opacity-90 text-white text-xs font-semibold shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1E293B]/80 hover:bg-[#334155] border border-[#334155] text-xs font-medium text-[#E2E8F0] transition-colors"
+                title="Open Curated Forensic Datasets"
               >
-                <Play className="w-3.5 h-3.5 fill-white" />
-                <span>Demo</span>
+                <Database className="w-3.5 h-3.5 text-[#06B6D4]" />
+                <span>Demo Datasets</span>
               </button>
             )}
+
+            {/* Sandbox Status Badge */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#14B8A6]/10 border border-[#14B8A6]/30 text-[#14B8A6] text-xs font-mono shrink-0">
+              <span className="w-2 h-2 rounded-full bg-[#14B8A6] animate-pulse" />
+              <span>100% Client-Side</span>
+            </div>
           </div>
 
           {/* Mobile & Tablet Hamburger Button */}
-          <div className="flex items-center gap-2 md:hidden">
-            {onOpenDemoModal && (
-              <button
-                type="button"
-                onClick={onOpenDemoModal}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#7C3AED] text-white text-[11px] font-semibold"
-              >
-                <Play className="w-3 h-3 fill-white" />
-                <span>Demo</span>
-              </button>
-            )}
+          <div className="flex items-center gap-2 lg:hidden">
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-              className="p-2 rounded-lg bg-[#1E293B] text-[#94A3B8] hover:text-white border border-[#334155]"
-              aria-label="Open mobile menu"
+              className="p-2 rounded-lg bg-[#1E293B] hover:bg-[#334155] text-[#E2E8F0] border border-[#334155] transition-colors"
+              aria-label="Toggle navigation menu"
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -384,77 +330,81 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
+      {/* Mobile & Tablet Drawer Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden border-t border-[#1E293B] bg-[#0B0F19] p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+        <div className="lg:hidden border-t border-[#1E293B] bg-[#0B0F19] px-4 pt-3 pb-6 space-y-4 shadow-2xl">
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={handleSelectHome}
-              className="p-2.5 rounded-lg bg-[#111827] border border-[#1E293B] text-left text-xs font-medium text-white flex items-center gap-2"
+              onClick={() => handleSelectCoreTab('hide')}
+              className={`flex items-center justify-center gap-2 p-3 rounded-lg text-xs font-semibold ${
+                activeModule === 'core' && activeCoreTab === 'hide'
+                  ? 'bg-[#7C3AED] text-white'
+                  : 'bg-[#1E293B] text-[#94A3B8]'
+              }`}
             >
-              <Home className="w-4 h-4 text-[#A855F7]" />
-              <span>Home</span>
+              <EyeOff className="w-4 h-4" />
+              <span>Hide (Encode)</span>
             </button>
             <button
               type="button"
-              onClick={() => handleSelectTool('lab')}
-              className="p-2.5 rounded-lg bg-[#111827] border border-[#1E293B] text-left text-xs font-medium text-white flex items-center gap-2"
+              onClick={() => handleSelectCoreTab('reveal')}
+              className={`flex items-center justify-center gap-2 p-3 rounded-lg text-xs font-semibold ${
+                activeModule === 'core' && activeCoreTab === 'reveal'
+                  ? 'bg-[#3B82F6] text-white'
+                  : 'bg-[#1E293B] text-[#94A3B8]'
+              }`}
             >
-              <Cpu className="w-4 h-4 text-[#3B82F6]" />
-              <span>Engine</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                onOpenDemoModal?.();
-              }}
-              className="p-2.5 rounded-lg bg-[#111827] border border-[#1E293B] text-left text-xs font-medium text-white flex items-center gap-2"
-            >
-              <Database className="w-4 h-4 text-[#06B6D4]" />
-              <span>Datasets</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSelectTool('vault')}
-              className="p-2.5 rounded-lg bg-[#111827] border border-[#1E293B] text-left text-xs font-medium text-white flex items-center gap-2"
-            >
-              <Settings className="w-4 h-4 text-[#14B8A6]" />
-              <span>Vault / Settings</span>
+              <Eye className="w-4 h-4" />
+              <span>Reveal (Decode)</span>
             </button>
           </div>
 
-          <div className="space-y-1 pt-2 border-t border-[#1E293B]">
-            <div className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider px-1 mb-1">
-              All Tools &amp; Modules
+          <div className="pt-2 border-t border-[#1E293B] space-y-2">
+            <div className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
+              Forensic & Cryptographic Tools
             </div>
-            {SECONDARY_TOOLS.map((tool) => {
-              const Icon = tool.icon;
-              const isCurrent = activeModule === tool.id;
-              return (
-                <button
-                  key={tool.id}
-                  type="button"
-                  onClick={() => handleSelectTool(tool.id)}
-                  className={`w-full flex items-center justify-between p-2.5 rounded-lg text-xs font-medium transition-colors ${
-                    isCurrent
-                      ? 'bg-[#7C3AED]/25 text-white border border-[#7C3AED]/40'
-                      : 'bg-[#111827] text-[#94A3B8] hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Icon className="w-4 h-4 text-[#A855F7]" />
-                    <span>{tool.label}</span>
-                  </div>
-                  {tool.badge && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#1E293B] text-[#94A3B8]">
-                      {tool.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            <div className="grid grid-cols-2 gap-2">
+              {SECONDARY_TOOLS.map((t) => {
+                const Icon = t.icon;
+                const isCurrent = activeModule === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => handleSelectTool(t.id)}
+                    className={`flex items-center gap-2 p-2.5 rounded-lg text-left text-xs ${
+                      isCurrent
+                        ? 'bg-[#7C3AED]/20 text-[#A855F7] border border-[#7C3AED]/40'
+                        : 'bg-[#131B2E] text-[#94A3B8] border border-[#1E293B]'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{t.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="pt-2 flex items-center justify-between border-t border-[#1E293B]">
+            {onOpenDemoModal && (
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenDemoModal();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1E293B] text-xs font-medium text-[#E2E8F0]"
+              >
+                <Database className="w-3.5 h-3.5 text-[#06B6D4]" />
+                <span>Demo Datasets</span>
+              </button>
+            )}
+            <div className="flex items-center gap-2 text-xs text-[#14B8A6]">
+              <Shield className="w-3.5 h-3.5" />
+              <span>Local Sandbox</span>
+            </div>
           </div>
         </div>
       )}
