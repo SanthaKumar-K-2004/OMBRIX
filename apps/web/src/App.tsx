@@ -1,10 +1,13 @@
-import { Code2, Cpu, Shield } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import { BrandShowcase } from './components/BrandShowcase.js';
 import { CoreStudio } from './components/CoreStudio.js';
+import { EdgeStudio } from './components/EdgeStudio.js';
+import { FlowStudio } from './components/FlowStudio.js';
 import { LabStudio } from './components/LabStudio.js';
 import { LensStudio } from './components/LensStudio.js';
+import { LinkStudio } from './components/LinkStudio.js';
 import { Navbar, type ProductModule } from './components/Navbar.js';
 import { SuiteCards } from './components/SuiteCards.js';
 import { TransitStudio } from './components/TransitStudio.js';
@@ -31,111 +34,11 @@ export const App: React.FC = () => {
 
         {activeModule === 'transit' && <TransitStudio />}
 
-        {activeModule === 'edge' && (
-          <div className="p-8 rounded-2xl bg-[#111827] border border-[#1E293B] space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#3B82F6]/20 border border-[#3B82F6]/40 flex items-center justify-center text-[#3B82F6]">
-                <Cpu className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold font-['Sora'] text-white">
-                  OMBRIX Edge — Developer Toolkits & Monorepo Packages
-                </h2>
-                <p className="text-xs text-[#94A3B8]">
-                  Zero-dependency, strictly typed TypeScript packages
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-              <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#1E293B] space-y-2 font-mono text-xs">
-                <div className="text-[#A855F7] font-semibold flex items-center gap-1.5">
-                  <Code2 className="w-4 h-4" />
-                  <span>@ombrix/image-validation</span>
-                </div>
-                <pre className="text-[#94A3B8] overflow-x-auto text-[11px]">
-                  {`import { validatePng } from '@ombrix/image-validation';
+        {activeModule === 'link' && <LinkStudio />}
 
-// Strictly validates magic bytes, IHDR, APNG rejection & bombs
-const result = validatePng(pngBuffer, {
-  maxWidth: 8192,
-  maxPixels: 16_777_216,
-  maxExpansionRatio: 1000
-});`}
-                </pre>
-              </div>
+        {activeModule === 'flow' && <FlowStudio />}
 
-              <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#1E293B] space-y-2 font-mono text-xs">
-                <div className="text-[#3B82F6] font-semibold flex items-center gap-1.5">
-                  <Code2 className="w-4 h-4" />
-                  <span>@ombrix/payload-protocol</span>
-                </div>
-                <pre className="text-[#94A3B8] overflow-x-auto text-[11px]">
-                  {`import { serializeEnvelope, parseEnvelope } from '@ombrix/payload-protocol';
-
-// Encapsulates into canonical OMB1 binary envelope
-const envelopeBytes = serializeEnvelope({
-  version: 1,
-  cryptoSuite: 'NONE',
-  stegoMethod: 'PNG_LSB_SEQUENTIAL',
-  messageId: crypto.getRandomValues(new Uint8Array(16)),
-  payload: new Uint8Array([1, 2, 3])
-});`}
-                </pre>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#1E293B] space-y-2 font-mono text-xs">
-                <div className="text-[#14B8A6] font-semibold flex items-center gap-1.5">
-                  <Code2 className="w-4 h-4" />
-                  <span>@ombrix/stego-png-lsb</span>
-                </div>
-                <pre className="text-[#94A3B8] overflow-x-auto text-[11px]">
-                  {`import { pngLsbSequential } from '@ombrix/stego-png-lsb';
-
-// Deterministic RGB LSB embed/extract preserving alpha
-const stegoCarrier = await pngLsbSequential.embed(carrier, payload);
-const recovered = await pngLsbSequential.extract(stegoCarrier);`}
-                </pre>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#1E293B] space-y-2 font-mono text-xs">
-                <div className="text-[#E2E8F0] font-semibold flex items-center gap-1.5">
-                  <Code2 className="w-4 h-4" />
-                  <span>@ombrix/stego-worker</span>
-                </div>
-                <pre className="text-[#94A3B8] overflow-x-auto text-[11px]">
-                  {`import { StegoWorkerClient } from '@ombrix/stego-worker';
-
-// Zero-copy transferable buffers with AbortSignal cancellation
-const client = new StegoWorkerClient(worker);
-const result = await client.embed(carrier, payload, opts, signal);`}
-                </pre>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {(activeModule === 'link' || activeModule === 'scan' || activeModule === 'flow') && (
-          <div className="p-8 rounded-2xl bg-[#111827] border border-[#1E293B] space-y-4">
-            <h2 className="text-xl font-bold font-['Sora'] text-white">
-              {activeModule === 'link' && 'OMBRIX Link — Ephemeral Steganographic Sharing'}
-              {activeModule === 'scan' && 'OMBRIX Scan — Media Steganalysis & Forensics'}
-              {activeModule === 'flow' && 'OMBRIX Flow — Batch Automation Pipelines'}
-            </h2>
-            <p className="text-xs text-[#94A3B8] max-w-2xl leading-relaxed">
-              This module is scheduled according to the OMBRIX development roadmap. Phase 1
-              (Application Shell, Static PNG Validation, OMB1 Payload Protocol) and Phase 2
-              (Steganography Interface, Sequential RGB LSB, Web Worker Sandbox) are fully completed
-              and active in OMBRIX Core.
-            </p>
-            <button
-              type="button"
-              onClick={() => setActiveModule('core')}
-              className="px-4 py-2 rounded-lg bg-[#7C3AED] text-white text-xs font-semibold hover:bg-[#6D28D9] transition-colors"
-            >
-              Return to OMBRIX Core Studio
-            </button>
-          </div>
-        )}
+        {activeModule === 'edge' && <EdgeStudio />}
 
         {/* Brand System & Design Tokens Showcase */}
         <BrandShowcase />

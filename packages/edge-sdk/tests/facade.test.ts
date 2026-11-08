@@ -1,0 +1,100 @@
+import {
+  generateEncryptionKeyPair,
+  generateSigningKeyPair,
+  toBase64,
+} from '@ombrix/crypto-adapter';
+import type { CarrierImage } from '@ombrix/stego-interface';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { Ombrix } from '../src/facade.js';
+
+function createTestCarrier(width: number, height: number): CarrierImage {
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = (i * 3) % 256;
+    data[i + 1] = (i * 7) % 256;
+    data[i + 2] = (i * 11) % 256;
+    data[i + 3] = 255;
+  }
+  return { width, height, data };
+}
+
+describe('@ombrix/edge-sdk - Public Unified Facade', () => {
+  beforeAll(async () => {
+    await Ombrix.init();
+  });
+
+  it('performs basic embed and extract roundtrip seamlessly', async () => {
+    const carrier = createTestCarrier(80, 80);
+    const secret = 'Unencrypted message via OMBRIX Edge SDK';
+
+    const stego = await Ombrix.embed(carrier, secret);
+    const extracted = await Ombrix.extract(stego);
+
+    expect(extracted.text).toBe(secret);
+    expect(extracted.isEncrypted).toBe(false);
+  });
+
+  it('performs encrypted and digitally signed embed and extract roundtrip', async () => {
+    const carrier = createTestCarrier(100, 100);
+    const aliceSigning = generateSigningKeyPair();
+    const bobEncryption = generateEncryptionKeyPair();
+
+    const secret = 'Confidential tactical payload with Ed25519 digital signature';
+
+    const stego = await Ombrix.embed(carrier, secret, {
+      recipientPublicKey: toBase64(bobEncryption.publicKey),
+      signingPrivateKey: toBase64(aliceSigning.privateKey),
+    });
+
+    const extracted = await Ombrix.extract(stego, {
+      recipientPublicKey: toBase64(bobEncryption.publicKey),
+      recipientPrivateKey: toBase64(bobEncryption.privateKey),
+      senderSigningPublicKey: toBase64(aliceSigning.publicKey),
+    });
+
+    expect(extracted.text).toBe(secret);
+    expect(extracted.isEncrypted).toBe(true);
+    expect(extracted.isSigned).toBe(true);
+    expect(extracted.signatureVerified).toBe(true);
+  });
+
+  it('inspects carrier visual properties and bitplanes', () => {
+    const carrier = createTestCarrier(50, 50);
+    const result = Ombrix.inspect(carrier);
+
+    expect(result.bitplanes.red).toBeDefined();
+    expect(result.bitplanes.green).toBeDefined();
+    expect(result.bitplanes.blue).toBeDefined();
+    expect(result.histogram.r).toHaveLength(256);
+  });
+
+  it('runs steganographic laboratory benchmark on algorithms', async () => {
+    const carrier = createTestCarrier(40, 40);
+    const payload = new Uint8Array([1, 2, 3, 4, 5]);
+
+    const results = await Ombrix.benchmark(carrier, payload);
+    expect(results).toHaveLength(2);
+    expect(results[0]?.methodId).toBe('png-lsb-sequential');
+    expect(results[0]?.distortion.psnr).toBeGreaterThan(40);
+  });
+
+  it('creates and opens ephemeral share link with carrier hash ring', async () => {
+    const dummyCarrierBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3]);
+
+    const { uri, container } = await Ombrix.createShareLink({
+      expiresInSeconds: 3600,
+      carrierBytes: dummyCarrierBytes,
+      payloadBytes: new TextEncoder().encode('Ephemeral Link Secret'),
+    });
+
+    expect(uri).toContain('#link=');
+    expect(container.magic).toBe('OMBRIX_LINK');
+
+    const opened = await Ombrix.openShareLink(uri, {
+      carrierBytes: dummyCarrierBytes,
+    });
+
+    expect(opened.carrierVerified).toBe(true);
+    expect(new TextDecoder().decode(opened.payloadBytes)).toBe('Ephemeral Link Secret');
+  });
+});

@@ -1,4 +1,4 @@
-import { Cpu, FlaskConical, Layers, Lock, Radio, Shield, ZoomIn } from 'lucide-react';
+import { Cpu, FlaskConical, Layers, Link2, Lock, Radio, Shield, Split, ZoomIn } from 'lucide-react';
 import type React from 'react';
 import type { ProductModule } from './Navbar.js';
 
@@ -59,14 +59,34 @@ export const SuiteCards: React.FC<SuiteCardsProps> = ({ onSelectModule }) => {
         'Stress test stego carriers against lossy JPEG, resizing, and noise, and detect LSB pairing anomalies via Westfeld Chi-Square analysis.',
     },
     {
+      id: 'link' as ProductModule,
+      name: 'OMBRIX Link',
+      tagline: 'Ephemeral sharing with BLAKE2b hash rings',
+      status: 'Phase 5 Active',
+      statusColor: 'text-[#A855F7] border-[#A855F7]/30 bg-[#A855F7]/10',
+      icon: Link2,
+      description:
+        'Time-bounded client-side steganographic sharing containers with strict TTL expiration, BLAKE2b carrier hash rings, and Argon2id.',
+    },
+    {
+      id: 'flow' as ProductModule,
+      name: 'OMBRIX Flow',
+      tagline: 'High-throughput batch automation pipelines',
+      status: 'Phase 5 Active',
+      statusColor: 'text-[#14B8A6] border-[#14B8A6]/30 bg-[#14B8A6]/10',
+      icon: Split,
+      description:
+        'Batch carrier capacity planning, multi-image payload striping across image shards, and concurrency-controlled worker pool execution.',
+    },
+    {
       id: 'edge' as ProductModule,
       name: 'OMBRIX Edge',
-      tagline: 'Developer toolkit (Rust / TypeScript / Python SDKs)',
-      status: 'Active Spec',
-      statusColor: 'text-[#A855F7] border-[#A855F7]/30 bg-[#A855F7]/10',
+      tagline: 'Public Developer SDK & Unified Facade',
+      status: 'Phase 5 Active',
+      statusColor: 'text-[#3B82F6] border-[#3B82F6]/30 bg-[#3B82F6]/10',
       icon: Cpu,
       description:
-        'Zero-dependency pure TypeScript monorepo packages for validation, protocol framing, steganography, crypto, lens, lab, and transit.',
+        'Unified TypeScript SDK export combining all 10 OMBRIX modules into a single ergonomic public API surface.',
     },
   ];
 

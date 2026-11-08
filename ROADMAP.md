@@ -41,6 +41,13 @@ OMBRIX development follows an evidence-based, incremental engineering loop. Ever
 │  • M10: Carrier Lens (Inspection, Bitplane Analysis, Histograms)       │
 │  • M11: Stego Lab (Method Comparison, PVD, LSB Matching)               │
 │  • M12: Transit & Trace (Transformations, Resilience, Forensics)       │
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼───────────────────────────────────┐
+│ Phase 5: Link, Flow & Edge Ecosystem                                   │  [COMPLETED]
+│  • M13: OMBRIX Link (Ephemeral Containers, TTL, Hash Ring Validation)  │
+│  • M14: OMBRIX Flow (Batch Pipeline, Capacity Planning, Worker Pool)   │
+│  • M15: OMBRIX Edge (Public SDK Facade, CLI & Developer Playground)    │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -147,3 +154,23 @@ OMBRIX development follows an evidence-based, incremental engineering loop. Ever
   - Transit Transformation Simulator: In-browser execution of real-world image operations (lossy JPEG compression at configurable quality, canvas bilinear downscale/upscale resizing, simulated messenger/social media recompression, and bit-flipping noise).
   - Survival and recovery verification: Rigorous verification of payload/envelope survival across lossy pipelines, demonstrating why spatial LSB fails under lossy channels (educational transparency).
   - Trace Forensics: Chi-square ($\chi^2$) sample pair analysis (Pairs of Values - PoVs) to calculate empirical p-values detecting spatial LSB tampering.
+
+---
+
+### Phase 5 — Link, Flow & Edge Ecosystem [COMPLETED]
+- **Milestone 13: OMBRIX Link (`@ombrix/link-sharing` & `apps/web/src/components/LinkStudio.tsx`):**
+  - Ephemeral sharing container format with configurable Time-to-Live (TTL) expiration timestamps.
+  - Tamper-evident cryptographic hash ring binding carrier image BLAKE2b/SHA-256 integrity to container access.
+  - Optional Argon2id/KDF password derivation protecting the embedded steganographic bundle.
+  - Zero-server client-side URI fragment packaging (`#link=...`) and `.ombrix-link` portable container export.
+  - Transparent threat disclosure: Explains client-side enforcement boundaries (no false claims of server-side destruction).
+- **Milestone 14: OMBRIX Flow (`@ombrix/batch-pipeline` & `apps/web/src/components/FlowStudio.tsx`):**
+  - High-throughput multi-carrier batch embedding and extraction engine.
+  - Dynamic capacity planner calculating individual carrier capacities, allocating discrete payloads or chunked streams.
+  - Concurrency-controlled worker pool execution with real-time aggregated progress reporting.
+  - Batch results export with manifest generation and automated regression verification.
+- **Milestone 15: OMBRIX Edge & Public SDK (`packages/edge-sdk` and `apps/web/src/components/EdgeStudio.tsx`):**
+  - Unified, ergonomic TypeScript SDK facade exposing all 9 OMBRIX modules under a single cohesive interface (`Ombrix.embed`, `Ombrix.extract`, `Ombrix.inspect`, `Ombrix.benchmark`, `Ombrix.simulateTransit`, `Ombrix.createShareLink`, `Ombrix.batchProcess`).
+  - Browser and CLI/Node environment compatibility.
+  - Interactive Developer Playground in `EdgeStudio.tsx` featuring live syntax examples, parameter generators, and SDK export.
+

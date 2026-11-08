@@ -178,15 +178,24 @@ importers:
 
   apps/web:
     dependencies:
+      '@ombrix/batch-pipeline':
+        specifier: workspace:*
+        version: link:../../packages/batch-pipeline
       '@ombrix/carrier-lens':
         specifier: workspace:*
         version: link:../../packages/carrier-lens
       '@ombrix/crypto-adapter':
         specifier: workspace:*
         version: link:../../packages/crypto-adapter
+      '@ombrix/edge-sdk':
+        specifier: workspace:*
+        version: link:../../packages/edge-sdk
       '@ombrix/image-validation':
         specifier: workspace:*
         version: link:../../packages/image-validation
+      '@ombrix/link-sharing':
+        specifier: workspace:*
+        version: link:../../packages/link-sharing
       '@ombrix/payload-protocol':
         specifier: workspace:*
         version: link:../../packages/payload-protocol
@@ -240,6 +249,18 @@ importers:
         specifier: ^6.0.0
         version: 6.4.5(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.33.0)
 
+  packages/batch-pipeline:
+    dependencies:
+      '@ombrix/image-validation':
+        specifier: workspace:*
+        version: link:../image-validation
+      '@ombrix/stego-interface':
+        specifier: workspace:*
+        version: link:../stego-interface
+      '@ombrix/stego-png-lsb':
+        specifier: workspace:*
+        version: link:../stego-png-lsb
+
   packages/carrier-lens:
     dependencies:
       '@ombrix/stego-interface':
@@ -256,7 +277,46 @@ importers:
         specifier: ^0.8.2
         version: 0.8.2
 
+  packages/edge-sdk:
+    dependencies:
+      '@ombrix/batch-pipeline':
+        specifier: workspace:*
+        version: link:../batch-pipeline
+      '@ombrix/carrier-lens':
+        specifier: workspace:*
+        version: link:../carrier-lens
+      '@ombrix/crypto-adapter':
+        specifier: workspace:*
+        version: link:../crypto-adapter
+      '@ombrix/image-validation':
+        specifier: workspace:*
+        version: link:../image-validation
+      '@ombrix/link-sharing':
+        specifier: workspace:*
+        version: link:../link-sharing
+      '@ombrix/payload-protocol':
+        specifier: workspace:*
+        version: link:../payload-protocol
+      '@ombrix/stego-interface':
+        specifier: workspace:*
+        version: link:../stego-interface
+      '@ombrix/stego-lab':
+        specifier: workspace:*
+        version: link:../stego-lab
+      '@ombrix/stego-png-lsb':
+        specifier: workspace:*
+        version: link:../stego-png-lsb
+      '@ombrix/transit-trace':
+        specifier: workspace:*
+        version: link:../transit-trace
+
   packages/image-validation: {}
+
+  packages/link-sharing:
+    dependencies:
+      '@ombrix/crypto-adapter':
+        specifier: workspace:*
+        version: link:../crypto-adapter
 
   packages/payload-protocol: {}
 

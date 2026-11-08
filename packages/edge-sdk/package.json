@@ -1,0 +1,30 @@
+{
+  "name": "@ombrix/edge-sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@ombrix/image-validation": "workspace:*",
+    "@ombrix/payload-protocol": "workspace:*",
+    "@ombrix/stego-interface": "workspace:*",
+    "@ombrix/stego-png-lsb": "workspace:*",
+    "@ombrix/crypto-adapter": "workspace:*",
+    "@ombrix/carrier-lens": "workspace:*",
+    "@ombrix/stego-lab": "workspace:*",
+    "@ombrix/transit-trace": "workspace:*",
+    "@ombrix/link-sharing": "workspace:*",
+    "@ombrix/batch-pipeline": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  }
+}
