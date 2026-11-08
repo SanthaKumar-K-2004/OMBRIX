@@ -12,14 +12,23 @@ The OMBRIX repository is organized as a pnpm monorepo with strict package bounda
 ```
 OMBRIX/
 ├── apps/
-│   └── web/                   # Vite 6 + React 19 + Tailwind CSS application shell
+│   └── web/                   # Vite 6 + React 19 + Tailwind CSS application shell & 8 studios
 ├── packages/
 │   ├── image-validation/     # Static PNG validation, chunk inspection, decompression bomb defense
 │   ├── payload-protocol/     # OMB1 binary envelope parser & serializer
 │   ├── stego-interface/      # Common steganography contracts, options, and error hierarchies
 │   ├── stego-png-lsb/        # Baseline sequential RGB LSB embed & extract engine
-│   └── crypto-adapter/       # (Phase 3) Vetted cryptographic adapters
-└── docs/                     # Specifications, architecture, threat model, roadmaps
+│   ├── stego-worker/         # Dedicated Web Worker sandbox with cancellation support
+│   ├── crypto-adapter/       # Vetted Libsodium adapters (X25519, Ed25519, Argon2id, BLAKE2b)
+│   ├── carrier-lens/         # Static PNG chunk inspection, bitplane visualizer, frequency histogram
+│   ├── stego-lab/            # LSB Matching (±1), distortion metrics (PSNR, MSE, SSIM, MAE), benchmark runner
+│   ├── transit-trace/        # Lossy transit simulator (JPEG, resize, noise) & Chi-Square (PoV) forensics
+│   ├── link-sharing/         # Ephemeral sharing containers, TTL timestamps, BLAKE2b carrier hash ring binding
+│   ├── batch-pipeline/       # Multi-carrier capacity planning, chunked striped payloads, worker pools
+│   ├── edge-sdk/             # Unified public TypeScript SDK facade (`Ombrix.*`)
+│   ├── stego-advanced/       # Research stego engines: PVD (Wu & Tsai), 2D Haar DWT, JPEG 8x8 DCT
+│   └── stego-forensics/      # Advanced steganalysis: RS (Fridrich), SPA (Dumitrescu), Noise Residual, Consensus
+└── docs/                     # Specifications, architecture, threat model, algorithms, licenses
 ```
 
 ---
