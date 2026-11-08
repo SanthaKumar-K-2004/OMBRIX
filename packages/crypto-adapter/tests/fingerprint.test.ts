@@ -7,6 +7,7 @@ import {
   fromHex,
   generateEncryptionKeyPair,
   initCrypto,
+  parseAnyKey32,
   toBase64,
   toHex,
 } from '../src/index.js';
@@ -51,5 +52,21 @@ describe('Fingerprints, Key IDs & Encodings', () => {
 
     const hex = toHex(bytes);
     expect(fromHex(hex)).toEqual(bytes);
+  });
+
+  it('correctly parses hyphenated hex, raw hex, and base64 via parseAnyKey32', () => {
+    const pair = generateEncryptionKeyPair();
+    const b64Key = toBase64(pair.publicKey);
+    const hexKey = toHex(pair.publicKey);
+    // Formatted hex with hyphens: A1B2-C3D4-...
+    const formattedHex = hexKey
+      .toUpperCase()
+      .match(/.{1,4}/g)!
+      .join('-');
+
+    // All should parse to the exact same 32 bytes
+    expect(parseAnyKey32(b64Key)).toEqual(pair.publicKey);
+    expect(parseAnyKey32(hexKey)).toEqual(pair.publicKey);
+    expect(parseAnyKey32(formattedHex)).toEqual(pair.publicKey);
   });
 });

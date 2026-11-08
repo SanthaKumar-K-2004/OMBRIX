@@ -1,4 +1,9 @@
-import { haarDwtStego, pvdStego, stealthMatrixMethod } from '@ombrix/stego-advanced';
+import {
+  haarDwtStego,
+  hyperMatrixMethod,
+  pvdStego,
+  stealthMatrixMethod,
+} from '@ombrix/stego-advanced';
 import type { StegoMethod } from '@ombrix/stego-interface';
 import { pngLsbSequential } from '@ombrix/stego-png-lsb';
 import type { StegoWorkerIncomingMessage, StegoWorkerResponse } from './protocol.js';
@@ -9,6 +14,8 @@ export interface WorkerPostMessagePort {
 
 function resolveMethod(methodId?: string): StegoMethod {
   switch (methodId) {
+    case 'stego-hyper-matrix':
+      return hyperMatrixMethod;
     case 'png-lsb-sequential':
       return pngLsbSequential;
     case 'stego-pvd':
@@ -103,8 +110,9 @@ export class StegoWorkerHandler {
             },
           );
         } else {
-          // Auto-probe: First try Stealth Matrix, then fallback to LSB Sequential, PVD, DWT
+          // Auto-probe: First try Hyper-Matrix, then Stealth Matrix, then fallback to LSB Sequential, PVD, DWT
           const probeMethods: StegoMethod[] = [
+            hyperMatrixMethod,
             stealthMatrixMethod,
             pngLsbSequential,
             pvdStego,

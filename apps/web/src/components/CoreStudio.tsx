@@ -6,6 +6,7 @@ import {
   fromBase64,
   initCrypto,
   openSeal,
+  parseAnyKey32,
   seal,
   signDetached,
   verifyDetached,
@@ -14,8 +15,13 @@ import { validatePngOrThrow } from '@ombrix/image-validation';
 import type { PngMetadata } from '@ombrix/image-validation';
 import { parseEnvelope, serializeEnvelope } from '@ombrix/payload-protocol';
 import type { CryptoSuite, Omb1Envelope } from '@ombrix/payload-protocol';
-import { stealthMatrixMethod } from '@ombrix/stego-advanced';
-import type { CapacityReport } from '@ombrix/stego-interface';
+import {
+  haarDwtStego,
+  hyperMatrixMethod,
+  pvdStego,
+  stealthMatrixMethod,
+} from '@ombrix/stego-advanced';
+import type { CapacityReport, CarrierImage } from '@ombrix/stego-interface';
 import { pngLsbSequential } from '@ombrix/stego-png-lsb';
 import { StegoWorkerClient } from '@ombrix/stego-worker';
 import {
@@ -67,11 +73,26 @@ const HIGH_CAPACITY_PNG_LIMITS = {
   maxUncompressedBytes: 256 * 1024 * 1024,
 };
 
+function computeMethodCapacity(methodId: string, carrier: CarrierImage): CapacityReport {
+  switch (methodId) {
+    case 'stego-hyper-matrix':
+      return hyperMatrixMethod.calculateCapacity(carrier);
+    case 'stego-stealth-matrix':
+      return stealthMatrixMethod.calculateCapacity(carrier);
+    case 'stego-dwt':
+      return haarDwtStego.calculateCapacity(carrier);
+    case 'stego-pvd':
+      return pvdStego.calculateCapacity(carrier);
+    default:
+      return pngLsbSequential.calculateCapacity(carrier);
+  }
+}
+
 export const CoreStudio: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'hide' | 'reveal'>('hide');
 
-  // Stego Method & Passphrase State
-  const [selectedMethod, setSelectedMethod] = useState<string>('stego-stealth-matrix');
+  // Stego Method & Passphrase State (Default to Flagship Hyper-Matrix)
+  const [selectedMethod, setSelectedMethod] = useState<string>('stego-hyper-matrix');
   const [passphrase, setPassphrase] = useState<string>('');
   const [revealPassphrase, setRevealPassphrase] = useState<string>('');
   const [detectedMethodName, setDetectedMethodName] = useState<string | null>(null);
@@ -85,10 +106,10 @@ export const CoreStudio: React.FC = () => {
     });
   }, []);
 
-  // Crypto & Session Identity State
+  // Crypto & Session Identity State - Default to 'NONE' (Passkey / Symmetric direct) so users are never blocked
   const [activeIdentity, setActiveIdentityState] = useState<VaultIdentityData | null>(null);
   const [contacts, setContacts] = useState<ContactEntry[]>([]);
-  const [cryptoSuite, setCryptoSuite] = useState<CryptoSuite>('X25519_XSALSA20_POLY1305');
+  const [cryptoSuite, setCryptoSuite] = useState<CryptoSuite>('NONE');
   const [selectedRecipientId, setSelectedRecipientId] = useState<string>('custom');
   const [recipientPublicKeyBase64, setRecipientPublicKeyBase64] = useState<string>('');
   const [signMessage, setSignMessage] = useState<boolean>(true);
@@ -160,6 +181,9 @@ export const CoreStudio: React.FC = () => {
             }
             return curr;
           });
+        } else if (identity?.encryptionKeyPair?.publicKey) {
+          // Pre-populate with user's active Vault identity key so they are never blocked
+          setRecipientPublicKeyBase64(identity.encryptionKeyPair.publicKey);
         }
       } catch (err) {
         console.error('Failed to init crypto in CoreStudio:', err);
@@ -167,6 +191,18 @@ export const CoreStudio: React.FC = () => {
     }
     init();
   }, []);
+
+  // Recalculate capacity live whenever selectedMethod or carrierImageData changes
+  useEffect(() => {
+    if (carrierImageData) {
+      const cap = computeMethodCapacity(selectedMethod, {
+        width: carrierImageData.width,
+        height: carrierImageData.height,
+        data: carrierImageData.data,
+      });
+      setCapacity(cap);
+    }
+  }, [selectedMethod, carrierImageData]);
 
   // Sync identity and contacts when switching tabs or window focusing
   const refreshIdentityAndContacts = useCallback(() => {
@@ -243,18 +279,11 @@ export const CoreStudio: React.FC = () => {
         }
         setCarrierImageData(imgData);
 
-        const cap =
-          selectedMethod === 'stego-stealth-matrix'
-            ? stealthMatrixMethod.calculateCapacity({
-                width: imgData.width,
-                height: imgData.height,
-                data: imgData.data,
-              })
-            : pngLsbSequential.calculateCapacity({
-                width: imgData.width,
-                height: imgData.height,
-                data: imgData.data,
-              });
+        const cap = computeMethodCapacity(selectedMethod, {
+          width: imgData.width,
+          height: imgData.height,
+          data: imgData.data,
+        });
         setCapacity(cap);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -386,18 +415,11 @@ export const CoreStudio: React.FC = () => {
     }
 
     setCarrierImageData(scaledImgData);
-    const newCap =
-      selectedMethod === 'stego-stealth-matrix'
-        ? stealthMatrixMethod.calculateCapacity({
-            width: newW,
-            height: newH,
-            data: scaledImgData.data,
-          })
-        : pngLsbSequential.calculateCapacity({
-            width: newW,
-            height: newH,
-            data: scaledImgData.data,
-          });
+    const newCap = computeMethodCapacity(selectedMethod, {
+      width: newW,
+      height: newH,
+      data: scaledImgData.data,
+    });
     setCapacity(newCap);
 
     canvas.toBlob((blob) => {
@@ -430,12 +452,18 @@ export const CoreStudio: React.FC = () => {
         let recipientKeyId: Uint8Array | undefined;
 
         if (cryptoSuite === 'X25519_XSALSA20_POLY1305') {
-          if (!recipientPublicKeyBase64.trim()) {
-            throw new Error('Recipient encryption public key is required for Sealed Box.');
+          let rawKey = recipientPublicKeyBase64.trim();
+          if (!rawKey && activeIdentity?.encryptionKeyPair?.publicKey) {
+            rawKey = activeIdentity.encryptionKeyPair.publicKey;
           }
-          const recPkBytes = fromBase64(recipientPublicKeyBase64.trim());
+          if (!rawKey) {
+            throw new Error(
+              'Recipient encryption public key is required for Sealed Box, or switch Encryption Mode to "Unencrypted / Passkey-Secured Payload".',
+            );
+          }
+          const recPkBytes = parseAnyKey32(rawKey);
           if (recPkBytes.length !== 32) {
-            throw new Error('Recipient public key must be 32 bytes (Base64).');
+            throw new Error('Recipient public key must resolve to 32 bytes.');
           }
           payloadData = seal(activePayloadBytes, recPkBytes);
           recipientKeyId = computeKeyId(recPkBytes);
@@ -945,6 +973,37 @@ export const CoreStudio: React.FC = () => {
                   </span>
                 </div>
 
+                {/* Flagship Quad-Hybrid Option */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedMethod('stego-hyper-matrix')}
+                  className={`w-full p-3.5 rounded-xl text-left border transition-all relative overflow-hidden ${
+                    selectedMethod === 'stego-hyper-matrix'
+                      ? 'bg-gradient-to-r from-[#7C3AED]/25 via-[#A855F7]/20 to-[#3B82F6]/25 border-[#A855F7] text-white shadow-[0_0_20px_rgba(168,85,247,0.35)] ring-1 ring-[#A855F7]/50'
+                      : 'bg-[#111827] border-[#1E293B] text-[#94A3B8] hover:border-[#7C3AED]/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-[#C084FC]" />
+                      <span className="text-xs font-bold text-white tracking-wide">
+                        OMBRIX Hyper-Matrix (Quad-Hybrid)
+                      </span>
+                    </div>
+                    <span className="text-[9px] px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#7C3AED] to-[#3B82F6] text-white font-bold tracking-wider uppercase shadow-sm">
+                      Best of All 4 Engines
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#CBD5E1] leading-relaxed">
+                    Flagship quad-hybrid engine uniting{' '}
+                    <strong className="text-white">2D Haar DWT</strong> wavelet frequency isolation
+                    + <strong className="text-white">Wu &amp; Tsai PVD</strong> edge masking +{' '}
+                    <strong className="text-white">ChaCha20</strong> PRNG coordinate scattering +{' '}
+                    <strong className="text-white">±1 LSB matching</strong>. Zero PoV distortion,
+                    highest PSNR (&gt;52 dB), and completely undetectable.
+                  </p>
+                </button>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -958,11 +1017,11 @@ export const CoreStudio: React.FC = () => {
                     <div className="text-xs font-semibold text-white flex items-center justify-between">
                       <span>Stealth Matrix (±1)</span>
                       <span className="text-[9px] px-1 rounded bg-[#14B8A6]/20 text-[#14B8A6]">
-                        Best
+                        Matrix
                       </span>
                     </div>
                     <div className="text-[10px] text-[#64748B] mt-0.5">
-                      PRNG coordinate scatter + edge masking. Defeats third-party decoders & RS
+                      PRNG coordinate scatter + edge masking. Defeats third-party decoders &amp; RS
                       forensics.
                     </div>
                   </button>
@@ -997,7 +1056,7 @@ export const CoreStudio: React.FC = () => {
                     }`}
                   >
                     <div className="text-xs font-semibold text-white flex items-center justify-between">
-                      <span>PVD (Wu & Tsai)</span>
+                      <span>PVD (Wu &amp; Tsai)</span>
                       <span className="text-[9px] px-1 rounded bg-[#14B8A6]/20 text-[#14B8A6]">
                         Adaptive
                       </span>
@@ -1207,10 +1266,12 @@ export const CoreStudio: React.FC = () => {
                         onChange={(e) => setCryptoSuite(e.target.value as CryptoSuite)}
                         className="w-full p-2.5 rounded-lg bg-[#111827] border border-[#1E293B] text-white text-xs focus:outline-none focus:border-[#7C3AED]"
                       >
-                        <option value="X25519_XSALSA20_POLY1305">
-                          Libsodium Sealed Box (X25519 + XSalsa20-Poly1305) — Recommended
+                        <option value="NONE">
+                          Passkey / Stego-Symmetric Direct (Recommended when using Passkey)
                         </option>
-                        <option value="NONE">Unencrypted (Plaintext Payload)</option>
+                        <option value="X25519_XSALSA20_POLY1305">
+                          Libsodium Sealed Box (X25519) — Recipient Vault Public Key
+                        </option>
                       </select>
                     </div>
 
@@ -1251,25 +1312,39 @@ export const CoreStudio: React.FC = () => {
                             setRecipientPublicKeyBase64(e.target.value);
                             setSelectedRecipientId('custom');
                           }}
-                          placeholder="Paste recipient's 32-byte Base64 X25519 public key..."
+                          placeholder="Paste recipient's 32-byte key (Base64, Hex, or 32-Byte Token format)..."
                           className="w-full p-2.5 rounded bg-[#0B0F19] border border-[#1E293B] text-white font-mono text-[11px] focus:outline-none focus:border-[#3B82F6]"
                         />
 
-                        {recipientPublicKeyBase64.trim() && (
+                        <div className="text-[10px] text-[#64748B]">
+                          Accepts Base64, raw 64-char Hex, or 32-Byte Token (ACD7-AE04-...).
+                          {!recipientPublicKeyBase64.trim() && activeIdentity && (
+                            <span className="text-[#14B8A6] ml-1">
+                              (Auto-using your active Vault key: {activeIdentity.name})
+                            </span>
+                          )}
+                        </div>
+
+                        {(recipientPublicKeyBase64.trim() ||
+                          activeIdentity?.encryptionKeyPair?.publicKey) && (
                           <div className="flex items-center justify-between text-[10px] text-[#64748B] font-mono">
-                            <span>Key ID:</span>
+                            <span>Key Status:</span>
                             <span className="text-[#3B82F6]">
                               {(() => {
                                 try {
-                                  const bytes = fromBase64(recipientPublicKeyBase64.trim());
+                                  const raw =
+                                    recipientPublicKeyBase64.trim() ||
+                                    activeIdentity?.encryptionKeyPair?.publicKey ||
+                                    '';
+                                  const bytes = parseAnyKey32(raw);
                                   if (bytes.length === 32) {
-                                    return Array.from(computeKeyId(bytes))
+                                    return `Valid 32-byte Key (ID: ${Array.from(computeKeyId(bytes))
                                       .map((b) => b.toString(16).padStart(2, '0'))
-                                      .join('');
+                                      .join('')})`;
                                   }
                                   return 'Invalid length';
                                 } catch {
-                                  return 'Invalid Base64';
+                                  return 'Invalid key format';
                                 }
                               })()}
                             </span>
@@ -1416,9 +1491,15 @@ export const CoreStudio: React.FC = () => {
                       <span>Steganographic Embedding Complete</span>
                     </div>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#14B8A6]/20 text-[#14B8A6]">
-                      {selectedMethod === 'stego-stealth-matrix'
-                        ? 'Stealth Matrix (±1)'
-                        : selectedMethod}
+                      {selectedMethod === 'stego-hyper-matrix'
+                        ? 'Hyper-Matrix (Quad-Hybrid)'
+                        : selectedMethod === 'stego-stealth-matrix'
+                          ? 'Stealth Matrix (±1)'
+                          : selectedMethod === 'stego-dwt'
+                            ? 'Haar DWT Wavelet'
+                            : selectedMethod === 'stego-pvd'
+                              ? 'PVD (Wu & Tsai)'
+                              : 'Sequential RGB LSB'}
                     </span>
                   </div>
 

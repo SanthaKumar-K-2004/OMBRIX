@@ -23,6 +23,10 @@ export {
   stealthMatrixMethod,
 } from './stealthMatrix.js';
 export {
+  HyperMatrixMethod,
+  hyperMatrixMethod,
+} from './hyperMatrix.js';
+export {
   ChaCha20Prng,
   hmacSha256,
   sha256,
