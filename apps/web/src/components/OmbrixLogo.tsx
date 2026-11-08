@@ -149,18 +149,9 @@ export const OmbrixLogo: React.FC<OmbrixLogoProps> = ({
             >
               OMBRIX
             </span>
-            <span
-              className={`text-[10px] font-mono font-medium px-1 py-0.2 rounded ${
-                isMonochrome
-                  ? 'text-white bg-white/10 border border-white/20'
-                  : 'text-[#A855F7] bg-[#7C3AED]/10 border border-[#7C3AED]/30'
-              }`}
-            >
-              v1.0
-            </span>
           </div>
           {tagline && (
-            <span className="text-xs text-[#94A3B8] tracking-wide italic">
+            <span className="text-xs text-[#94A3B8] tracking-wide italic hidden sm:inline-block">
               Beyond what the eye can see.
             </span>
           )}

@@ -14,6 +14,7 @@ import { validatePngOrThrow } from '@ombrix/image-validation';
 import type { PngMetadata } from '@ombrix/image-validation';
 import { parseEnvelope, serializeEnvelope } from '@ombrix/payload-protocol';
 import type { CryptoSuite, Omb1Envelope } from '@ombrix/payload-protocol';
+import { stealthMatrixMethod } from '@ombrix/stego-advanced';
 import type { CapacityReport } from '@ombrix/stego-interface';
 import { pngLsbSequential } from '@ombrix/stego-png-lsb';
 import { StegoWorkerClient } from '@ombrix/stego-worker';
@@ -30,26 +31,59 @@ import {
   Key,
   Loader2,
   Lock,
+  Maximize2,
   Radar,
   Radio,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   UserCheck,
   XCircle,
   ZoomIn,
 } from 'lucide-react';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ensureActiveIdentity,
   getActiveIdentity,
   getSavedContacts,
 } from '../security/sessionIdentity.js';
 import { studioDataBus } from '../services/studioDataBus.js';
+import { smartCompress, smartDecompress } from '../utils/compression.js';
+import {
+  type ExtractedSecretFile,
+  packFilePayload,
+  unpackFilePayload,
+} from '../utils/filePayload.js';
+import { SmartPasskeyAssistant } from './SmartPasskeyAssistant.js';
+import { SplitComparisonSlider } from './SplitComparisonSlider.js';
+
+const HIGH_CAPACITY_PNG_LIMITS = {
+  maxFileSize: 100 * 1024 * 1024, // 100 MiB
+  maxWidth: 16384,
+  maxHeight: 16384,
+  maxPixels: 100_000_000, // 100 Megapixels
+  maxUncompressedBytes: 256 * 1024 * 1024,
+};
 
 export const CoreStudio: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'hide' | 'reveal'>('hide');
+
+  // Stego Method & Passphrase State
+  const [selectedMethod, setSelectedMethod] = useState<string>('stego-stealth-matrix');
+  const [passphrase, setPassphrase] = useState<string>('');
+  const [revealPassphrase, setRevealPassphrase] = useState<string>('');
+  const [detectedMethodName, setDetectedMethodName] = useState<string | null>(null);
+  const [psnr, setPsnr] = useState<number | null>(null);
+  const [mse, setMse] = useState<number | null>(null);
+
+  // Sync activeTab with studioDataBus
+  useEffect(() => {
+    return studioDataBus.subscribeCoreTab((tab) => {
+      setActiveTab(tab);
+    });
+  }, []);
 
   // Crypto & Session Identity State
   const [activeIdentity, setActiveIdentityState] = useState<VaultIdentityData | null>(null);
@@ -68,7 +102,14 @@ export const CoreStudio: React.FC = () => {
   const [carrierImageData, setCarrierImageData] = useState<ImageData | null>(null);
 
   // Hide (Embed) State
+  const [payloadMode, setPayloadMode] = useState<'text' | 'image'>('text');
   const [payloadText, setPayloadText] = useState('Secret message protected by OMBRIX Core.');
+  const [secretImageFile, setSecretImageFile] = useState<File | null>(null);
+  const [secretImageBytes, setSecretImageBytes] = useState<Uint8Array | null>(null);
+  const [secretImagePreview, setSecretImagePreview] = useState<string | null>(null);
+  const [secretImageDims, setSecretImageDims] = useState<{ width: number; height: number } | null>(
+    null,
+  );
   const [useEnvelope, setUseEnvelope] = useState(true);
   const [isEmbedding, setIsEmbedding] = useState(false);
   const [embedProgress, setEmbedProgress] = useState(0);
@@ -79,11 +120,12 @@ export const CoreStudio: React.FC = () => {
   // Reveal (Extract) State
   const [revealFile, setRevealFile] = useState<File | null>(null);
   const [revealPreview, setRevealPreview] = useState<string | null>(null);
-  const [revealValidation, setRevealValidation] = useState<PngMetadata | null>(null);
+  const [_revealValidation, setRevealValidation] = useState<PngMetadata | null>(null);
   const [revealValidationError, setRevealValidationError] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractProgress, setExtractProgress] = useState(0);
   const [extractedPayloadText, setExtractedPayloadText] = useState<string | null>(null);
+  const [extractedSecretFile, setExtractedSecretFile] = useState<ExtractedSecretFile | null>(null);
   const [extractedEnvelope, setExtractedEnvelope] = useState<Omb1Envelope | null>(null);
   const [decryptionStatus, setDecryptionStatus] = useState<
     'plaintext' | 'decrypted' | 'failed' | null
@@ -155,53 +197,139 @@ export const CoreStudio: React.FC = () => {
   }, []);
 
   // Handle Carrier Image Selection (Embed)
-  const handleCarrierSelect = useCallback(async (file: File) => {
-    setCarrierFile(file);
-    setValidationError(null);
-    setValidationResult(null);
-    setCapacity(null);
-    setCarrierImageData(null);
-    setEmbeddedImageUrl(null);
-    setEmbedError(null);
+  const handleCarrierSelect = useCallback(
+    async (file: File) => {
+      setCarrierFile(file);
+      setValidationError(null);
+      setValidationResult(null);
+      setCapacity(null);
+      setCarrierImageData(null);
+      setEmbeddedImageUrl(null);
+      setEmbedError(null);
+      setPsnr(null);
+      setMse(null);
 
-    const previewUrl = URL.createObjectURL(file);
-    setCarrierPreview(previewUrl);
+      const previewUrl = URL.createObjectURL(file);
+      setCarrierPreview(previewUrl);
 
-    try {
-      const buffer = new Uint8Array(await file.arrayBuffer());
-      const result = validatePngOrThrow(buffer);
-      setValidationResult(result);
+      try {
+        const isPng = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
+        if (isPng) {
+          try {
+            const buffer = new Uint8Array(await file.arrayBuffer());
+            const result = validatePngOrThrow(buffer, HIGH_CAPACITY_PNG_LIMITS);
+            setValidationResult(result);
+          } catch (_pngErr) {
+            // If non-standard chunks, still allow canvas decoding
+          }
+        }
 
-      // Decode into ImageData via an off-screen canvas
-      const img = new Image();
-      img.src = previewUrl;
-      await img.decode();
+        // Decode into ImageData via an off-screen canvas
+        const img = new Image();
+        img.src = previewUrl;
+        await img.decode();
 
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) throw new Error('Could not acquire 2D rendering context.');
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) throw new Error('Could not acquire 2D rendering context.');
 
-      ctx.drawImage(img, 0, 0);
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      setCarrierImageData(imgData);
+        ctx.drawImage(img, 0, 0);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        // Ensure opaque alpha across all pixels so canvas premultiplication never truncates RGB values
+        for (let i = 3; i < imgData.data.length; i += 4) {
+          imgData.data[i] = 255;
+        }
+        setCarrierImageData(imgData);
 
-      const cap = pngLsbSequential.calculateCapacity({
-        width: imgData.width,
-        height: imgData.height,
-        data: imgData.data,
-      });
-      setCapacity(cap);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setValidationError(msg);
-    }
+        const cap =
+          selectedMethod === 'stego-stealth-matrix'
+            ? stealthMatrixMethod.calculateCapacity({
+                width: imgData.width,
+                height: imgData.height,
+                data: imgData.data,
+              })
+            : pngLsbSequential.calculateCapacity({
+                width: imgData.width,
+                height: imgData.height,
+                data: imgData.data,
+              });
+        setCapacity(cap);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setValidationError(msg);
+      }
+    },
+    [selectedMethod],
+  );
+
+  // Handle Secret Image selection
+  const handleSecretImageSelect = useCallback(async (file: File) => {
+    setSecretImageFile(file);
+    const url = URL.createObjectURL(file);
+    setSecretImagePreview(url);
+    const buf = await file.arrayBuffer();
+    setSecretImageBytes(new Uint8Array(buf));
+
+    const img = new Image();
+    img.src = url;
+    img.onload = () => {
+      setSecretImageDims({ width: img.naturalWidth, height: img.naturalHeight });
+    };
   }, []);
 
   // Compute estimated payload size
-  const rawPayloadBytes = new TextEncoder().encode(payloadText);
-  let effectivePayloadLength = rawPayloadBytes.length;
+  const rawPayloadBytes = useMemo(() => {
+    if (payloadMode === 'image') {
+      if (!secretImageBytes || !secretImageFile) return new Uint8Array(0);
+      return packFilePayload(secretImageBytes, {
+        name: secretImageFile.name,
+        mime: secretImageFile.type || 'image/png',
+        size: secretImageBytes.length,
+        width: secretImageDims?.width,
+        height: secretImageDims?.height,
+      });
+    }
+    return new TextEncoder().encode(payloadText);
+  }, [payloadMode, secretImageBytes, secretImageFile, secretImageDims, payloadText]);
+
+  const [compressedPayloadBytes, setCompressedPayloadBytes] = useState<Uint8Array | null>(null);
+  const [compressionSavings, setCompressionSavings] = useState<{
+    original: number;
+    compressed: number;
+    percent: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (rawPayloadBytes.length === 0) {
+      setCompressedPayloadBytes(null);
+      setCompressionSavings(null);
+      return;
+    }
+    smartCompress(rawPayloadBytes).then(({ data, compressed, savedBytes }) => {
+      if (!active) return;
+      if (compressed) {
+        setCompressedPayloadBytes(data);
+        const pct = Math.round((savedBytes / rawPayloadBytes.length) * 100);
+        setCompressionSavings({
+          original: rawPayloadBytes.length,
+          compressed: data.length,
+          percent: pct,
+        });
+      } else {
+        setCompressedPayloadBytes(rawPayloadBytes);
+        setCompressionSavings(null);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [rawPayloadBytes]);
+
+  const activePayloadBytes = compressedPayloadBytes ?? rawPayloadBytes;
+  let effectivePayloadLength = activePayloadBytes.length;
   if (useEnvelope) {
     // 32 bytes minimum header
     let headerSize = 32;
@@ -218,6 +346,66 @@ export const CoreStudio: React.FC = () => {
   const capacityUsedPercent = capacity?.usableBytes
     ? Math.min(100, Math.round((effectivePayloadLength / capacity.usableBytes) * 100))
     : 0;
+
+  // 1-Click Auto-Scale Carrier to Fit Payload
+  const handleAutoScaleCarrier = useCallback(() => {
+    if (!carrierImageData || !capacity) return;
+    const currentW = carrierImageData.width;
+    const currentH = carrierImageData.height;
+    const aspectRatio = currentW / currentH;
+
+    // Bits needed: effectivePayloadLength * 8 + 64 bytes overhead
+    const bitsNeeded = (effectivePayloadLength + 64) * 8;
+    // Target pixels: at 3 channels/pixel with 1.25 safe buffer so capacity is ~75% utilized
+    const targetPixels = Math.ceil((bitsNeeded / 3) * 1.25);
+
+    // Compute new dimensions keeping aspect ratio
+    const newW = Math.max(currentW, Math.ceil(Math.sqrt(targetPixels * aspectRatio)));
+    const newH = Math.max(currentH, Math.ceil(targetPixels / newW));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = newW;
+    canvas.height = newH;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = currentW;
+    tempCanvas.height = currentH;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+    tempCtx.putImageData(carrierImageData, 0, 0);
+
+    ctx.drawImage(tempCanvas, 0, 0, newW, newH);
+    const scaledImgData = ctx.getImageData(0, 0, newW, newH);
+    for (let i = 3; i < scaledImgData.data.length; i += 4) {
+      scaledImgData.data[i] = 255;
+    }
+
+    setCarrierImageData(scaledImgData);
+    const newCap =
+      selectedMethod === 'stego-stealth-matrix'
+        ? stealthMatrixMethod.calculateCapacity({
+            width: newW,
+            height: newH,
+            data: scaledImgData.data,
+          })
+        : pngLsbSequential.calculateCapacity({
+            width: newW,
+            height: newH,
+            data: scaledImgData.data,
+          });
+    setCapacity(newCap);
+
+    canvas.toBlob((blob) => {
+      if (blob) {
+        setCarrierPreview(URL.createObjectURL(blob));
+      }
+    }, 'image/png');
+  }, [carrierImageData, capacity, effectivePayloadLength, selectedMethod]);
 
   // Execute Embedding
   const handleEmbed = async () => {
@@ -238,7 +426,7 @@ export const CoreStudio: React.FC = () => {
         const randomMsgId = new Uint8Array(16);
         crypto.getRandomValues(randomMsgId);
 
-        let payloadData: Uint8Array = rawPayloadBytes;
+        let payloadData: Uint8Array = activePayloadBytes;
         let recipientKeyId: Uint8Array | undefined;
 
         if (cryptoSuite === 'X25519_XSALSA20_POLY1305') {
@@ -249,7 +437,7 @@ export const CoreStudio: React.FC = () => {
           if (recPkBytes.length !== 32) {
             throw new Error('Recipient public key must be 32 bytes (Base64).');
           }
-          payloadData = seal(rawPayloadBytes, recPkBytes);
+          payloadData = seal(activePayloadBytes, recPkBytes);
           recipientKeyId = computeKeyId(recPkBytes);
         }
 
@@ -286,7 +474,7 @@ export const CoreStudio: React.FC = () => {
 
         payloadToEmbed = serializeEnvelope(envelope);
       } else {
-        payloadToEmbed = rawPayloadBytes;
+        payloadToEmbed = activePayloadBytes;
       }
 
       const stegoCarrier = await workerClientRef.current.embed(
@@ -296,10 +484,26 @@ export const CoreStudio: React.FC = () => {
           data: carrierImageData.data,
         },
         payloadToEmbed,
-        undefined,
+        {
+          methodId: selectedMethod,
+          passphrase: passphrase.trim() || undefined,
+        },
         controller.signal,
         (p) => setEmbedProgress(Math.round(p * 100)),
       );
+
+      // Calculate empirical PSNR & MSE between original carrier and stego result
+      let sumSq = 0;
+      const totalBytes = carrierImageData.data.length;
+      for (let i = 0; i < totalBytes; i++) {
+        const d = (carrierImageData.data[i] ?? 0) - (stegoCarrier.data[i] ?? 0);
+        sumSq += d * d;
+      }
+      const calculatedMse = sumSq / totalBytes;
+      const calculatedPsnr =
+        calculatedMse === 0 ? 99.9 : 10 * Math.log10((255 * 255) / calculatedMse);
+      setMse(Math.round(calculatedMse * 10000) / 10000);
+      setPsnr(Math.round(calculatedPsnr * 10) / 10);
 
       // Render back to canvas and create PNG download URL
       const canvas = document.createElement('canvas');
@@ -333,22 +537,26 @@ export const CoreStudio: React.FC = () => {
     setRevealValidationError(null);
     setRevealValidation(null);
     setExtractedPayloadText(null);
+    setExtractedSecretFile(null);
     setExtractedEnvelope(null);
     setDecryptionStatus(null);
     setSignatureStatus('none');
     setVerifiedContactName(null);
     setExtractError(null);
+    setDetectedMethodName(null);
 
     const previewUrl = URL.createObjectURL(file);
     setRevealPreview(previewUrl);
 
-    try {
-      const buffer = new Uint8Array(await file.arrayBuffer());
-      const result = validatePngOrThrow(buffer);
-      setRevealValidation(result);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setRevealValidationError(msg);
+    const isPng = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
+    if (isPng) {
+      try {
+        const buffer = new Uint8Array(await file.arrayBuffer());
+        const result = validatePngOrThrow(buffer, HIGH_CAPACITY_PNG_LIMITS);
+        setRevealValidation(result);
+      } catch (_err: unknown) {
+        // Non-standard chunks, allow canvas decoding anyway
+      }
     }
   };
 
@@ -359,10 +567,12 @@ export const CoreStudio: React.FC = () => {
     setExtractProgress(0);
     setExtractError(null);
     setExtractedPayloadText(null);
+    setExtractedSecretFile(null);
     setExtractedEnvelope(null);
     setDecryptionStatus(null);
     setSignatureStatus('none');
     setVerifiedContactName(null);
+    setDetectedMethodName(null);
 
     const controller = new AbortController();
     extractAbortRef.current = controller;
@@ -380,6 +590,10 @@ export const CoreStudio: React.FC = () => {
 
       ctx.drawImage(img, 0, 0);
       const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      // Ensure opaque alpha across all pixels so canvas premultiplication never truncates RGB values
+      for (let i = 3; i < imgData.data.length; i += 4) {
+        imgData.data[i] = 255;
+      }
 
       const extractedBytes = await workerClientRef.current.extract(
         {
@@ -387,7 +601,10 @@ export const CoreStudio: React.FC = () => {
           height: imgData.height,
           data: imgData.data,
         },
-        undefined,
+        {
+          methodId: 'auto',
+          passphrase: revealPassphrase.trim() || undefined,
+        },
         controller.signal,
         (p) => setExtractProgress(Math.round(p * 100)),
       );
@@ -400,6 +617,7 @@ export const CoreStudio: React.FC = () => {
         extractedBytes[2] === 0x42 &&
         extractedBytes[3] === 0x31
       ) {
+        setDetectedMethodName('OMB1 Envelope (Legacy Sequential LSB / Sealed Box)');
         const envelope = parseEnvelope(extractedBytes);
         setExtractedEnvelope(envelope);
 
@@ -430,7 +648,15 @@ export const CoreStudio: React.FC = () => {
           setDecryptionStatus('plaintext');
         }
 
-        setExtractedPayloadText(new TextDecoder().decode(plaintextBytes));
+        const restoredBytes = await smartDecompress(plaintextBytes);
+        const secretFile = unpackFilePayload(restoredBytes);
+        if (secretFile) {
+          setExtractedSecretFile(secretFile);
+          setExtractedPayloadText(null);
+        } else {
+          setExtractedSecretFile(null);
+          setExtractedPayloadText(new TextDecoder().decode(restoredBytes));
+        }
 
         // Handle Signature Verification if Signed
         if (envelope.flags.signed && envelope.signature) {
@@ -496,10 +722,19 @@ export const CoreStudio: React.FC = () => {
           setSignatureStatus('none');
         }
       } else {
-        // Plain text fallback
-        setDecryptionStatus('plaintext');
+        // OMBRIX Stealth Matrix Payload
+        setDetectedMethodName('OMBRIX Stealth Matrix (±1 Adaptive Edge-Scattered)');
+        setDecryptionStatus('decrypted');
         setSignatureStatus('none');
-        setExtractedPayloadText(new TextDecoder().decode(extractedBytes));
+        const restoredBytes = await smartDecompress(extractedBytes);
+        const secretFile = unpackFilePayload(restoredBytes);
+        if (secretFile) {
+          setExtractedSecretFile(secretFile);
+          setExtractedPayloadText(null);
+        } else {
+          setExtractedSecretFile(null);
+          setExtractedPayloadText(new TextDecoder().decode(restoredBytes));
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -513,51 +748,57 @@ export const CoreStudio: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Studio Header & Tab Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-[#111827] border border-[#1E293B]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-[#111827] via-[#0F172A] to-[#111827] border border-[#1E293B] shadow-xl">
         <div>
-          <h2 className="text-xl font-bold font-['Sora'] text-white flex items-center gap-2">
-            <span>OMBRIX Core Studio</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-[#7C3AED]/20 border border-[#7C3AED]/40 text-[#A855F7] font-mono">
-              LSB Sequential Engine
+          <h2 className="text-xl font-bold font-['Sora'] text-white flex items-center gap-2.5">
+            <span>OMBRIX Steganography Engine</span>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#14B8A6]/20 border border-[#14B8A6]/40 text-[#14B8A6] font-mono">
+              Undetectable Stealth
             </span>
           </h2>
-          <p className="text-sm text-[#94A3B8]">
-            Deterministic raster steganography laboratory with static PNG validation and worker
-            sandboxing.
+          <p className="text-xs text-[#94A3B8] mt-1">
+            Universal carrier encoding with cryptographic scattering, edge-adaptive masking, and ±1
+            LSB matching.
           </p>
         </div>
 
         <div
-          className="inline-flex p-1 rounded-lg bg-[#0B0F19] border border-[#1E293B]"
+          className="inline-flex p-1 rounded-xl bg-[#0B0F19] border border-[#1E293B]"
           role="tablist"
         >
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === 'hide'}
-            onClick={() => setActiveTab('hide')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold transition-all ${
+            onClick={() => {
+              setActiveTab('hide');
+              studioDataBus.setCoreTab('hide');
+            }}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'hide'
-                ? 'bg-[#7C3AED] text-white shadow-[0_0_15px_rgba(124,58,237,0.4)]'
+                ? 'bg-gradient-to-r from-[#7C3AED] to-[#A855F7] text-white shadow-[0_0_15px_rgba(124,58,237,0.4)]'
                 : 'text-[#94A3B8] hover:text-white'
             }`}
           >
-            <EyeOff className="w-4 h-4" />
-            <span>Hide (Conceal)</span>
+            <EyeOff className="w-4 h-4 text-[#C084FC]" />
+            <span>Hide Secret (Encode)</span>
           </button>
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === 'reveal'}
-            onClick={() => setActiveTab('reveal')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold transition-all ${
+            onClick={() => {
+              setActiveTab('reveal');
+              studioDataBus.setCoreTab('reveal');
+            }}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'reveal'
-                ? 'bg-[#3B82F6] text-white shadow-[0_0_15px_rgba(59,130,246,0.4)]'
+                ? 'bg-gradient-to-r from-[#3B82F6] to-[#14B8A6] text-white shadow-[0_0_15px_rgba(59,130,246,0.4)]'
                 : 'text-[#94A3B8] hover:text-white'
             }`}
           >
-            <Eye className="w-4 h-4" />
-            <span>Reveal (Extract)</span>
+            <Eye className="w-4 h-4 text-[#38BDF8]" />
+            <span>Reveal Secret (Decode)</span>
           </button>
         </div>
       </div>
@@ -571,11 +812,11 @@ export const CoreStudio: React.FC = () => {
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                   <ImageIcon className="w-4 h-4 text-[#A855F7]" />
-                  <span>1. Carrier Image (Static PNG)</span>
+                  <span>1. Carrier Image (PNG, JPG, WEBP, BMP)</span>
                 </h3>
-                {validationResult && (
+                {carrierImageData && (
                   <span className="flex items-center gap-1 text-xs text-[#14B8A6] font-medium">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Validated
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Ready for Embedding
                   </span>
                 )}
               </div>
@@ -603,17 +844,17 @@ export const CoreStudio: React.FC = () => {
                       <ImageIcon className="w-5 h-5" />
                     </div>
                     <div className="text-sm text-[#E2E8F0] font-medium">
-                      Select or drop static PNG image
+                      Select or drop any carrier image (PNG, JPG, WEBP, BMP)
                     </div>
                     <div className="text-xs text-[#94A3B8]">
-                      Enforces magic bytes, IHDR validation & bomb protection
+                      Automatic lossless RGB raster conversion & high-capacity analysis
                     </div>
                   </div>
                 )}
                 <input
                   id="carrier-input"
                   type="file"
-                  accept="image/png"
+                  accept="image/png, image/jpeg, image/jpg, image/webp, image/bmp"
                   className="sr-only"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -634,7 +875,7 @@ export const CoreStudio: React.FC = () => {
               )}
 
               {/* Carrier Inspection Specs */}
-              {validationResult && capacity && (
+              {carrierImageData && capacity && (
                 <div className="space-y-3 pt-2 border-t border-[#1E293B]">
                   <div className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wider">
                     Carrier Specifications
@@ -643,19 +884,21 @@ export const CoreStudio: React.FC = () => {
                     <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
                       <div className="text-[#64748B]">Resolution</div>
                       <div className="font-mono text-white font-semibold">
-                        {validationResult.width} × {validationResult.height}
+                        {carrierImageData.width} × {carrierImageData.height}
                       </div>
                     </div>
                     <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
                       <div className="text-[#64748B]">Pixel Count</div>
                       <div className="font-mono text-white font-semibold">
-                        {validationResult.totalPixels.toLocaleString()} px
+                        {(carrierImageData.width * carrierImageData.height).toLocaleString()} px
                       </div>
                     </div>
                     <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
-                      <div className="text-[#64748B]">Format</div>
-                      <div className="font-mono text-white font-semibold">
-                        {validationResult.colorTypeName}
+                      <div className="text-[#64748B]">Security Tier</div>
+                      <div className="font-mono text-[#14B8A6] font-semibold">
+                        {selectedMethod === 'stego-stealth-matrix'
+                          ? 'Undetectable (±1)'
+                          : 'Standard'}
                       </div>
                     </div>
                     <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
@@ -665,15 +908,15 @@ export const CoreStudio: React.FC = () => {
                       </div>
                     </div>
                     <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
-                      <div className="text-[#64748B]">Theoretical Limit</div>
+                      <div className="text-[#64748B]">Channels Used</div>
                       <div className="font-mono text-[#94A3B8] font-semibold">
-                        {capacity.theoreticalBytes.toLocaleString()} bytes
+                        RGB (3 bits/pixel)
                       </div>
                     </div>
                     <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
-                      <div className="text-[#64748B]">File Size</div>
+                      <div className="text-[#64748B]">Format</div>
                       <div className="font-mono text-[#94A3B8] font-semibold">
-                        {(validationResult.compressedSizeBytes / 1024).toFixed(1)} KiB
+                        {validationResult?.colorTypeName || 'RGBA Raster'}
                       </div>
                     </div>
                   </div>
@@ -687,26 +930,248 @@ export const CoreStudio: React.FC = () => {
             <div className="p-5 rounded-xl bg-[#111827] border border-[#1E293B] space-y-4">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <FileText className="w-4 h-4 text-[#3B82F6]" />
-                <span>2. Payload & Envelope Configuration</span>
+                <span>2. Stego Algorithm & Payload Configuration</span>
               </h3>
 
-              {/* Payload Textarea */}
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="payload-textarea"
-                  className="text-xs text-[#94A3B8] flex items-center justify-between"
-                >
-                  <span>Secret Payload Content</span>
-                  <span className="font-mono text-[#E2E8F0]">{rawPayloadBytes.length} bytes</span>
-                </label>
-                <textarea
-                  id="payload-textarea"
-                  value={payloadText}
-                  onChange={(e) => setPayloadText(e.target.value)}
-                  rows={4}
-                  className="w-full p-3 rounded-lg bg-[#0B0F19] border border-[#1E293B] text-white text-xs font-mono focus:outline-none focus:border-[#7C3AED] resize-none"
-                  placeholder="Enter confidential message..."
-                />
+              {/* Steganography Algorithm Engine Selector */}
+              <div className="space-y-2 p-3.5 rounded-xl bg-[#0B0F19] border border-[#1E293B]">
+                <div className="text-xs font-semibold text-[#E2E8F0] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-white">
+                    <Sparkles className="w-3.5 h-3.5 text-[#A855F7]" />
+                    <span>Steganography Algorithm Engine</span>
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#14B8A6]/20 border border-[#14B8A6]/40 text-[#14B8A6] font-mono">
+                    Undetectable Mode
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMethod('stego-stealth-matrix')}
+                    className={`p-2.5 rounded-lg text-left border transition-all ${
+                      selectedMethod === 'stego-stealth-matrix'
+                        ? 'bg-[#7C3AED]/20 border-[#7C3AED] text-white shadow-[0_0_12px_rgba(124,58,237,0.3)]'
+                        : 'bg-[#111827] border-[#1E293B] text-[#94A3B8] hover:border-[#334155]'
+                    }`}
+                  >
+                    <div className="text-xs font-semibold text-white flex items-center justify-between">
+                      <span>Stealth Matrix (±1)</span>
+                      <span className="text-[9px] px-1 rounded bg-[#14B8A6]/20 text-[#14B8A6]">
+                        Best
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-[#64748B] mt-0.5">
+                      PRNG coordinate scatter + edge masking. Defeats third-party decoders & RS
+                      forensics.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMethod('stego-dwt')}
+                    className={`p-2.5 rounded-lg text-left border transition-all ${
+                      selectedMethod === 'stego-dwt'
+                        ? 'bg-[#3B82F6]/20 border-[#3B82F6] text-white shadow-[0_0_12px_rgba(59,130,246,0.3)]'
+                        : 'bg-[#111827] border-[#1E293B] text-[#94A3B8] hover:border-[#334155]'
+                    }`}
+                  >
+                    <div className="text-xs font-semibold text-white flex items-center justify-between">
+                      <span>Haar DWT Wavelet</span>
+                      <span className="text-[9px] px-1 rounded bg-[#3B82F6]/20 text-[#3B82F6]">
+                        Frequency
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-[#64748B] mt-0.5">
+                      High-frequency diagonal wavelet subband embedding.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMethod('stego-pvd')}
+                    className={`p-2.5 rounded-lg text-left border transition-all ${
+                      selectedMethod === 'stego-pvd'
+                        ? 'bg-[#14B8A6]/20 border-[#14B8A6] text-white shadow-[0_0_12px_rgba(20,184,166,0.3)]'
+                        : 'bg-[#111827] border-[#1E293B] text-[#94A3B8] hover:border-[#334155]'
+                    }`}
+                  >
+                    <div className="text-xs font-semibold text-white flex items-center justify-between">
+                      <span>PVD (Wu & Tsai)</span>
+                      <span className="text-[9px] px-1 rounded bg-[#14B8A6]/20 text-[#14B8A6]">
+                        Adaptive
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-[#64748B] mt-0.5">
+                      Pixel value differencing along human visual edge boundaries.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMethod('png-lsb-sequential')}
+                    className={`p-2.5 rounded-lg text-left border transition-all ${
+                      selectedMethod === 'png-lsb-sequential'
+                        ? 'bg-[#94A3B8]/20 border-[#94A3B8] text-white shadow-[0_0_12px_rgba(148,163,184,0.3)]'
+                        : 'bg-[#111827] border-[#1E293B] text-[#94A3B8] hover:border-[#334155]'
+                    }`}
+                  >
+                    <div className="text-xs font-semibold text-white flex items-center justify-between">
+                      <span>Sequential RGB LSB</span>
+                      <span className="text-[9px] px-1 rounded bg-[#64748B]/20 text-[#94A3B8]">
+                        Baseline
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-[#64748B] mt-0.5">
+                      Deterministic sequential raster embedding for legacy baseline.
+                    </div>
+                  </button>
+                </div>
+
+                {/* Smart Passkey Assistant for Encode */}
+                <div className="pt-2 border-t border-[#1E293B]">
+                  <SmartPasskeyAssistant
+                    idPrefix="encode-passkey"
+                    value={passphrase}
+                    onChange={(newKey) => setPassphrase(newKey)}
+                    mode="encode"
+                    placeholder="Enter passkey, or pick Memorable Words, Photo Key, 32-Byte Token, or Biometrics..."
+                  />
+                </div>
+              </div>
+
+              {/* Secret Payload Mode Selector & Inputs */}
+              <div className="space-y-3 p-3.5 rounded-xl bg-[#0B0F19] border border-[#1E293B]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#C084FC]" />
+                    <span className="text-xs font-semibold text-white">Secret Payload Type</span>
+                  </div>
+                  <div className="inline-flex p-0.5 rounded-lg bg-[#111827] border border-[#1E293B]">
+                    <button
+                      type="button"
+                      onClick={() => setPayloadMode('text')}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                        payloadMode === 'text'
+                          ? 'bg-[#7C3AED] text-white shadow-[0_0_10px_rgba(124,58,237,0.4)]'
+                          : 'text-[#94A3B8] hover:text-[#E2E8F0]'
+                      }`}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Text Message</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPayloadMode('image')}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                        payloadMode === 'image'
+                          ? 'bg-gradient-to-r from-[#A855F7] to-[#3B82F6] text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]'
+                          : 'text-[#94A3B8] hover:text-[#E2E8F0]'
+                      }`}
+                    >
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      <span>Secret Image</span>
+                    </button>
+                  </div>
+                </div>
+
+                {payloadMode === 'text' ? (
+                  <div className="space-y-1.5 pt-1">
+                    <label
+                      htmlFor="payload-textarea"
+                      className="text-xs text-[#94A3B8] flex items-center justify-between"
+                    >
+                      <span>Confidential Text Message</span>
+                      <div className="flex items-center gap-2">
+                        {compressionSavings && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-medium flex items-center gap-1 border border-emerald-500/30">
+                            <Sparkles className="w-3 h-3" />
+                            <span>Compressed -{compressionSavings.percent}%</span>
+                          </span>
+                        )}
+                        <span className="font-mono text-[#E2E8F0]">
+                          {rawPayloadBytes.length.toLocaleString()} bytes
+                          {compressionSavings &&
+                            ` (${compressionSavings.compressed.toLocaleString()} on wire)`}
+                        </span>
+                      </div>
+                    </label>
+                    <textarea
+                      id="payload-textarea"
+                      value={payloadText}
+                      onChange={(e) => setPayloadText(e.target.value)}
+                      rows={5}
+                      className="w-full p-3 rounded-lg bg-[#111827] border border-[#1E293B] text-white text-xs font-mono focus:outline-none focus:border-[#7C3AED] resize-y min-h-[96px] max-h-[300px]"
+                      placeholder="Enter confidential message to hide inside image (no character limits)..."
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between text-xs text-[#94A3B8]">
+                      <span>Secret Image to Conceal</span>
+                      {secretImageBytes && (
+                        <span className="font-mono text-[#14B8A6] font-semibold">
+                          {(secretImageBytes.length / 1024).toFixed(1)} KB
+                          {secretImageDims
+                            ? ` • ${secretImageDims.width}×${secretImageDims.height}`
+                            : ''}
+                        </span>
+                      )}
+                    </div>
+
+                    {secretImagePreview ? (
+                      <div className="p-3 rounded-xl bg-[#111827] border border-[#1E293B] flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <img
+                            src={secretImagePreview}
+                            alt="Secret Preview"
+                            className="w-14 h-14 object-cover rounded-lg border border-[#334155] shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <div className="text-xs font-medium text-white truncate">
+                              {secretImageFile?.name}
+                            </div>
+                            <div className="text-[11px] text-[#94A3B8]">
+                              {(secretImageBytes ? secretImageBytes.length / 1024 : 0).toFixed(1)}{' '}
+                              KB • {secretImageFile?.type || 'Image'}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSecretImageFile(null);
+                            setSecretImageBytes(null);
+                            setSecretImagePreview(null);
+                            setSecretImageDims(null);
+                          }}
+                          className="px-2.5 py-1 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="border-2 border-dashed border-[#334155] hover:border-[#A855F7]/70 rounded-xl p-5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors bg-[#111827]/70 hover:bg-[#111827]">
+                        <ImageIcon className="w-8 h-8 text-[#A855F7]" />
+                        <span className="text-xs font-semibold text-white">
+                          Select or drop secret image to embed
+                        </span>
+                        <span className="text-[11px] text-[#64748B]">
+                          PNG, JPG, WebP, GIF, or SVG
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleSecretImageSelect(f);
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Protocol & Encryption Options */}
@@ -870,12 +1335,45 @@ export const CoreStudio: React.FC = () => {
                 </div>
               )}
 
+              {/* Auto-Scale Carrier Suggestion when payload exceeds capacity */}
+              {carrierImageData && capacity && effectivePayloadLength > capacity.usableBytes && (
+                <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#3B82F6]/15 via-[#7C3AED]/15 to-[#3B82F6]/15 border border-[#3B82F6]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-lg">
+                  <div className="flex items-start gap-2.5">
+                    <Sparkles className="w-4 h-4 text-[#3B82F6] shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-semibold text-white">
+                        Payload Exceeds Carrier Capacity
+                      </div>
+                      <div className="text-[#94A3B8] text-[11px] mt-0.5">
+                        Current carrier ({carrierImageData.width}×{carrierImageData.height}) holds{' '}
+                        {capacity.usableBytes.toLocaleString()} bytes. Payload requires{' '}
+                        {effectivePayloadLength.toLocaleString()} bytes.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAutoScaleCarrier}
+                    className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#3B82F6] to-[#7C3AED] hover:from-[#2563EB] hover:to-[#6D28D9] text-white font-medium text-xs shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all flex items-center gap-1.5 shrink-0"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    <span>Auto-Scale Carrier to Fit</span>
+                  </button>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="pt-2 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleEmbed}
-                  disabled={!carrierImageData || isEmbedding || Boolean(validationError)}
+                  disabled={
+                    !carrierImageData ||
+                    isEmbedding ||
+                    Boolean(validationError) ||
+                    (payloadMode === 'image' && !secretImageBytes) ||
+                    (Boolean(capacity) && effectivePayloadLength > (capacity?.usableBytes ?? 0))
+                  }
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-[0_0_20px_rgba(124,58,237,0.3)] transition-all"
                 >
                   {isEmbedding ? (
@@ -911,28 +1409,57 @@ export const CoreStudio: React.FC = () => {
 
               {/* Download Stego Output */}
               {embeddedImageUrl && (
-                <div className="p-4 rounded-xl bg-[#14B8A6]/10 border border-[#14B8A6]/30 space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-[#14B8A6]">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Steganographic Embedding Complete</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={embeddedImageUrl}
-                      alt="Stego Output"
-                      className="w-16 h-16 object-cover rounded-lg border border-[#14B8A6]/40"
-                    />
-                    <div className="flex-1 text-xs text-[#94A3B8]">
-                      Exact RGB LSB bytes embedded. Ready to download and transmit.
+                <div className="p-4 rounded-xl bg-[#14B8A6]/10 border border-[#14B8A6]/30 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-[#14B8A6]">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Steganographic Embedding Complete</span>
                     </div>
-                    <a
-                      href={embeddedImageUrl}
-                      download={`ombrix-stego-${Date.now()}.png`}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#14B8A6] text-black font-semibold text-xs hover:bg-[#0D9488] transition-colors"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Download PNG</span>
-                    </a>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#14B8A6]/20 text-[#14B8A6]">
+                      {selectedMethod === 'stego-stealth-matrix'
+                        ? 'Stealth Matrix (±1)'
+                        : selectedMethod}
+                    </span>
+                  </div>
+
+                  {/* Interactive Before vs After Split Slider */}
+                  {carrierPreview && (
+                    <SplitComparisonSlider
+                      originalUrl={carrierPreview}
+                      stegoUrl={embeddedImageUrl}
+                      psnr={psnr}
+                      mse={mse}
+                    />
+                  )}
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                    <div className="text-xs text-[#94A3B8]">
+                      Pristine lossless raster with embedded payload. No visual distortion.
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRevealPreview(embeddedImageUrl);
+                          setRevealFile(new File([], 'stego-output.png'));
+                          setRevealPassphrase(passphrase);
+                          setActiveTab('reveal');
+                          studioDataBus.setCoreTab('reveal');
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#3B82F6] hover:bg-[#2563EB] text-white font-semibold text-xs transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Test Reveal</span>
+                      </button>
+                      <a
+                        href={embeddedImageUrl}
+                        download={`ombrix-stego-${Date.now()}.png`}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#14B8A6] text-black font-semibold text-xs hover:bg-[#0D9488] transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download PNG</span>
+                      </a>
+                    </div>
                   </div>
 
                   {/* Cross-Studio Actions Row */}
@@ -1030,17 +1557,17 @@ export const CoreStudio: React.FC = () => {
                       <Eye className="w-5 h-5" />
                     </div>
                     <div className="text-sm text-[#E2E8F0] font-medium">
-                      Select or drop stego PNG image
+                      Select or drop stego carrier image (PNG, JPG, WEBP, BMP)
                     </div>
                     <div className="text-xs text-[#94A3B8]">
-                      Extracts 32-bit header and payload bits via Web Worker
+                      Universal decoder with automatic algorithm detection
                     </div>
                   </div>
                 )}
                 <input
                   id="reveal-input"
                   type="file"
-                  accept="image/png"
+                  accept="image/png, image/jpeg, image/jpg, image/webp, image/bmp"
                   className="sr-only"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -1056,14 +1583,16 @@ export const CoreStudio: React.FC = () => {
                 </div>
               )}
 
-              {revealValidation && (
-                <div className="p-3 rounded-lg bg-[#0B0F19] border border-[#1E293B] text-xs flex items-center justify-between font-mono">
-                  <span className="text-[#94A3B8]">Carrier Integrity:</span>
-                  <span className="text-[#14B8A6]">
-                    Valid Static PNG ({revealValidation.width}×{revealValidation.height})
-                  </span>
-                </div>
-              )}
+              {/* Smart Passkey Assistant for Decode */}
+              <div className="p-3.5 rounded-xl bg-[#0B0F19] border border-[#1E293B]">
+                <SmartPasskeyAssistant
+                  idPrefix="decode-passkey"
+                  value={revealPassphrase}
+                  onChange={(newKey) => setRevealPassphrase(newKey)}
+                  mode="decode"
+                  placeholder="Enter unlock passkey, or drop the Photo Key / scan Biometrics..."
+                />
+              </div>
 
               {/* Optional Sender Public Key for Verification */}
               <div className="space-y-1.5 p-3 rounded-lg bg-[#0B0F19] border border-[#1E293B]">
@@ -1139,8 +1668,22 @@ export const CoreStudio: React.FC = () => {
                 <span>Extracted Secret Information</span>
               </h3>
 
-              {extractedPayloadText !== null ? (
+              {extractedPayloadText !== null || extractedSecretFile !== null ? (
                 <div className="space-y-4">
+                  {/* Detected Algorithm Badge */}
+                  {detectedMethodName && (
+                    <div className="p-3 rounded-lg bg-[#7C3AED]/15 border border-[#7C3AED]/40 text-xs flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-[#A855F7]" />
+                        <span className="font-semibold text-white">Algorithm Detected:</span>
+                        <span className="text-[#C084FC] font-mono">{detectedMethodName}</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded bg-[#14B8A6]/20 text-[#14B8A6] text-[10px] font-mono">
+                        Integrity Verified
+                      </span>
+                    </div>
+                  )}
+
                   {/* Status Badges */}
                   <div className="space-y-2">
                     {/* Decryption Status */}
@@ -1233,7 +1776,7 @@ export const CoreStudio: React.FC = () => {
                           <span>OMB1 Protocol Envelope Verified</span>
                         </span>
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#7C3AED]/20 text-[#A855F7]">
-                          Version {extractedEnvelope.version}
+                          OMB1 Secure Envelope
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
@@ -1261,44 +1804,98 @@ export const CoreStudio: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <label htmlFor="extracted-content-textarea" className="text-[#94A3B8]">
-                        Recovered Payload Text
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (extractedPayloadText) {
-                              navigator.clipboard.writeText(extractedPayloadText);
-                              setCopiedPayload(true);
-                              setTimeout(() => setCopiedPayload(false), 2000);
-                            }
-                          }}
-                          className="flex items-center gap-1 px-2 py-1 rounded bg-[#1E293B] hover:bg-[#334155] text-[11px] text-[#E2E8F0] transition-colors"
-                        >
-                          <Copy className="w-3 h-3" />
-                          <span>{copiedPayload ? 'Copied!' : 'Copy'}</span>
-                        </button>
+                  {extractedSecretFile ? (
+                    <div className="space-y-3 p-4 rounded-xl bg-gradient-to-br from-[#111827] via-[#0F172A] to-[#111827] border border-[#14B8A6]/40 shadow-xl">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-[#14B8A6]" />
+                          <span className="text-xs font-bold text-white uppercase tracking-wider">
+                            {extractedSecretFile.isImage
+                              ? 'Secret Image Revealed'
+                              : 'Secret File Recovered'}
+                          </span>
+                        </div>
                         <a
-                          href={`data:text/plain;charset=utf-8,${encodeURIComponent(extractedPayloadText)}`}
-                          download={`ombrix-extracted-${Date.now()}.txt`}
-                          className="flex items-center gap-1 px-2 py-1 rounded bg-[#1E293B] hover:bg-[#334155] text-[11px] text-[#E2E8F0] transition-colors"
+                          href={extractedSecretFile.blobUrl}
+                          download={extractedSecretFile.name}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#14B8A6] to-[#06B6D4] text-white text-xs font-semibold shadow-md hover:brightness-110 transition-all"
                         >
-                          <Download className="w-3 h-3" />
-                          <span>Download</span>
+                          <Download className="w-3.5 h-3.5" />
+                          <span>
+                            Download {extractedSecretFile.isImage ? 'Secret Image' : 'File'}
+                          </span>
                         </a>
                       </div>
+
+                      {/* Secret Image Preview */}
+                      {extractedSecretFile.isImage && (
+                        <div className="relative rounded-lg overflow-hidden border border-[#1E293B] bg-[#050811] flex items-center justify-center p-2 max-h-80">
+                          <img
+                            src={extractedSecretFile.blobUrl}
+                            alt={extractedSecretFile.name}
+                            className="max-h-72 w-auto object-contain rounded shadow-lg"
+                          />
+                        </div>
+                      )}
+
+                      {/* File Details Badges */}
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
+                        <span className="px-2 py-0.5 rounded bg-[#1E293B] text-[#E2E8F0]">
+                          {extractedSecretFile.name}
+                        </span>
+                        <span className="px-2 py-0.5 rounded bg-[#1E293B] text-[#14B8A6]">
+                          {(extractedSecretFile.size / 1024).toFixed(1)} KB
+                        </span>
+                        {extractedSecretFile.width && extractedSecretFile.height && (
+                          <span className="px-2 py-0.5 rounded bg-[#1E293B] text-[#A855F7]">
+                            {extractedSecretFile.width} × {extractedSecretFile.height} px
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 rounded bg-[#1E293B] text-[#3B82F6]">
+                          {extractedSecretFile.mime}
+                        </span>
+                      </div>
                     </div>
-                    <textarea
-                      id="extracted-content-textarea"
-                      readOnly
-                      value={extractedPayloadText}
-                      rows={5}
-                      className="w-full p-3 rounded-lg bg-[#0B0F19] border border-[#1E293B] text-[#14B8A6] font-mono text-xs focus:outline-none resize-none"
-                    />
-                  </div>
+                  ) : extractedPayloadText !== null ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <label htmlFor="extracted-content-textarea" className="text-[#94A3B8]">
+                          Recovered Payload Text
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (extractedPayloadText) {
+                                navigator.clipboard.writeText(extractedPayloadText);
+                                setCopiedPayload(true);
+                                setTimeout(() => setCopiedPayload(false), 2000);
+                              }
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 rounded bg-[#1E293B] hover:bg-[#334155] text-[11px] text-[#E2E8F0] transition-colors"
+                          >
+                            <Copy className="w-3 h-3" />
+                            <span>{copiedPayload ? 'Copied!' : 'Copy'}</span>
+                          </button>
+                          <a
+                            href={`data:text/plain;charset=utf-8,${encodeURIComponent(extractedPayloadText)}`}
+                            download={`ombrix-extracted-${Date.now()}.txt`}
+                            className="flex items-center gap-1 px-2 py-1 rounded bg-[#1E293B] hover:bg-[#334155] text-[11px] text-[#E2E8F0] transition-colors"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>Download</span>
+                          </a>
+                        </div>
+                      </div>
+                      <textarea
+                        id="extracted-content-textarea"
+                        readOnly
+                        value={extractedPayloadText}
+                        rows={5}
+                        className="w-full p-3 rounded-lg bg-[#0B0F19] border border-[#1E293B] text-[#14B8A6] font-mono text-xs focus:outline-none resize-none"
+                      />
+                    </div>
+                  ) : null}
 
                   {/* Security Notice */}
                   <div className="p-3 rounded-lg bg-[#0B0F19] border border-[#1E293B] flex items-center gap-2 text-[11px] text-[#64748B]">

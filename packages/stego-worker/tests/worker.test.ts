@@ -74,6 +74,17 @@ describe('stego-worker package', () => {
     expect(new TextDecoder().decode(extracted)).toBe('OMBRIX Worker Sandbox Verification Message');
   });
 
+  it('embeds and extracts via stealth matrix with passphrase in worker sandbox', async () => {
+    const { client } = createMockChannel();
+    const carrier = createCarrier(80, 80);
+    const payload = new TextEncoder().encode('Stealth Matrix in Worker Test');
+    const options = { methodId: 'stego-stealth-matrix', passphrase: 'worker-passphrase-test' };
+
+    const stegoCarrier = await client.embed(carrier, payload, options);
+    const extracted = await client.extract(stegoCarrier, options);
+    expect(new TextDecoder().decode(extracted)).toBe('Stealth Matrix in Worker Test');
+  });
+
   it('runs carrier analysis in worker sandbox', async () => {
     const { client } = createMockChannel();
     const carrier = createCarrier(50, 50);

@@ -6,6 +6,7 @@ import {
   decryptVaultData,
   encryptVaultData,
   fromBase64,
+  fromHex,
   generateEncryptionKeyPair,
   generateSigningKeyPair,
   initCrypto,
@@ -160,7 +161,14 @@ export const VaultStudio: React.FC = () => {
     }
 
     try {
-      const rawKey = fromBase64(cleanKey);
+      let rawKey: Uint8Array;
+      const stripped = cleanKey.replace(/[\s\-_]/g, '');
+      if (stripped.length === 64 && /^[0-9a-fA-F]+$/.test(stripped)) {
+        rawKey = fromHex(stripped);
+      } else {
+        rawKey = fromBase64(cleanKey);
+      }
+
       if (rawKey.length !== 32) {
         setContactError(`Invalid public key length: expected 32 bytes, received ${rawKey.length}`);
         return;
@@ -170,7 +178,7 @@ export const VaultStudio: React.FC = () => {
       const newEntry: ContactEntry = {
         id: `contact_${Date.now()}`,
         name: newContactName.trim(),
-        encPublicKey: cleanKey,
+        encPublicKey: toBase64(rawKey),
         fingerprint: contactFp,
         isVerified: false, // Default to unverified for safety
         createdAt: Date.now(),
@@ -338,8 +346,8 @@ export const VaultStudio: React.FC = () => {
           <div>
             <h1 className="text-xl font-bold font-['Sora'] text-white flex items-center gap-2">
               <span>OMBRIX Vault</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-[#14B8A6]/20 text-[#14B8A6] font-mono font-normal border border-[#14B8A6]/30">
-                Phase 3 Active
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#14B8A6]/20 text-[#14B8A6] font-mono font-normal border border-[#14B8A6]/30">
+                Encrypted Vault
               </span>
             </h1>
             <p className="text-xs text-[#94A3B8]">

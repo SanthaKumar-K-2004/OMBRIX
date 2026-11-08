@@ -244,8 +244,8 @@ export const ScanStudio: React.FC = () => {
         <div>
           <h2 className="text-xl font-bold font-['Sora'] text-white flex items-center gap-2">
             <span>OMBRIX Scan</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-[#06B6D4]/20 border border-[#06B6D4]/40 text-[#06B6D4] font-mono">
-              Milestone 18 • Forensics Workbench
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#06B6D4]/20 border border-[#06B6D4]/40 text-[#06B6D4] font-mono">
+              Forensic Steganalysis Workbench
             </span>
           </h2>
           <p className="text-sm text-[#94A3B8]">

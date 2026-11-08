@@ -276,7 +276,7 @@ export const AirGapStudio: React.FC = () => {
               Physical Air-Gap Layer
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] border border-[#14B8A6]/30">
-              Protocol: OMB_OPT_V1
+              Optical Protocol: Active
             </span>
           </div>
           <h2 className="text-xl font-bold font-['Sora'] text-white flex items-center gap-2">

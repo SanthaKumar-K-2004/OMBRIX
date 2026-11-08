@@ -2,7 +2,6 @@ import { Shield } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { AirGapStudio } from './components/AirGapStudio.js';
-import { BrandShowcase } from './components/BrandShowcase.js';
 import { CoreStudio } from './components/CoreStudio.js';
 import { DemoShowcaseModal } from './components/DemoShowcaseModal.js';
 import { EdgeStudio } from './components/EdgeStudio.js';
@@ -13,7 +12,6 @@ import { LinkStudio } from './components/LinkStudio.js';
 import { Navbar, type ProductModule } from './components/Navbar.js';
 import { RelayStudio } from './components/RelayStudio.js';
 import { ScanStudio } from './components/ScanStudio.js';
-import { SuiteCards } from './components/SuiteCards.js';
 import { TransitStudio } from './components/TransitStudio.js';
 import { VaultStudio } from './components/VaultStudio.js';
 import { studioDataBus } from './services/studioDataBus.js';
@@ -67,12 +65,6 @@ export const App: React.FC = () => {
         {activeModule === 'airgap' && <AirGapStudio />}
 
         {activeModule === 'relay' && <RelayStudio />}
-
-        {/* Brand System & Design Tokens Showcase */}
-        <BrandShowcase />
-
-        {/* Product Suite Cards */}
-        <SuiteCards onSelectModule={setActiveModule} />
       </main>
 
       {/* Footer */}
@@ -89,9 +81,18 @@ export const App: React.FC = () => {
               <span>Zero-Server Architecture</span>
             </span>
             <span className="text-[#334155]">•</span>
-            <span>TypeScript Strict Mode</span>
-            <span className="text-[#334155]">•</span>
             <span>Local-First Sandbox</span>
+            <span className="text-[#334155]">•</span>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveModule('core');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="text-[#94A3B8] hover:text-white transition-colors"
+            >
+              Core Stego Engine
+            </button>
           </div>
         </div>
       </footer>

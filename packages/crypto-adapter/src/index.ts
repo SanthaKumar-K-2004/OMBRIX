@@ -6,3 +6,4 @@ export * from './fingerprint.js';
 export * from './box.js';
 export * from './sign.js';
 export * from './vault.js';
+export * from './passkey.js';

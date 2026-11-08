@@ -25,7 +25,7 @@ export const SuiteCards: React.FC<SuiteCardsProps> = ({ onSelectModule }) => {
       id: 'core' as ProductModule,
       name: 'OMBRIX Core',
       tagline: 'Steganography engine (hide & extract data)',
-      status: 'Phase 1 & 2 Active',
+      status: 'Steganography Engine',
       statusColor: 'text-[#14B8A6] border-[#14B8A6]/30 bg-[#14B8A6]/10',
       icon: Layers,
       description:
@@ -35,7 +35,7 @@ export const SuiteCards: React.FC<SuiteCardsProps> = ({ onSelectModule }) => {
       id: 'vault' as ProductModule,
       name: 'OMBRIX Vault',
       tagline: 'Encrypted secret containers & key management',
-      status: 'Phase 3 Active',
+      status: 'Encrypted Containers',
       statusColor: 'text-[#14B8A6] border-[#14B8A6]/30 bg-[#14B8A6]/10',
       icon: Lock,
       description:
@@ -45,7 +45,7 @@ export const SuiteCards: React.FC<SuiteCardsProps> = ({ onSelectModule }) => {
       id: 'lens' as ProductModule,
       name: 'OMBRIX Lens',
       tagline: 'Carrier inspection & visual diagnostics',
-      status: 'Phase 4 Active',
+      status: 'Carrier Inspection',
       statusColor: 'text-[#3B82F6] border-[#3B82F6]/30 bg-[#3B82F6]/10',
       icon: ZoomIn,
       description:
@@ -55,7 +55,7 @@ export const SuiteCards: React.FC<SuiteCardsProps> = ({ onSelectModule }) => {
       id: 'lab' as ProductModule,
       name: 'OMBRIX Lab',
       tagline: 'Algorithm comparison & distortion benchmarks',
-      status: 'Phase 4 Active',
+      status: 'Empirical Benchmarks',
       statusColor: 'text-[#3B82F6] border-[#3B82F6]/30 bg-[#3B82F6]/10',
       icon: FlaskConical,
       description:
@@ -65,7 +65,7 @@ export const SuiteCards: React.FC<SuiteCardsProps> = ({ onSelectModule }) => {
       id: 'transit' as ProductModule,
       name: 'OMBRIX Transit & Trace',
       tagline: 'Transformation simulator & χ² forensics',
-      status: 'Phase 4 Active',
+      status: 'Resilience Forensics',
       statusColor: 'text-[#3B82F6] border-[#3B82F6]/30 bg-[#3B82F6]/10',
       icon: Radio,
       description:
@@ -75,7 +75,7 @@ export const SuiteCards: React.FC<SuiteCardsProps> = ({ onSelectModule }) => {
       id: 'link' as ProductModule,
       name: 'OMBRIX Link',
       tagline: 'Ephemeral sharing with BLAKE2b hash rings',
-      status: 'Phase 5 Active',
+      status: 'Ephemeral Sharing',
       statusColor: 'text-[#A855F7] border-[#A855F7]/30 bg-[#A855F7]/10',
       icon: Link2,
       description:
@@ -85,7 +85,7 @@ export const SuiteCards: React.FC<SuiteCardsProps> = ({ onSelectModule }) => {
       id: 'flow' as ProductModule,
       name: 'OMBRIX Flow',
       tagline: 'High-throughput batch automation pipelines',
-      status: 'Phase 5 Active',
+      status: 'Batch Pipelines',
       statusColor: 'text-[#14B8A6] border-[#14B8A6]/30 bg-[#14B8A6]/10',
       icon: Split,
       description:
@@ -95,7 +95,7 @@ export const SuiteCards: React.FC<SuiteCardsProps> = ({ onSelectModule }) => {
       id: 'edge' as ProductModule,
       name: 'OMBRIX Edge',
       tagline: 'Public Developer SDK & Unified Facade',
-      status: 'Phase 5 Active',
+      status: 'Developer SDK',
       statusColor: 'text-[#3B82F6] border-[#3B82F6]/30 bg-[#3B82F6]/10',
       icon: Cpu,
       description:
@@ -105,7 +105,7 @@ export const SuiteCards: React.FC<SuiteCardsProps> = ({ onSelectModule }) => {
       id: 'scan' as ProductModule,
       name: 'OMBRIX Scan',
       tagline: 'Multi-Detector Forensic Steganalysis',
-      status: 'Phase 6 Active',
+      status: 'Forensic Steganalysis',
       statusColor: 'text-[#06B6D4] border-[#06B6D4]/30 bg-[#06B6D4]/10',
       icon: Radar,
       description:
@@ -115,17 +115,17 @@ export const SuiteCards: React.FC<SuiteCardsProps> = ({ onSelectModule }) => {
       id: 'airgap' as ProductModule,
       name: 'OMBRIX Air-Gap',
       tagline: 'Physical Optical Transport & Frame Protocol',
-      status: 'Phase 10 & 11 Active',
+      status: 'Optical Transport',
       statusColor: 'text-[#A855F7] border-[#A855F7]/30 bg-[#A855F7]/10',
       icon: Camera,
       description:
-        'Camera-readable visual optical frames (OMB_OPT_V1), dynamic frame player, animated scanner simulation, and out-of-order CRC32 assembly.',
+        'Camera-readable visual optical frames, dynamic frame player, animated scanner simulation, and out-of-order CRC32 assembly.',
     },
     {
       id: 'relay' as ProductModule,
       name: 'OMBRIX Relay',
       tagline: 'Zero-Knowledge Blind Transport & Burn Store',
-      status: 'Phase 10 & 11 Active',
+      status: 'Blind Transit',
       statusColor: 'text-[#14B8A6] border-[#14B8A6]/30 bg-[#14B8A6]/10',
       icon: Server,
       description:

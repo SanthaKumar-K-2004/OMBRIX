@@ -175,7 +175,7 @@ export const FlowStudio: React.FC = () => {
   const downloadManifest = () => {
     const manifest = {
       project: 'OMBRIX Flow',
-      version: '1.0',
+      manifest: 'OMBRIX_FLOW_MANIFEST',
       timestamp: new Date().toISOString(),
       mode: pipelineMode,
       totalCarriers: audit?.totalCarriers ?? 0,
@@ -208,7 +208,7 @@ export const FlowStudio: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[#14B8A6]/20 text-[#14B8A6] border border-[#14B8A6]/40">
-              MILESTONE 14 ACTIVE
+              Batch Pipeline
             </span>
             <span className="text-xs text-[#64748B]">• Multi-Carrier Steganography Engine</span>
           </div>

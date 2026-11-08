@@ -418,6 +418,9 @@ importers:
 
   packages/stego-worker:
     dependencies:
+      '@ombrix/stego-advanced':
+        specifier: workspace:*
+        version: link:../stego-advanced
       '@ombrix/stego-interface':
         specifier: workspace:*
         version: link:../stego-interface

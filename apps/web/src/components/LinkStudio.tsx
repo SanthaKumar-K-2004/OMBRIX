@@ -8,6 +8,7 @@ import {
   openLinkContainer,
   serializeLinkUri,
 } from '@ombrix/link-sharing';
+import { stealthMatrixMethod } from '@ombrix/stego-advanced';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -16,8 +17,10 @@ import {
   Download,
   FileCheck,
   FileWarning,
-  Key,
+  Flame,
+  ImageIcon,
   Link as LinkIcon,
+  Loader2,
   Lock,
   ShieldAlert,
   ShieldCheck,
@@ -26,6 +29,7 @@ import {
 } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { SmartPasskeyAssistant } from './SmartPasskeyAssistant.js';
 
 export const LinkStudio: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'create' | 'open'>('create');
@@ -41,6 +45,8 @@ export const LinkStudio: React.FC = () => {
   const [burnAfterReading, setBurnAfterReading] = useState<boolean>(false);
   const [createdContainer, setCreatedContainer] = useState<LinkContainer | null>(null);
   const [generatedUri, setGeneratedUri] = useState<string>('');
+  const [stegoCarrierUrl, setStegoCarrierUrl] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -50,7 +56,9 @@ export const LinkStudio: React.FC = () => {
   const [verifyCarrierBytes, setVerifyCarrierBytes] = useState<Uint8Array | null>(null);
   const [openPassphrase, setOpenPassphrase] = useState<string>('');
   const [openedResult, setOpenedResult] = useState<OpenedLink | null>(null);
+  const [isOpening, setIsOpening] = useState(false);
   const [openError, setOpenError] = useState<string | null>(null);
+  const [openMethodNote, setOpenMethodNote] = useState<string | null>(null);
 
   // Handle carrier upload for create
   const handleCarrierUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -60,6 +68,7 @@ export const LinkStudio: React.FC = () => {
     const buf = await file.arrayBuffer();
     setCarrierBytes(new Uint8Array(buf));
     setCreateError(null);
+    setStegoCarrierUrl(null);
   };
 
   // Handle carrier upload for verify
@@ -72,26 +81,48 @@ export const LinkStudio: React.FC = () => {
     setOpenError(null);
   };
 
-  // Create OMBRIX Link
+  // Create OMBRIX Link & Steganographic Carrier
   const handleCreateLink = async () => {
     try {
+      setIsProcessing(true);
       setCreateError(null);
-      if (!carrierBytes) {
-        // Create dummy carrier bytes if none provided (for demo/quick testing)
-        const dummy = new Uint8Array([
-          137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
-        ]);
-        setCarrierBytes(dummy);
+      setStegoCarrierUrl(null);
+
+      let activeCarrier = carrierBytes;
+      let activeFile = carrierFile;
+
+      // If user did not upload a carrier image, synthesize a high-resolution gradient carrier
+      if (!activeCarrier || !activeFile) {
+        const synthCanvas = document.createElement('canvas');
+        synthCanvas.width = 400;
+        synthCanvas.height = 400;
+        const sCtx = synthCanvas.getContext('2d');
+        if (sCtx) {
+          const grad = sCtx.createLinearGradient(0, 0, 400, 400);
+          grad.addColorStop(0, '#1E1B4B');
+          grad.addColorStop(0.5, '#4C1D95');
+          grad.addColorStop(1, '#0F172A');
+          sCtx.fillStyle = grad;
+          sCtx.fillRect(0, 0, 400, 400);
+        }
+        const blob = await new Promise<Blob>((resolve) =>
+          synthCanvas.toBlob((b) => resolve(b ?? new Blob()), 'image/png'),
+        );
+        const buf = await blob.arrayBuffer();
+        activeCarrier = new Uint8Array(buf);
+        activeFile = new File([blob], 'synthetic-carrier.png', { type: 'image/png' });
+        setCarrierBytes(activeCarrier);
+        setCarrierFile(activeFile);
       }
 
-      const activeCarrier = carrierBytes ?? new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
       const payloadBytes = new TextEncoder().encode(secretMessage);
 
+      // Step 1: Create cryptographic ephemeral container with BLAKE2b carrier hash ring
       const container = await createLinkContainer({
         expiresInSeconds: ttlSeconds,
         carrierBytes: activeCarrier,
         payloadBytes,
-        carrierName: carrierFile?.name ?? 'carrier-image.png',
+        carrierName: activeFile.name,
         passphrase: passphrase.trim() ? passphrase : undefined,
         burnAfterReading,
       });
@@ -99,26 +130,119 @@ export const LinkStudio: React.FC = () => {
       const uri = serializeLinkUri(container, window.location.origin);
       setCreatedContainer(container);
       setGeneratedUri(uri);
+
+      // Step 2: Embed container directly into carrier image using Stealth Matrix (±1 LSB matching)
+      try {
+        const img = new Image();
+        const objUrl = URL.createObjectURL(activeFile);
+        img.src = objUrl;
+        await img.decode();
+
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          for (let i = 3; i < imgData.data.length; i += 4) {
+            imgData.data[i] = 255; // Ensure full opacity
+          }
+
+          const containerJsonBytes = new TextEncoder().encode(JSON.stringify(container));
+          const stegoCarrier = await stealthMatrixMethod.embed(
+            { width: imgData.width, height: imgData.height, data: imgData.data },
+            containerJsonBytes,
+            { passphrase: passphrase.trim() ? passphrase : undefined },
+          );
+
+          const stegoCanvas = document.createElement('canvas');
+          stegoCanvas.width = stegoCarrier.width;
+          stegoCanvas.height = stegoCarrier.height;
+          const stegoCtx = stegoCanvas.getContext('2d');
+          if (stegoCtx) {
+            const clamped = new Uint8ClampedArray(stegoCarrier.data);
+            const newImgData = new ImageData(clamped, stegoCarrier.width, stegoCarrier.height);
+            stegoCtx.putImageData(newImgData, 0, 0);
+            stegoCanvas.toBlob((b) => {
+              if (b) {
+                setStegoCarrierUrl(URL.createObjectURL(b));
+              }
+            }, 'image/png');
+          }
+        }
+      } catch (stegoErr) {
+        console.warn('Steganographic carrier embedding note:', stegoErr);
+      }
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   // Open & Verify Link
   const handleOpenLink = async () => {
     try {
+      setIsOpening(true);
       setOpenError(null);
       setOpenedResult(null);
+      setOpenMethodNote(null);
 
-      if (!inputUri.trim()) {
-        throw new Error('Please enter an OMBRIX Link URI or container JSON.');
+      let container: LinkContainer | null = null;
+
+      // Mode A: Direct extraction from dropped Stego Carrier Image
+      if (verifyCarrierFile) {
+        try {
+          const img = new Image();
+          const objUrl = URL.createObjectURL(verifyCarrierFile);
+          img.src = objUrl;
+          await img.decode();
+
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            for (let i = 3; i < imgData.data.length; i += 4) {
+              imgData.data[i] = 255;
+            }
+
+            const extractedBytes = await stealthMatrixMethod.extract(
+              { width: imgData.width, height: imgData.height, data: imgData.data },
+              { passphrase: openPassphrase.trim() ? openPassphrase : undefined },
+            );
+
+            const jsonStr = new TextDecoder().decode(extractedBytes);
+            if (jsonStr.includes('OMBRIX_LINK')) {
+              container = JSON.parse(jsonStr) as LinkContainer;
+              setOpenMethodNote(
+                'Directly unpacked from Steganographic Carrier Image via OMBRIX Stealth Matrix',
+              );
+            }
+          }
+        } catch {
+          // If carrier did not contain embedded stego container, fall through to text input
+        }
       }
 
-      let container: LinkContainer;
-      if (inputUri.trim().startsWith('{')) {
-        container = importLinkBundle(inputUri.trim());
-      } else {
-        container = deserializeLinkUri(inputUri.trim());
+      // Mode B: Parse from text URI or JSON bundle
+      if (!container) {
+        if (!inputUri.trim()) {
+          throw new Error(
+            'Please upload a stego carrier image or enter an OMBRIX Link URI / container JSON.',
+          );
+        }
+
+        if (inputUri.trim().startsWith('{')) {
+          container = importLinkBundle(inputUri.trim());
+          setOpenMethodNote('Unpacked from .ombrix-link JSON bundle');
+        } else {
+          container = deserializeLinkUri(inputUri.trim());
+          setOpenMethodNote('Unpacked from OMBRIX URL fragment');
+        }
       }
 
       const opened = await openLinkContainer(container, {
@@ -129,6 +253,8 @@ export const LinkStudio: React.FC = () => {
       setOpenedResult(opened);
     } catch (err) {
       setOpenError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsOpening(false);
     }
   };
 
@@ -144,57 +270,48 @@ export const LinkStudio: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ombrix-link-${container.metadata.id.slice(0, 8)}.json`;
+    a.download = `ombrix-link-${container.metadata.id.slice(0, 8)}.ombrix-link`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="p-6 rounded-2xl bg-gradient-to-r from-[#111827] via-[#1E1B4B]/30 to-[#111827] border border-[#1E293B] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      {/* Studio Header & Tab Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-[#111827] via-[#0F172A] to-[#111827] border border-[#1E293B] shadow-xl">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[#7C3AED]/20 text-[#A855F7] border border-[#7C3AED]/40">
-              MILESTONE 13 ACTIVE
-            </span>
-            <span className="text-xs text-[#64748B]">• Local-First Ephemeral Sharing</span>
-          </div>
-          <h2 className="text-2xl font-bold font-['Sora'] text-white mt-1">
-            OMBRIX Link — Ephemeral Steganographic Sharing
+          <h2 className="text-xl font-bold font-['Sora'] text-white flex items-center gap-2.5">
+            <LinkIcon className="w-5 h-5 text-[#A855F7]" />
+            <span>OMBRIX Link: Ephemeral Steganographic Sharing</span>
           </h2>
-          <p className="text-xs text-[#94A3B8] max-w-2xl mt-1">
-            Package steganographic secrets into self-verifying, time-bounded containers protected by
-            BLAKE2b carrier hash rings and optional Argon2id password encryption with zero server
-            dependencies.
+          <p className="text-xs text-[#94A3B8] mt-1">
+            Time-bounded steganographic containers with strict TTL expiration, BLAKE2b carrier hash
+            rings, and zero-server local verification.
           </p>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex items-center p-1 rounded-xl bg-[#0B0F19] border border-[#1E293B]">
+        <div className="flex items-center p-1 bg-[#0B0F19] border border-[#1E293B] rounded-xl self-start sm:self-auto">
           <button
             type="button"
             onClick={() => setActiveTab('create')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'create'
-                ? 'bg-[#7C3AED] text-white shadow-md'
+                ? 'bg-gradient-to-r from-[#7C3AED] to-[#A855F7] text-white shadow-md'
                 : 'text-[#94A3B8] hover:text-white'
             }`}
           >
-            <LinkIcon className="w-4 h-4" />
-            <span>Create Link</span>
+            Create Stego Link
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('open')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'open'
-                ? 'bg-[#7C3AED] text-white shadow-md'
+                ? 'bg-gradient-to-r from-[#14B8A6] to-[#0D9488] text-white shadow-md'
                 : 'text-[#94A3B8] hover:text-white'
             }`}
           >
-            <FileCheck className="w-4 h-4" />
-            <span>Open & Verify</span>
+            Open &amp; Verify Link
           </button>
         </div>
       </div>
@@ -204,12 +321,12 @@ export const LinkStudio: React.FC = () => {
         <ShieldCheck className="w-5 h-5 text-[#14B8A6] shrink-0 mt-0.5" />
         <div className="text-xs text-[#94A3B8] leading-relaxed">
           <span className="font-semibold text-[#E2E8F0]">
-            Client-Side Integrity & TTL Disclosure:
+            Dual Carrier Steganography &amp; TTL Integrity:
           </span>{' '}
-          OMBRIX Link operates entirely within your browser sandbox. The container hash ring
-          cryptographically binds the carrier image to the envelope, rejecting tampered or
-          re-encoded carriers. Expiration is enforced client-side; because OMBRIX has zero servers,
-          data cannot be deleted from a recipient&apos;s local storage once downloaded.
+          Secrets are embedded directly into the carrier image pixels using OMBRIX Stealth Matrix
+          (±1 LSB matching). The BLAKE2b carrier hash ring cryptographically binds the carrier image
+          to the container, rejecting modified carriers. Expiration is enforced mathematically
+          without servers.
         </div>
       </div>
 
@@ -228,25 +345,25 @@ export const LinkStudio: React.FC = () => {
                 htmlFor="carrier-upload"
                 className="block text-xs font-semibold text-[#E2E8F0]"
               >
-                Carrier Image (PNG) for Hash Ring
+                Carrier Image (PNG/JPG/WEBP)
               </label>
               <div className="relative border border-dashed border-[#334155] rounded-xl p-4 text-center hover:border-[#7C3AED] transition-colors cursor-pointer bg-[#0B0F19]/50">
                 <input
                   id="carrier-upload"
                   type="file"
-                  accept="image/png"
+                  accept="image/*"
                   onChange={handleCarrierUpload}
                   className="absolute inset-0 opacity-0 cursor-pointer"
                 />
                 <div className="flex flex-col items-center gap-1.5 pointer-events-none">
                   <Upload className="w-5 h-5 text-[#94A3B8]" />
                   <span className="text-xs text-[#E2E8F0]">
-                    {carrierFile ? carrierFile.name : 'Drop carrier PNG or click to select'}
+                    {carrierFile ? carrierFile.name : 'Drop carrier image or click to select'}
                   </span>
                   <span className="text-[10px] text-[#64748B]">
                     {carrierFile
                       ? `${(carrierFile.size / 1024).toFixed(1)} KB`
-                      : 'Used for BLAKE2b hash ring binding'}
+                      : 'Leave blank to generate an automatic cryptographic gradient carrier'}
                   </span>
                 </div>
               </div>
@@ -274,7 +391,7 @@ export const LinkStudio: React.FC = () => {
             <div className="space-y-2">
               <label
                 htmlFor="ttl-selector"
-                className="block text-xs font-semibold text-[#E2E8F0] flex items-center gap-1.5"
+                className="text-xs font-semibold text-[#E2E8F0] flex items-center gap-1.5"
               >
                 <Clock className="w-3.5 h-3.5 text-[#3B82F6]" />
                 <span>Time-to-Live (TTL) Policy</span>
@@ -302,22 +419,14 @@ export const LinkStudio: React.FC = () => {
               </div>
             </div>
 
-            {/* Optional Passphrase */}
-            <div className="space-y-2">
-              <label
-                htmlFor="passphrase-input"
-                className="block text-xs font-semibold text-[#E2E8F0] flex items-center gap-1.5"
-              >
-                <Key className="w-3.5 h-3.5 text-[#14B8A6]" />
-                <span>Access Passphrase (Optional Argon2id Encryption)</span>
-              </label>
-              <input
-                id="passphrase-input"
-                type="password"
+            {/* Smart Passkey Assistant */}
+            <div className="pt-2 border-t border-[#1E293B]">
+              <SmartPasskeyAssistant
+                idPrefix="link-create-passkey"
                 value={passphrase}
-                onChange={(e) => setPassphrase(e.target.value)}
-                placeholder="Leave blank for open link, or enter passphrase..."
-                className="w-full p-2.5 rounded-xl bg-[#0B0F19] border border-[#1E293B] text-xs text-white focus:border-[#7C3AED] focus:outline-none"
+                onChange={(newKey) => setPassphrase(newKey)}
+                mode="encode"
+                placeholder="Leave blank for open link, or enter passphrase / photo key..."
               />
             </div>
 
@@ -330,8 +439,12 @@ export const LinkStudio: React.FC = () => {
                 onChange={(e) => setBurnAfterReading(e.target.checked)}
                 className="w-4 h-4 rounded bg-[#0B0F19] border-[#1E293B] text-[#7C3AED] focus:ring-0"
               />
-              <label htmlFor="burn" className="text-xs text-[#94A3B8] cursor-pointer">
-                Flag container as Single-Access (&ldquo;Burn After Reading&rdquo;)
+              <label
+                htmlFor="burn"
+                className="text-xs text-[#94A3B8] cursor-pointer flex items-center gap-1"
+              >
+                <Flame className="w-3.5 h-3.5 text-amber-500" />
+                <span>Flag container as Single-Access (&ldquo;Burn After Reading&rdquo;)</span>
               </label>
             </div>
 
@@ -344,11 +457,21 @@ export const LinkStudio: React.FC = () => {
 
             <button
               type="button"
+              disabled={isProcessing}
               onClick={handleCreateLink}
-              className="w-full py-3 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold transition-all shadow-lg shadow-[#7C3AED]/20 flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-50 text-white text-xs font-bold transition-all shadow-lg shadow-[#7C3AED]/20 flex items-center justify-center gap-2"
             >
-              <LinkIcon className="w-4 h-4" />
-              <span>Generate OMBRIX Link Container</span>
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Embedding Steganographic Container...</span>
+                </>
+              ) : (
+                <>
+                  <LinkIcon className="w-4 h-4" />
+                  <span>Generate Stego Carrier &amp; Link</span>
+                </>
+              )}
             </button>
           </div>
 
@@ -359,13 +482,43 @@ export const LinkStudio: React.FC = () => {
                 <span>Generated Ephemeral Package</span>
                 {createdContainer && (
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] border border-[#14B8A6]/30">
-                    READY TO SHARE
+                    STEGO READY
                   </span>
                 )}
               </h3>
 
               {createdContainer ? (
                 <div className="space-y-4">
+                  {/* Stego Carrier Download Preview */}
+                  {stegoCarrierUrl && (
+                    <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#14B8A6]/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#14B8A6] flex items-center gap-1.5">
+                          <ImageIcon className="w-4 h-4" />
+                          <span>Steganographic Carrier Image</span>
+                        </span>
+                        <span className="text-[10px] text-[#64748B]">
+                          Payload hidden inside pixels
+                        </span>
+                      </div>
+                      <div className="relative rounded-lg overflow-hidden border border-[#1E293B] h-36 bg-[#000]">
+                        <img
+                          src={stegoCarrierUrl}
+                          alt="Stego Link Carrier"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <a
+                        href={stegoCarrierUrl}
+                        download={`stego-link-${createdContainer.metadata.id.slice(0, 8)}.png`}
+                        className="w-full py-2.5 rounded-xl bg-[#14B8A6] hover:bg-[#0D9488] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#14B8A6]/20"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>Download Stego Carrier Image</span>
+                      </a>
+                    </div>
+                  )}
+
                   {/* Metadata Card */}
                   <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#1E293B] space-y-2 text-xs font-mono">
                     <div className="flex justify-between items-center text-[#94A3B8]">
@@ -447,7 +600,7 @@ export const LinkStudio: React.FC = () => {
                 <div className="h-64 flex flex-col items-center justify-center text-center p-6 border border-dashed border-[#1E293B] rounded-xl text-[#64748B] space-y-2">
                   <LinkIcon className="w-8 h-8 opacity-40 text-[#7C3AED]" />
                   <p className="text-xs">
-                    Configure parameters on the left and click Generate to create an ephemeral link.
+                    Configure parameters on the left and click Generate to create a stego link.
                   </p>
                 </div>
               )}
@@ -461,69 +614,65 @@ export const LinkStudio: React.FC = () => {
           <div className="p-6 rounded-2xl bg-[#111827] border border-[#1E293B] space-y-4">
             <h3 className="text-base font-bold font-['Sora'] text-white flex items-center gap-2">
               <FileCheck className="w-4 h-4 text-[#14B8A6]" />
-              <span>Provide Link or Bundle</span>
+              <span>Unpack Stego Carrier or Link</span>
             </h3>
 
-            {/* URI or JSON Input */}
-            <div className="space-y-2">
-              <label
-                htmlFor="link-uri-input"
-                className="block text-xs font-semibold text-[#E2E8F0]"
-              >
-                OMBRIX Link URI or Container JSON
-              </label>
-              <textarea
-                id="link-uri-input"
-                value={inputUri}
-                onChange={(e) => setInputUri(e.target.value)}
-                rows={4}
-                placeholder="Paste https://ombrix.local/#link=... or container JSON..."
-                className="w-full p-3 rounded-xl bg-[#0B0F19] border border-[#1E293B] text-xs text-white font-mono focus:border-[#7C3AED] focus:outline-none resize-none"
-              />
-            </div>
-
-            {/* Carrier Image Verification */}
+            {/* Stego Carrier Image Upload */}
             <div className="space-y-2">
               <label
                 htmlFor="verify-carrier-upload"
                 className="block text-xs font-semibold text-[#E2E8F0]"
               >
-                Carrier Image (PNG) for Tamper Detection (Optional but Recommended)
+                Stego Carrier Image (Drop here for Direct Unpacking)
               </label>
               <div className="relative border border-dashed border-[#334155] rounded-xl p-3 text-center hover:border-[#14B8A6] transition-colors cursor-pointer bg-[#0B0F19]/50">
                 <input
                   id="verify-carrier-upload"
                   type="file"
-                  accept="image/png"
+                  accept="image/*"
                   onChange={handleVerifyCarrierUpload}
                   className="absolute inset-0 opacity-0 cursor-pointer"
                 />
                 <div className="flex flex-col items-center gap-1 pointer-events-none">
-                  <Upload className="w-4 h-4 text-[#94A3B8]" />
+                  <Upload className="w-4 h-4 text-[#14B8A6]" />
                   <span className="text-xs text-[#E2E8F0]">
                     {verifyCarrierFile
                       ? verifyCarrierFile.name
-                      : 'Select carrier image to verify integrity'}
+                      : 'Drop Stego Carrier Image or click to select'}
+                  </span>
+                  <span className="text-[10px] text-[#64748B]">
+                    Automatically extracts embedded link container from carrier pixels
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Passphrase Input */}
+            {/* URI or JSON Input (Fallback) */}
             <div className="space-y-2">
               <label
-                htmlFor="open-passphrase-input"
+                htmlFor="link-uri-input"
                 className="block text-xs font-semibold text-[#E2E8F0]"
               >
-                Passphrase (if container was encrypted)
+                OR Paste OMBRIX Link URI / Container JSON
               </label>
-              <input
-                id="open-passphrase-input"
-                type="password"
+              <textarea
+                id="link-uri-input"
+                value={inputUri}
+                onChange={(e) => setInputUri(e.target.value)}
+                rows={3}
+                placeholder="Paste https://ombrix.local/#link=... or container JSON..."
+                className="w-full p-3 rounded-xl bg-[#0B0F19] border border-[#1E293B] text-xs text-white font-mono focus:border-[#7C3AED] focus:outline-none resize-none"
+              />
+            </div>
+
+            {/* Smart Passkey Assistant for Open */}
+            <div className="pt-2 border-t border-[#1E293B]">
+              <SmartPasskeyAssistant
+                idPrefix="link-open-passkey"
                 value={openPassphrase}
-                onChange={(e) => setOpenPassphrase(e.target.value)}
-                placeholder="Enter container passphrase..."
-                className="w-full p-2.5 rounded-xl bg-[#0B0F19] border border-[#1E293B] text-xs text-white focus:border-[#7C3AED] focus:outline-none"
+                onChange={(newKey) => setOpenPassphrase(newKey)}
+                mode="decode"
+                placeholder="Enter container passphrase or drop photo key..."
               />
             </div>
 
@@ -536,11 +685,21 @@ export const LinkStudio: React.FC = () => {
 
             <button
               type="button"
+              disabled={isOpening}
               onClick={handleOpenLink}
-              className="w-full py-3 rounded-xl bg-[#14B8A6] hover:bg-[#0D9488] text-white text-xs font-bold transition-all shadow-lg shadow-[#14B8A6]/20 flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-xl bg-[#14B8A6] hover:bg-[#0D9488] disabled:opacity-50 text-white text-xs font-bold transition-all shadow-lg shadow-[#14B8A6]/20 flex items-center justify-center gap-2"
             >
-              <Lock className="w-4 h-4" />
-              <span>Verify & Unpack Secret Container</span>
+              {isOpening ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Unpacking &amp; Verifying Container...</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4" />
+                  <span>Verify &amp; Unpack Secret Container</span>
+                </>
+              )}
             </button>
           </div>
 
@@ -548,7 +707,7 @@ export const LinkStudio: React.FC = () => {
           <div className="p-6 rounded-2xl bg-[#111827] border border-[#1E293B] flex flex-col justify-between space-y-4">
             <div className="space-y-4">
               <h3 className="text-base font-bold font-['Sora'] text-white">
-                Verification & Extracted Secret
+                Verification &amp; Extracted Secret
               </h3>
 
               {openedResult ? (
@@ -581,6 +740,13 @@ export const LinkStudio: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {openMethodNote && (
+                    <div className="p-2.5 rounded-lg bg-[#14B8A6]/10 border border-[#14B8A6]/30 text-xs text-[#14B8A6] flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 shrink-0" />
+                      <span>{openMethodNote}</span>
+                    </div>
+                  )}
 
                   {/* Secret Payload Viewer */}
                   <div className="space-y-2">
@@ -615,7 +781,7 @@ export const LinkStudio: React.FC = () => {
                 <div className="h-64 flex flex-col items-center justify-center text-center p-6 border border-dashed border-[#1E293B] rounded-xl text-[#64748B] space-y-2">
                   <ShieldAlert className="w-8 h-8 opacity-40 text-[#14B8A6]" />
                   <p className="text-xs">
-                    Paste an OMBRIX Link or container JSON and click Verify & Unpack to inspect.
+                    Drop a Stego Carrier Image or paste an OMBRIX Link URI / JSON bundle to unpack.
                   </p>
                 </div>
               )}

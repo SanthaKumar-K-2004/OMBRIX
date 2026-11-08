@@ -13,6 +13,10 @@ export interface StegoOptions {
   channels?: ChannelName[];
   /** Optional deterministic PRNG seed for scattering */
   seed?: number;
+  /** Optional secret passphrase for key-derived scattering & encryption */
+  passphrase?: string;
+  /** Specific steganography method identifier */
+  methodId?: string;
 }
 
 export interface CapacityReport {

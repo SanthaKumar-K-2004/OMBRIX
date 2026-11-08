@@ -18,6 +18,15 @@ export {
   pvdStego,
   PvdStegoMethod,
 } from './pvd.js';
+export {
+  StealthMatrixMethod,
+  stealthMatrixMethod,
+} from './stealthMatrix.js';
+export {
+  ChaCha20Prng,
+  hmacSha256,
+  sha256,
+} from './stealthCrypto.js';
 export type {
   DctOptions,
   DwtOptions,

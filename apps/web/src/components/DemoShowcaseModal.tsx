@@ -67,7 +67,7 @@ export const DemoShowcaseModal: React.FC<DemoShowcaseModalProps> = ({ isOpen, on
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <span>OMBRIX Demo Dataset & Forensic Vectors</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] font-mono border border-[#14B8A6]/20">
-                  v0.1.0 Capstone
+                  Offline Vectors
                 </span>
               </h2>
               <p className="text-xs text-[#94A3B8]">

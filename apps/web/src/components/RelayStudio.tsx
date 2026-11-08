@@ -446,9 +446,23 @@ export const RelayStudio: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="claim-bearer-token" className="block text-xs text-[#94A3B8] mb-1.5">
-                  Capability Bearer Token
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label htmlFor="claim-bearer-token" className="block text-xs text-[#94A3B8]">
+                    Capability Bearer Token (32-Byte Key)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard.readText();
+                        if (text) setRetrieveToken(text.trim());
+                      } catch {}
+                    }}
+                    className="text-[11px] text-[#A855F7] hover:underline"
+                  >
+                    Paste from Clipboard
+                  </button>
+                </div>
                 <input
                   id="claim-bearer-token"
                   type="text"

@@ -15,10 +15,12 @@ import {
   RelayInvalidTokenError,
   RelayMessageNotFoundError,
 } from '@ombrix/relay-core';
+import { stealthMatrixMethod } from '@ombrix/stego-advanced';
 import { analyzeConsensus } from '@ombrix/stego-forensics';
 import type { CarrierImage } from '@ombrix/stego-interface';
 import { pngLsbSequential } from '@ombrix/stego-png-lsb';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { packFilePayload, unpackFilePayload } from '../../apps/web/src/utils/filePayload.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -192,6 +194,144 @@ describe('Phase 11: Real-Time System Architecture, Cross-Studio Cohesion & Brand
       for (const mod of expectedModules) {
         expect(navbarContent).toContain(`id: '${mod}'`);
       }
+    });
+
+    it('verifies zero unwanted version mentions (1.0, 2.0, v1.0, v2.0) across primary UI components', () => {
+      const logoContent = fs.readFileSync(
+        path.resolve(rootDir, 'apps/web/src/components/OmbrixLogo.tsx'),
+        'utf8',
+      );
+      const navbarContent = fs.readFileSync(
+        path.resolve(rootDir, 'apps/web/src/components/Navbar.tsx'),
+        'utf8',
+      );
+      const coreContent = fs.readFileSync(
+        path.resolve(rootDir, 'apps/web/src/components/CoreStudio.tsx'),
+        'utf8',
+      );
+      const modalContent = fs.readFileSync(
+        path.resolve(rootDir, 'apps/web/src/components/DemoShowcaseModal.tsx'),
+        'utf8',
+      );
+
+      // Logo must not contain v1.0 or v2.0
+      expect(logoContent).not.toContain('v1.0');
+      expect(logoContent).not.toContain('v2.0');
+
+      // Navbar must not contain v1.0 or v2.0 badges
+      expect(navbarContent).not.toContain("'v1.0'");
+      expect(navbarContent).not.toContain("'v2.0'");
+
+      // Core Studio header must not contain v2.0 or v1.0 version numbers
+      expect(coreContent).not.toContain('Undetectable Stealth v2.0');
+      expect(coreContent).not.toContain('Undetectable Stealth v1.0');
+
+      // Demo modal must not contain capstone version tags
+      expect(modalContent).not.toContain('v0.1.0 Capstone');
+
+      // SuiteCards, FlowStudio, VaultStudio, ScanStudio must not contain Phase / Milestone numbers
+      const suiteContent = fs.readFileSync(
+        path.resolve(rootDir, 'apps/web/src/components/SuiteCards.tsx'),
+        'utf8',
+      );
+      const vaultContent = fs.readFileSync(
+        path.resolve(rootDir, 'apps/web/src/components/VaultStudio.tsx'),
+        'utf8',
+      );
+      const flowContent = fs.readFileSync(
+        path.resolve(rootDir, 'apps/web/src/components/FlowStudio.tsx'),
+        'utf8',
+      );
+      const scanContent = fs.readFileSync(
+        path.resolve(rootDir, 'apps/web/src/components/ScanStudio.tsx'),
+        'utf8',
+      );
+
+      expect(suiteContent).not.toMatch(/Phase \d+/i);
+      expect(vaultContent).not.toMatch(/Phase \d+/i);
+      expect(flowContent).not.toMatch(/MILESTONE \d+/i);
+      expect(flowContent).not.toContain("version: '1.0'");
+      expect(scanContent).not.toMatch(/Milestone \d+/i);
+    });
+
+    it('successfully embeds a secret PNG image inside an RGB carrier and extracts it losslessly with metadata', async () => {
+      // 1. Create a 64x64 synthetic carrier image
+      const carrierWidth = 64;
+      const carrierHeight = 64;
+      const carrierData = new Uint8Array(carrierWidth * carrierHeight * 4);
+      for (let i = 0; i < carrierData.length; i += 4) {
+        carrierData[i] = (i * 7) % 256; // R
+        carrierData[i + 1] = (i * 13) % 256; // G
+        carrierData[i + 2] = (i * 19) % 256; // B
+        carrierData[i + 3] = 255; // Opaque alpha
+      }
+      const carrier: CarrierImage = {
+        width: carrierWidth,
+        height: carrierHeight,
+        data: carrierData,
+      };
+
+      // 2. Create a simulated secret PNG image
+      const secretImageBytes = new Uint8Array([
+        0x89,
+        0x50,
+        0x4e,
+        0x47,
+        0x0d,
+        0x0a,
+        0x1a,
+        0x0a, // PNG magic
+        0x00,
+        0x00,
+        0x00,
+        0x0d,
+        0x49,
+        0x48,
+        0x44,
+        0x52, // IHDR chunk
+        ...new Array(60).fill(0x33), // payload
+      ]);
+
+      const packed = packFilePayload(secretImageBytes, {
+        name: 'secret-blueprint.png',
+        mime: 'image/png',
+        size: secretImageBytes.length,
+        width: 16,
+        height: 16,
+      });
+
+      // 3. Embed into carrier using StealthMatrixMethod with passphrase
+      const passkey = 'coral-matrix-falcon-beacon';
+      const stegoCarrier = await stealthMatrixMethod.embed(carrier, packed, {
+        passphrase: passkey,
+      });
+
+      // 4. Verify visual imperceptibility: calculate PSNR
+      let sumSq = 0;
+      for (let i = 0; i < carrierData.length; i++) {
+        const diff = (carrierData[i] ?? 0) - (stegoCarrier.data[i] ?? 0);
+        sumSq += diff * diff;
+      }
+      const mse = sumSq / carrierData.length;
+      const psnr = 10 * Math.log10((255 * 255) / mse);
+      expect(psnr).toBeGreaterThan(60); // PSNR > 60 dB = imperceptible
+
+      // 5. Extract payload using StealthMatrixMethod
+      const extractedBytes = await stealthMatrixMethod.extract(stegoCarrier, {
+        passphrase: passkey,
+      });
+      expect(extractedBytes).toEqual(packed);
+
+      // 6. Unpack file payload and verify exact fidelity
+      const revealed = unpackFilePayload(extractedBytes);
+      expect(revealed).not.toBeNull();
+      expect(revealed?.name).toBe('secret-blueprint.png');
+      expect(revealed?.mime).toBe('image/png');
+      expect(revealed?.isImage).toBe(true);
+      expect(revealed?.size).toBe(secretImageBytes.length);
+      expect(revealed?.width).toBe(16);
+      expect(revealed?.height).toBe(16);
+      expect(revealed?.data).toEqual(secretImageBytes);
     });
   });
 });

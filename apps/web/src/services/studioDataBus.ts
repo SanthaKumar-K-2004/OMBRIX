@@ -23,10 +23,35 @@ type CiphertextListener = (payload: BusCiphertextPayload) => void;
 class StudioDataBus {
   private activeCarrier: BusCarrierPayload | null = null;
   private activeCiphertext: BusCiphertextPayload | null = null;
+  private activeCoreTab: 'hide' | 'reveal' = 'hide';
 
   private carrierListeners = new Set<CarrierListener>();
   private navListeners = new Set<NavigationListener>();
   private ciphertextListeners = new Set<CiphertextListener>();
+  private coreTabListeners = new Set<(tab: 'hide' | 'reveal') => void>();
+
+  setCoreTab(tab: 'hide' | 'reveal'): void {
+    this.activeCoreTab = tab;
+    for (const listener of this.coreTabListeners) {
+      try {
+        listener(tab);
+      } catch (err) {
+        console.error('Error in core tab listener:', err);
+      }
+    }
+  }
+
+  getActiveCoreTab(): 'hide' | 'reveal' {
+    return this.activeCoreTab;
+  }
+
+  subscribeCoreTab(listener: (tab: 'hide' | 'reveal') => void): () => void {
+    this.coreTabListeners.add(listener);
+    listener(this.activeCoreTab);
+    return () => {
+      this.coreTabListeners.delete(listener);
+    };
+  }
 
   // Carrier methods
   publishCarrier(carrier: BusCarrierPayload): void {

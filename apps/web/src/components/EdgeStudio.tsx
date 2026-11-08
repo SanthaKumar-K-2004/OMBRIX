@@ -214,7 +214,7 @@ console.log('Completed tasks:', embedResults.length);`,
         const alice = generateSigningKeyPair();
         const bob = generateEncryptionKeyPair();
         const t0 = performance.now();
-        const stego = await Ombrix.embed(dummyCarrier, 'Top Secret: Phase 5 Delivered', {
+        const stego = await Ombrix.embed(dummyCarrier, 'Top Secret Payload Delivered', {
           recipientPublicKey: toBase64(bob.publicKey),
           signingPrivateKey: toBase64(alice.privateKey),
         });
@@ -333,7 +333,7 @@ console.log('Completed tasks:', embedResults.length);`,
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[#3B82F6]/20 text-[#3B82F6] border border-[#3B82F6]/40">
-              MILESTONE 15 ACTIVE
+              Developer SDK
             </span>
             <span className="text-xs text-[#64748B]">• Unified Developer SDK & Public API</span>
           </div>
