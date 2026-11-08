@@ -51,10 +51,38 @@ OMBRIX development follows an evidence-based, incremental engineering loop. Ever
 └────────────────────────────────────┬───────────────────────────────────┘
                                      │
 ┌────────────────────────────────────▼───────────────────────────────────┐
-│ Phase 6: Research-Grade Steganography & Steganalysis                   │  [ACTIVE]
+│ Phase 6: Research-Grade Steganography & Steganalysis                   │  [COMPLETED]
 │  • M16: Advanced Engines (PVD, Haar DWT Multi-Band, JPEG 8x8 DCT)      │
 │  • M17: Advanced Steganalysis (Fridrich RS, Sample Pair Analysis, SPA) │
 │  • M18: OMBRIX Scan & Research Lab Studio (Consensus Forensics Suite)  │
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼───────────────────────────────────┐
+│ Phase 7: Release Hardening & Production Polish                         │  [COMPLETED]
+│  • M19: Security Review, CSP Enforcement & Licenses                    │
+│  • M20: Fuzzing Verification & Curated Demo Dataset                    │
+│  • M21: Production Documentation & Release Packaging                   │
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼───────────────────────────────────┐
+│ Phase 8: CLI Tooling, Experiment Engine & Offline PWA                  │  [COMPLETED]
+│  • M22: Scientific Experiment Engine (OmbrixExperimentV1)              │
+│  • M23: OMBRIX CLI (ombrix binary with pure TS PNG codec)              │
+│  • M24: Offline PWA & Air-Gapped Deployment                            │
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼───────────────────────────────────┐
+│ Phase 9: Full-Stack DoD Verification & Capstone Release Packaging      │  [COMPLETED]
+│  • M25: Automated Definition-of-Done (DoD) Verification Engine         │
+│  • M26: Release Asset Builder & Distribution Suite (SHA256/SHA512)     │
+│  • M27: Forensic Demonstration Mode & Capstone E2E Showcase            │
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼───────────────────────────────────┐
+│ Phase 10: Zero-Knowledge Relay, Optical Air-Gap & ROC Forensics        │  [COMPLETED]
+│  • M28: Zero-Knowledge Opaque Relay Protocol (@ombrix/relay-core)      │
+│  • M29: Physical Optical Air-Gapped Transport (@ombrix/optical-airgap)  │
+│  • M30: Steganalysis ROC Detection & Benchmarking (@ombrix/forensics)  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -245,6 +273,24 @@ OMBRIX development follows an evidence-based, incremental engineering loop. Ever
 
 ---
 
+### Phase 10 — Zero-Knowledge Relay, Optical Air-Gap & ROC Forensics Benchmark [COMPLETED]
+- **Milestone 28: Zero-Knowledge Opaque Relay Protocol (`@ombrix/relay-core`):**
+  - High-entropy capability bearer tokens with BLAKE2b generic hashing and constant-time memory comparisons.
+  - Opaque envelope encapsulation (`OpaqueRelayEnvelope`) with configurable TTL and single-use/bounded retrieval burning to prevent replay and leakage.
+  - In-memory zero-knowledge relay store (`LocalOpaqueRelayStore`) ensuring relays store strictly blind ciphertext with zero access to cryptographic keys, plaintext, or sender identity.
+- **Milestone 29: Physical Optical Air-Gapped Transport & Frame Protocol (`@ombrix/optical-airgap`):**
+  - Robust frame protocol (`OMB_OPT_V1`) segmenting arbitrary binary carriers and tokens into camera-readable frame chunks (`DEFAULT_FRAME_BYTES = 512`).
+  - Sequence-level and chunk-level CRC32 checksums guaranteeing end-to-end data integrity across visual transmission channels.
+  - Out-of-order and duplicate-resilient frame assembler (`OpticalFrameAssembler`) for continuous barcode/QR scanning streams.
+- **Milestone 30: Steganalysis ROC Detection & Statistical Benchmarking (`@ombrix/stego-forensics`):**
+  - Empirical ROC curve evaluation engine (`evaluateRocCurve`) benchmarking detectors across clean and steganographic score distributions.
+  - Numerical trapezoidal Area Under Curve (`computeTrapezoidalAuc`) integration.
+  - Automatic optimal classification threshold and Youden's $J = \text{TPR} - \text{FPR}$ index calculation.
+- **Integration & Complete Verification:**
+  - Dedicated Phase 10 integration test suite (`tests/integration/phase10-relay-optical-roc.test.ts`) validating relay token burning, optical frame shuffling/reassembly, and empirical ROC generation.
+
+---
+
 ## Complete Project Verification Summary
 
 | Phase | Title | Modules / Packages | Status | Test Suites |
@@ -255,13 +301,14 @@ OMBRIX development follows an evidence-based, incremental engineering loop. Ever
 | **Phase 3** | Vault, Sealed Box & Cryptography | `@ombrix/crypto-adapter`, `VaultStudio.tsx`, `CoreStudio.tsx` | **COMPLETED** | 6 suites |
 | **Phase 4** | Lens, Lab & Transmission Resilience | `@ombrix/carrier-lens`, `@ombrix/stego-lab`, `@ombrix/transit-trace` | **COMPLETED** | 8 suites |
 | **Phase 5** | Link, Flow & Edge Ecosystem | `@ombrix/link-sharing`, `@ombrix/batch-pipeline`, `@ombrix/edge-sdk` | **COMPLETED** | 7 suites |
-| **Phase 6** | Research Steganography & Steganalysis | `@ombrix/stego-advanced`, `@ombrix/stego-forensics`, `ScanStudio.tsx` | **COMPLETED** | 8 suites |
+| **Phase 6** | Research Steganography & Steganalysis | `@ombrix/stego-advanced`, `@ombrix/stego-forensics`, `ScanStudio.tsx` | **COMPLETED** | 9 suites |
 | **Phase 7** | Release Hardening & Production Polish | CSP, Security Audit, Demo Dataset, Documentation | **COMPLETED** | 1 suite (7 tests) |
 | **Phase 8** | CLI Tooling, Experiment Engine & Offline PWA | `@ombrix/cli`, `OmbrixExperimentV1`, `sw.js`, `manifest.webmanifest` | **COMPLETED** | 3 suites (18 tests) |
 | **Phase 9** | Full-Stack DoD Verification & Capstone Release | Section 22 DoD Suite, Release Checksums, Demo Modal | **COMPLETED** | 2 suites (24 tests) |
-| **Total** | **OMBRIX Complete Suite** | **16 Workspace Projects, 8 Interactive Studios, CLI, PWA & Capstone** | **100% VERIFIED** | **44 suites (257 tests)** |
+| **Phase 10** | Zero-Knowledge Relay, Optical Air-Gap & ROC Forensics | `@ombrix/relay-core`, `@ombrix/optical-airgap`, `@ombrix/stego-forensics` | **COMPLETED** | 3 suites (16 tests) |
+| **Total** | **OMBRIX Complete Suite** | **18 Workspace Packages, 8 Interactive Studios, CLI, PWA, Relay & Air-Gap** | **100% VERIFIED** | **48 suites (279 tests)** |
 
-**Remaining Phases:** **0 phases remaining** (All planned phases from Phase 0 to Phase 9 are 100% complete, verified, and documented).
+**Remaining Phases:** **0 phases remaining** (All roadmap phases from Phase 0 to Phase 10 are 100% complete, fully built, and rigorously tested).
 
 
 

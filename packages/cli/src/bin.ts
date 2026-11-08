@@ -15,4 +15,3 @@ runCli(process.argv.slice(2))
     process.stderr.write(`Fatal error: ${err.message}\n`);
     process.exit(1);
   });
-

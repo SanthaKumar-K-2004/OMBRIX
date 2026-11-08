@@ -37,6 +37,8 @@ export default defineWorkspace([
         '@ombrix/stego-advanced': path.resolve(__dirname, 'packages/stego-advanced/src/index.ts'),
         '@ombrix/stego-forensics': path.resolve(__dirname, 'packages/stego-forensics/src/index.ts'),
         '@ombrix/cli': path.resolve(__dirname, 'packages/cli/src/index.ts'),
+        '@ombrix/relay-core': path.resolve(__dirname, 'packages/relay-core/src/index.ts'),
+        '@ombrix/optical-airgap': path.resolve(__dirname, 'packages/optical-airgap/src/index.ts'),
       },
     },
   },

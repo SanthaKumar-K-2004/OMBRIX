@@ -37,7 +37,9 @@
       "@ombrix/edge-sdk": ["packages/edge-sdk/src/index.ts"],
       "@ombrix/stego-advanced": ["packages/stego-advanced/src/index.ts"],
       "@ombrix/stego-forensics": ["packages/stego-forensics/src/index.ts"],
-      "@ombrix/cli": ["packages/cli/src/index.ts"]
+      "@ombrix/cli": ["packages/cli/src/index.ts"],
+      "@ombrix/relay-core": ["packages/relay-core/src/index.ts"],
+      "@ombrix/optical-airgap": ["packages/optical-airgap/src/index.ts"]
     }
   }
 }

@@ -357,7 +357,19 @@ importers:
         specifier: workspace:*
         version: link:../crypto-adapter
 
+  packages/optical-airgap:
+    dependencies:
+      '@ombrix/image-validation':
+        specifier: workspace:*
+        version: link:../image-validation
+
   packages/payload-protocol: {}
+
+  packages/relay-core:
+    dependencies:
+      '@ombrix/crypto-adapter':
+        specifier: workspace:*
+        version: link:../crypto-adapter
 
   packages/stego-advanced:
     dependencies:
