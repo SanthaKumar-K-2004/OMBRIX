@@ -232,6 +232,19 @@ OMBRIX development follows an evidence-based, incremental engineering loop. Ever
 
 ---
 
+### Phase 9 — Full-Stack Verification, Definition-of-Done Compliance & Capstone Release Packaging [COMPLETED]
+- **Milestone 25: Automated Definition-of-Done (DoD) Verification Engine:**
+  - Codified Section 22 checklist automated validator (`tests/integration/definition-of-done.test.ts`) covering all 5 pillars: Product capabilities, Cryptographic invariants, Image engine defenses, UX & Accessibility, and Security/Release compliance.
+  - 19 automated tests verifying every single definition-of-done criterion with zero regressions.
+- **Milestone 26: Release Asset Builder & Distribution Suite (`scripts/release-package.ts`):**
+  - Automated release packager and cryptographic checksum generator computing SHA-256 and SHA-512 hashes for all production assets (`SHA256SUMS`, `SHA512SUMS`).
+  - Executable script added as `pnpm run release:package`.
+- **Milestone 27: Forensic Demonstration Mode & Capstone E2E Showcase:**
+  - Interactive Demo Dataset Showcase (`apps/web/src/components/DemoShowcaseModal.tsx`) integrated directly into the web navigation header, allowing auditors to inspect and copy reference carriers, keypairs, and test vectors.
+  - Capstone release integration test suite (`tests/integration/phase9-capstone-release.test.ts`).
+
+---
+
 ## Complete Project Verification Summary
 
 | Phase | Title | Modules / Packages | Status | Test Suites |
@@ -245,7 +258,11 @@ OMBRIX development follows an evidence-based, incremental engineering loop. Ever
 | **Phase 6** | Research Steganography & Steganalysis | `@ombrix/stego-advanced`, `@ombrix/stego-forensics`, `ScanStudio.tsx` | **COMPLETED** | 8 suites |
 | **Phase 7** | Release Hardening & Production Polish | CSP, Security Audit, Demo Dataset, Documentation | **COMPLETED** | 1 suite (7 tests) |
 | **Phase 8** | CLI Tooling, Experiment Engine & Offline PWA | `@ombrix/cli`, `OmbrixExperimentV1`, `sw.js`, `manifest.webmanifest` | **COMPLETED** | 3 suites (18 tests) |
-| **Total** | **OMBRIX Complete Suite** | **16 Workspace Projects, 8 Interactive Studios, CLI & PWA** | **100% VERIFIED** | **42 suites (233 tests)** |
+| **Phase 9** | Full-Stack DoD Verification & Capstone Release | Section 22 DoD Suite, Release Checksums, Demo Modal | **COMPLETED** | 2 suites (24 tests) |
+| **Total** | **OMBRIX Complete Suite** | **16 Workspace Projects, 8 Interactive Studios, CLI, PWA & Capstone** | **100% VERIFIED** | **44 suites (257 tests)** |
+
+**Remaining Phases:** **0 phases remaining** (All planned phases from Phase 0 to Phase 9 are 100% complete, verified, and documented).
+
 
 
 

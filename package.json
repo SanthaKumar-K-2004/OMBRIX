@@ -10,7 +10,8 @@
     "test:unit": "vitest run",
     "typecheck": "pnpm -r run typecheck",
     "lint": "biome check .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "release:package": "node --experimental-strip-types scripts/release-package.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

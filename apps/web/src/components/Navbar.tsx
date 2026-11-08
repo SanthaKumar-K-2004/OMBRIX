@@ -1,4 +1,15 @@
-import { Cpu, FlaskConical, Layers, Link2, Lock, Radar, Radio, Split, ZoomIn } from 'lucide-react';
+import {
+  Cpu,
+  Database,
+  FlaskConical,
+  Layers,
+  Link2,
+  Lock,
+  Radar,
+  Radio,
+  Split,
+  ZoomIn,
+} from 'lucide-react';
 import type React from 'react';
 import { OmbrixLogo } from './OmbrixLogo.js';
 
@@ -16,9 +27,14 @@ export type ProductModule =
 interface NavbarProps {
   activeModule: ProductModule;
   onSelectModule: (module: ProductModule) => void;
+  onOpenDemoModal?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeModule, onSelectModule }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  activeModule,
+  onSelectModule,
+  onOpenDemoModal,
+}) => {
   const navItems: Array<{
     id: ProductModule;
     label: string;
@@ -133,8 +149,19 @@ export const Navbar: React.FC<NavbarProps> = ({ activeModule, onSelectModule }) 
             })}
           </nav>
 
-          {/* Status Badge */}
+          {/* Status Badge & Demo Vectors */}
           <div className="flex items-center gap-3">
+            {onOpenDemoModal && (
+              <button
+                type="button"
+                onClick={onOpenDemoModal}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1E293B] hover:bg-[#334155] border border-[#334155] text-xs font-medium text-[#E2E8F0] transition-colors"
+                title="Open Curated Demo Dataset"
+              >
+                <Database className="w-3.5 h-3.5 text-[#06B6D4]" />
+                <span className="hidden sm:inline">Demo Vectors</span>
+              </button>
+            )}
             <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#14B8A6]/10 border border-[#14B8A6]/30 text-[#14B8A6] text-xs font-mono">
               <span className="w-1.5 h-1.5 rounded-full bg-[#14B8A6] animate-pulse" />
               <span>Local Sandbox Active</span>

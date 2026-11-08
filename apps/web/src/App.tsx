@@ -3,6 +3,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { BrandShowcase } from './components/BrandShowcase.js';
 import { CoreStudio } from './components/CoreStudio.js';
+import { DemoShowcaseModal } from './components/DemoShowcaseModal.js';
 import { EdgeStudio } from './components/EdgeStudio.js';
 import { FlowStudio } from './components/FlowStudio.js';
 import { LabStudio } from './components/LabStudio.js';
@@ -16,11 +17,19 @@ import { VaultStudio } from './components/VaultStudio.js';
 
 export const App: React.FC = () => {
   const [activeModule, setActiveModule] = useState<ProductModule>('core');
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-[#E2E8F0] flex flex-col font-sans bg-grid-pattern">
       {/* Top Navbar */}
-      <Navbar activeModule={activeModule} onSelectModule={setActiveModule} />
+      <Navbar
+        activeModule={activeModule}
+        onSelectModule={setActiveModule}
+        onOpenDemoModal={() => setIsDemoModalOpen(true)}
+      />
+
+      {/* Demo Showcase Modal */}
+      <DemoShowcaseModal isOpen={isDemoModalOpen} onClose={() => setIsDemoModalOpen(false)} />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
