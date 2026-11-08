@@ -962,14 +962,15 @@ export const CoreStudio: React.FC = () => {
               </h3>
 
               {/* Steganography Algorithm Engine Selector */}
-              <div className="space-y-2 p-3.5 rounded-xl bg-[#0B0F19] border border-[#1E293B]">
-                <div className="text-xs font-semibold text-[#E2E8F0] flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-white">
+              <div className="space-y-3 p-3.5 rounded-xl bg-[#0B0F19] border border-[#1E293B]">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 text-white font-semibold">
                     <Sparkles className="w-3.5 h-3.5 text-[#A855F7]" />
-                    <span>Steganography Algorithm Engine</span>
+                    <span>Steganography Engine</span>
                   </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#14B8A6]/20 border border-[#14B8A6]/40 text-[#14B8A6] font-mono">
-                    Undetectable Mode
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#14B8A6]/10 border border-[#14B8A6]/30 text-[#14B8A6] font-mono flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#14B8A6]" />
+                    <span>Undetectable</span>
                   </span>
                 </div>
 
@@ -977,52 +978,48 @@ export const CoreStudio: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedMethod('stego-hyper-matrix')}
-                  className={`w-full p-3.5 rounded-xl text-left border transition-all relative overflow-hidden ${
+                  className={`w-full p-3 rounded-lg text-left border transition-all ${
                     selectedMethod === 'stego-hyper-matrix'
-                      ? 'bg-gradient-to-r from-[#7C3AED]/25 via-[#A855F7]/20 to-[#3B82F6]/25 border-[#A855F7] text-white shadow-[0_0_20px_rgba(168,85,247,0.35)] ring-1 ring-[#A855F7]/50'
-                      : 'bg-[#111827] border-[#1E293B] text-[#94A3B8] hover:border-[#7C3AED]/50'
+                      ? 'bg-gradient-to-r from-[#7C3AED]/20 to-[#3B82F6]/20 border-[#7C3AED] shadow-[0_0_15px_rgba(124,58,237,0.25)]'
+                      : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-[#C084FC]" />
-                      <span className="text-xs font-bold text-white tracking-wide">
-                        OMBRIX Hyper-Matrix (Quad-Hybrid)
+                      <Sparkles className="w-3.5 h-3.5 text-[#C084FC]" />
+                      <span className="text-xs font-semibold text-white">Hyper-Matrix</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#7C3AED]/20 text-[#C084FC] font-medium font-mono">
+                        Quad-Hybrid
                       </span>
                     </div>
-                    <span className="text-[9px] px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#7C3AED] to-[#3B82F6] text-white font-bold tracking-wider uppercase shadow-sm">
-                      Best of All 4 Engines
+                    <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium">
+                      Recommended
                     </span>
                   </div>
-                  <p className="text-[11px] text-[#CBD5E1] leading-relaxed">
-                    Flagship quad-hybrid engine uniting{' '}
-                    <strong className="text-white">2D Haar DWT</strong> wavelet frequency isolation
-                    + <strong className="text-white">Wu &amp; Tsai PVD</strong> edge masking +{' '}
-                    <strong className="text-white">ChaCha20</strong> PRNG coordinate scattering +{' '}
-                    <strong className="text-white">±1 LSB matching</strong>. Zero PoV distortion,
-                    highest PSNR (&gt;52 dB), and completely undetectable.
-                  </p>
+                  <div className="text-[11px] text-[#94A3B8] mt-1 pl-6">
+                    Wavelet frequency + edge masking + PRNG scatter + ±1 matching
+                  </div>
                 </button>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* Specialized Engines Grid */}
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setSelectedMethod('stego-stealth-matrix')}
                     className={`p-2.5 rounded-lg text-left border transition-all ${
                       selectedMethod === 'stego-stealth-matrix'
-                        ? 'bg-[#7C3AED]/20 border-[#7C3AED] text-white shadow-[0_0_12px_rgba(124,58,237,0.3)]'
-                        : 'bg-[#111827] border-[#1E293B] text-[#94A3B8] hover:border-[#334155]'
+                        ? 'bg-[#14B8A6]/15 border-[#14B8A6] shadow-[0_0_12px_rgba(20,184,166,0.2)]'
+                        : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
                     }`}
                   >
-                    <div className="text-xs font-semibold text-white flex items-center justify-between">
-                      <span>Stealth Matrix (±1)</span>
-                      <span className="text-[9px] px-1 rounded bg-[#14B8A6]/20 text-[#14B8A6]">
-                        Matrix
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-white">Stealth Matrix</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#14B8A6]/20 text-[#14B8A6] font-mono">
+                        ±1
                       </span>
                     </div>
-                    <div className="text-[10px] text-[#64748B] mt-0.5">
-                      PRNG coordinate scatter + edge masking. Defeats third-party decoders &amp; RS
-                      forensics.
+                    <div className="text-[11px] text-[#94A3B8] mt-0.5">
+                      PRNG scatter &amp; ±1 matching
                     </div>
                   </button>
 
@@ -1031,18 +1028,18 @@ export const CoreStudio: React.FC = () => {
                     onClick={() => setSelectedMethod('stego-dwt')}
                     className={`p-2.5 rounded-lg text-left border transition-all ${
                       selectedMethod === 'stego-dwt'
-                        ? 'bg-[#3B82F6]/20 border-[#3B82F6] text-white shadow-[0_0_12px_rgba(59,130,246,0.3)]'
-                        : 'bg-[#111827] border-[#1E293B] text-[#94A3B8] hover:border-[#334155]'
+                        ? 'bg-[#3B82F6]/15 border-[#3B82F6] shadow-[0_0_12px_rgba(59,130,246,0.2)]'
+                        : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
                     }`}
                   >
-                    <div className="text-xs font-semibold text-white flex items-center justify-between">
-                      <span>Haar DWT Wavelet</span>
-                      <span className="text-[9px] px-1 rounded bg-[#3B82F6]/20 text-[#3B82F6]">
-                        Frequency
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-white">Haar Wavelet</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3B82F6]/20 text-[#3B82F6] font-mono">
+                        DWT
                       </span>
                     </div>
-                    <div className="text-[10px] text-[#64748B] mt-0.5">
-                      High-frequency diagonal wavelet subband embedding.
+                    <div className="text-[11px] text-[#94A3B8] mt-0.5">
+                      Diagonal high-frequency subband
                     </div>
                   </button>
 
@@ -1051,18 +1048,18 @@ export const CoreStudio: React.FC = () => {
                     onClick={() => setSelectedMethod('stego-pvd')}
                     className={`p-2.5 rounded-lg text-left border transition-all ${
                       selectedMethod === 'stego-pvd'
-                        ? 'bg-[#14B8A6]/20 border-[#14B8A6] text-white shadow-[0_0_12px_rgba(20,184,166,0.3)]'
-                        : 'bg-[#111827] border-[#1E293B] text-[#94A3B8] hover:border-[#334155]'
+                        ? 'bg-[#F59E0B]/15 border-[#F59E0B] shadow-[0_0_12px_rgba(245,158,11,0.2)]'
+                        : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
                     }`}
                   >
-                    <div className="text-xs font-semibold text-white flex items-center justify-between">
-                      <span>PVD (Wu &amp; Tsai)</span>
-                      <span className="text-[9px] px-1 rounded bg-[#14B8A6]/20 text-[#14B8A6]">
-                        Adaptive
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-white">PVD Differencing</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#F59E0B]/20 text-[#F59E0B] font-mono">
+                        PVD
                       </span>
                     </div>
-                    <div className="text-[10px] text-[#64748B] mt-0.5">
-                      Pixel value differencing along human visual edge boundaries.
+                    <div className="text-[11px] text-[#94A3B8] mt-0.5">
+                      Edge-adaptive contrast masking
                     </div>
                   </button>
 
@@ -1071,20 +1068,50 @@ export const CoreStudio: React.FC = () => {
                     onClick={() => setSelectedMethod('png-lsb-sequential')}
                     className={`p-2.5 rounded-lg text-left border transition-all ${
                       selectedMethod === 'png-lsb-sequential'
-                        ? 'bg-[#94A3B8]/20 border-[#94A3B8] text-white shadow-[0_0_12px_rgba(148,163,184,0.3)]'
-                        : 'bg-[#111827] border-[#1E293B] text-[#94A3B8] hover:border-[#334155]'
+                        ? 'bg-[#94A3B8]/15 border-[#94A3B8] shadow-[0_0_12px_rgba(148,163,184,0.2)]'
+                        : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
                     }`}
                   >
-                    <div className="text-xs font-semibold text-white flex items-center justify-between">
-                      <span>Sequential RGB LSB</span>
-                      <span className="text-[9px] px-1 rounded bg-[#64748B]/20 text-[#94A3B8]">
-                        Baseline
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-white">Sequential LSB</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#64748B]/20 text-[#94A3B8] font-mono">
+                        Raster
                       </span>
                     </div>
-                    <div className="text-[10px] text-[#64748B] mt-0.5">
-                      Deterministic sequential raster embedding for legacy baseline.
+                    <div className="text-[11px] text-[#94A3B8] mt-0.5">
+                      Deterministic sequential scan
                     </div>
                   </button>
+                </div>
+
+                {/* Single-line Dynamic Technical Status Bar */}
+                <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-[#111827] border border-[#1E293B] text-[11px]">
+                  <div className="flex items-center gap-1.5 text-[#94A3B8]">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#14B8A6]" />
+                    <span>Defense:</span>
+                    <span className="text-white font-medium">
+                      {selectedMethod === 'stego-hyper-matrix'
+                        ? 'Wavelet-PVD Hybrid + CSPRNG Permutation'
+                        : selectedMethod === 'stego-stealth-matrix'
+                          ? 'ChaCha20 Coordinate Scatter + ±1 Matching'
+                          : selectedMethod === 'stego-dwt'
+                            ? '2D Haar Integer HH Subband Isolation'
+                            : selectedMethod === 'stego-pvd'
+                              ? 'Human Visual System Range Masking'
+                              : 'Sequential Raster Bit-Plane Scan'}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[10px] text-[#38BDF8]">
+                    {selectedMethod === 'stego-hyper-matrix'
+                      ? 'PSNR >52 dB'
+                      : selectedMethod === 'stego-stealth-matrix'
+                        ? 'PSNR >50 dB'
+                        : selectedMethod === 'stego-dwt'
+                          ? 'Frequency'
+                          : selectedMethod === 'stego-pvd'
+                            ? 'Edge-Bound'
+                            : 'Linear'}
+                  </span>
                 </div>
 
                 {/* Smart Passkey Assistant for Encode */}
