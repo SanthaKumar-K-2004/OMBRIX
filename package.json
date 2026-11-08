@@ -5,6 +5,8 @@
   "type": "module",
   "packageManager": "pnpm@12.5.1",
   "scripts": {
+    "dev": "pnpm --filter @ombrix/web run dev",
+    "preview": "pnpm --filter @ombrix/web run preview",
     "build": "pnpm -r run build",
     "test": "vitest run",
     "test:unit": "vitest run",
