@@ -118,4 +118,32 @@ describe('@ombrix/edge-sdk - Public Unified Facade', () => {
     expect(scanReport.overallAnomalyScore).toBeGreaterThanOrEqual(0);
     expect(scanReport.caveats.length).toBeGreaterThan(0);
   });
+
+  it('runs scientific experiment, serializes to Section 16.5 record and parses back', async () => {
+    const carrier = createTestCarrier(64, 64);
+    const payload = new Uint8Array([10, 20, 30, 40, 50, 60]);
+    const { pngLsbSequential } = await import('@ombrix/stego-png-lsb');
+
+    const exp = await Ombrix.runExperiment(carrier, payload, pngLsbSequential, {
+      title: 'LSB Distortion & Forensics Benchmark',
+      description: 'Automated test run',
+      author: 'Test Runner',
+    });
+
+    expect(exp.schemaVersion).toBe('OMBRIX_EXPERIMENT_V1');
+    expect(exp.experimentId).toMatch(/^exp_/);
+    expect(exp.carrier.totalPixels).toBe(64 * 64);
+    expect(exp.algorithm.methodId).toBe('png-lsb-sequential');
+    expect(exp.metrics.roundtripSuccess).toBe(true);
+    expect(exp.metrics.distortion.psnr).toBeGreaterThan(45);
+    expect(exp.forensics.consensusVerdict).toBeDefined();
+
+    // Serialization & Parsing
+    const jsonStr = Ombrix.serializeExperiment(exp);
+    const parsed = Ombrix.parseExperiment(jsonStr);
+
+    expect(parsed.experimentId).toBe(exp.experimentId);
+    expect(parsed.metrics.distortion.psnr).toBe(exp.metrics.distortion.psnr);
+    expect(parsed.payload.sizeBytes).toBe(payload.length);
+  });
 });

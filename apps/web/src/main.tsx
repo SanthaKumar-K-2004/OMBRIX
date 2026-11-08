@@ -11,3 +11,12 @@ if (rootElement) {
     </React.StrictMode>,
   );
 }
+
+// Register offline PWA service worker for air-gapped environments
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Air-gapped fallback
+    });
+  });
+}

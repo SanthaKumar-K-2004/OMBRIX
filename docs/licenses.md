@@ -60,3 +60,4 @@ OMBRIX is committed to complete transparency, verifiable local-first execution, 
 - [x] No third-party network analytics, bug reporting, or session replay trackers (Sentry, PostHog, Google Analytics, Mixpanel, Segment are strictly banned).
 - [x] Content Security Policy meta header blocks all outbound network connections (`connect-src 'none'`).
 - [x] All cryptographic implementations rely on vetted Libsodium WebAssembly binaries rather than untested custom primitives.
+

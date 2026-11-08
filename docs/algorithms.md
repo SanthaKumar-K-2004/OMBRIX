@@ -130,3 +130,4 @@
 | **Peak Signal-to-Noise Ratio (PSNR)** | $\text{PSNR} = 10 \cdot \log_{10}\left( \frac{255^2}{\text{MSE}} \right)$ | Higher is better ($> 45\text{ dB}$ is imperceptible). |
 | **Mean Absolute Error (MAE)** | $\text{MAE} = \frac{1}{3 W H} \sum |I_{\text{orig}} - I_{\text{stego}}|$ | Average per-channel pixel shift. |
 | **Structural Similarity (SSIM)** | $\text{SSIM} \approx \frac{(2\mu_x\mu_y + c_1)(2\sigma_{xy} + c_2)}{(\mu_x^2 + \mu_y^2 + c_1)(\sigma_x^2 + \sigma_y^2 + c_2)}$ | Higher is better ($1.0 = \text{identical structure}$). |
+

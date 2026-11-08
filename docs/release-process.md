@@ -66,3 +66,4 @@ gpg --armor --detach-sign SHA256SUMS
 - [ ] Content Security Policy meta header verified in `apps/web/dist/index.html`.
 - [ ] Verify zero external network calls in developer tools network panel (`connect-src 'none'`).
 - [ ] Commit tagged with signed git tag: `git tag -s v0.1.0 -m "Release v0.1.0"`.
+

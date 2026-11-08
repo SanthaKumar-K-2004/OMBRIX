@@ -28,7 +28,16 @@
       "@ombrix/stego-interface": ["packages/stego-interface/src/index.ts"],
       "@ombrix/stego-png-lsb": ["packages/stego-png-lsb/src/index.ts"],
       "@ombrix/stego-worker": ["packages/stego-worker/src/index.ts"],
-      "@ombrix/crypto-adapter": ["packages/crypto-adapter/src/index.ts"]
+      "@ombrix/crypto-adapter": ["packages/crypto-adapter/src/index.ts"],
+      "@ombrix/carrier-lens": ["packages/carrier-lens/src/index.ts"],
+      "@ombrix/stego-lab": ["packages/stego-lab/src/index.ts"],
+      "@ombrix/transit-trace": ["packages/transit-trace/src/index.ts"],
+      "@ombrix/link-sharing": ["packages/link-sharing/src/index.ts"],
+      "@ombrix/batch-pipeline": ["packages/batch-pipeline/src/index.ts"],
+      "@ombrix/edge-sdk": ["packages/edge-sdk/src/index.ts"],
+      "@ombrix/stego-advanced": ["packages/stego-advanced/src/index.ts"],
+      "@ombrix/stego-forensics": ["packages/stego-forensics/src/index.ts"],
+      "@ombrix/cli": ["packages/cli/src/index.ts"]
     }
   }
 }

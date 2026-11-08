@@ -36,6 +36,7 @@ export default defineWorkspace([
         '@ombrix/edge-sdk': path.resolve(__dirname, 'packages/edge-sdk/src/index.ts'),
         '@ombrix/stego-advanced': path.resolve(__dirname, 'packages/stego-advanced/src/index.ts'),
         '@ombrix/stego-forensics': path.resolve(__dirname, 'packages/stego-forensics/src/index.ts'),
+        '@ombrix/cli': path.resolve(__dirname, 'packages/cli/src/index.ts'),
       },
     },
   },

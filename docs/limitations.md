@@ -55,3 +55,4 @@ Forensic detectors provided in OMBRIX Scan (RS Steganalysis, Sample Pair Analysi
 - **Zero Telemetry Enforcement:** Outbound network connections are blocked by the browser Content Security Policy (`connect-src 'none'`).
 - **Memory Erasure:** Because JavaScript runs in an engine with an automatic generational garbage collector, immediate in-place zeroization of typed array buffers and string instances in RAM cannot be strictly guaranteed.
 - **Resource Constraints:** Image carriers are bounded to $16,384 \times 16,384$ pixels and $100\text{ MiB}$ uncompressed buffer size to prevent decompression bomb denial-of-service attacks.
+

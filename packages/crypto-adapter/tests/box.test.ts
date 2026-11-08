@@ -21,6 +21,13 @@ describe('X25519 Sealed Box Encryption & Decryption', () => {
     expect(pair.privateKey.length).toBe(32);
   });
 
+  it('derives public key from private key correctly using scalarmult_base', async () => {
+    const { deriveEncryptionPublicKey } = await import('../src/index.js');
+    const pair = generateEncryptionKeyPair();
+    const derivedPub = deriveEncryptionPublicKey(pair.privateKey);
+    expect(derivedPub).toEqual(pair.publicKey);
+  });
+
   it('successfully seals and decrypts plaintext for designated recipient', () => {
     const recipient = generateEncryptionKeyPair();
     const plaintext = new TextEncoder().encode('Confidential steganographic message for Bob.');

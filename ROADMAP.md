@@ -217,6 +217,21 @@ OMBRIX development follows an evidence-based, incremental engineering loop. Ever
 
 ---
 
+### Phase 8 — CLI Tooling, Experiment Engine & Offline PWA [COMPLETED]
+- **Milestone 22: Scientific Experiment Engine (`@ombrix/edge-sdk` / `OmbrixExperimentV1`):**
+  - Section 16.5 Reproducibility Record implementation capturing experiment IDs, timestamps, algorithm versions, parameters, seeds, distortion metrics (PSNR, MSE, SSIM, MAE), and forensic consensus outcomes.
+  - Standardized `.ombrix-experiment.json` format parser and serializer.
+- **Milestone 23: OMBRIX CLI (`@ombrix/cli`):**
+  - Standalone terminal tool (`ombrix`) exposing CLI commands: `embed`, `extract`, `scan`, `benchmark`, `experiment`, and `verify`.
+  - Built-in pure TypeScript PNG encoder/decoder utilizing `node:zlib` and zero external native dependencies.
+  - Terminal ANSI colored reports and `--json` output format for CI/CD automated steganography security pipelines.
+- **Milestone 24: Offline PWA & Air-Gapped Deployment:**
+  - Web App Manifest (`manifest.webmanifest`) and Cache-First Service Worker (`sw.js`) enabling 100% installable, air-gapped forensic desktop deployment.
+  - Strict Content Security Policy (`connect-src 'none'`) mathematically preventing any network exfiltration.
+  - Comprehensive end-to-end integration test suite (`tests/integration/phase8-cli-experiment.test.ts`).
+
+---
+
 ## Complete Project Verification Summary
 
 | Phase | Title | Modules / Packages | Status | Test Suites |
@@ -229,7 +244,9 @@ OMBRIX development follows an evidence-based, incremental engineering loop. Ever
 | **Phase 5** | Link, Flow & Edge Ecosystem | `@ombrix/link-sharing`, `@ombrix/batch-pipeline`, `@ombrix/edge-sdk` | **COMPLETED** | 7 suites |
 | **Phase 6** | Research Steganography & Steganalysis | `@ombrix/stego-advanced`, `@ombrix/stego-forensics`, `ScanStudio.tsx` | **COMPLETED** | 8 suites |
 | **Phase 7** | Release Hardening & Production Polish | CSP, Security Audit, Demo Dataset, Documentation | **COMPLETED** | 1 suite (7 tests) |
-| **Total** | **OMBRIX Complete Suite** | **14 Workspace Packages, 8 Interactive Studios** | **100% VERIFIED** | **39 suites (215 tests)** |
+| **Phase 8** | CLI Tooling, Experiment Engine & Offline PWA | `@ombrix/cli`, `OmbrixExperimentV1`, `sw.js`, `manifest.webmanifest` | **COMPLETED** | 3 suites (18 tests) |
+| **Total** | **OMBRIX Complete Suite** | **16 Workspace Projects, 8 Interactive Studios, CLI & PWA** | **100% VERIFIED** | **42 suites (233 tests)** |
+
 
 
 

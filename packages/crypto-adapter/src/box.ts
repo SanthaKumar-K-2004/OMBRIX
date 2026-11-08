@@ -11,6 +11,16 @@ export function generateEncryptionKeyPair(): EncryptionKeyPair {
   };
 }
 
+export function deriveEncryptionPublicKey(privateKey: Uint8Array): Uint8Array {
+  if (privateKey.length !== 32) {
+    throw new InvalidKeyError(
+      `Expected 32-byte recipient private key, received ${privateKey.length} bytes.`,
+    );
+  }
+  const sodium = getSodium();
+  return sodium.crypto_scalarmult_base(privateKey);
+}
+
 export function seal(plaintext: Uint8Array, recipientPublicKey: Uint8Array): Uint8Array {
   if (recipientPublicKey.length !== 32) {
     throw new InvalidKeyError(

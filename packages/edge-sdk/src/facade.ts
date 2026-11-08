@@ -20,6 +20,7 @@ import {
   buildSignDoc,
   computeFingerprint,
   computeKeyId,
+  deriveEncryptionPublicKey,
   fromBase64,
   initCrypto,
   openSeal,
@@ -51,6 +52,7 @@ import {
   analyzeChiSquare,
   runTransitSimulation,
 } from '@ombrix/transit-trace';
+import { parseExperiment, runAutomatedExperiment, serializeExperiment } from './experiment.js';
 import type { OmbrixEmbedOptions, OmbrixExtractOptions, OmbrixExtractResult } from './types.js';
 
 /** Initialize libsodium and cryptographic runtime */
@@ -138,13 +140,13 @@ export async function extract(
   const isEncrypted = envelope.cryptoSuite !== 'NONE';
 
   if (isEncrypted) {
-    if (!options?.recipientPublicKey || !options?.recipientPrivateKey) {
-      throw new Error(
-        'Payload is encrypted with sealed box. Recipient public and private keys required.',
-      );
+    if (!options?.recipientPrivateKey) {
+      throw new Error('Payload is encrypted with sealed box. Recipient private key required.');
     }
-    const pubKey = fromBase64(options.recipientPublicKey);
     const privKey = fromBase64(options.recipientPrivateKey);
+    const pubKey = options.recipientPublicKey
+      ? fromBase64(options.recipientPublicKey)
+      : deriveEncryptionPublicKey(privKey);
     payload = openSeal(envelope.payload, pubKey, privKey);
   }
 
@@ -323,4 +325,7 @@ export const Ombrix = {
   reassembleChunkedPayload: runReassemble,
   runBatchEmbed,
   runBatchExtract,
+  runExperiment: runAutomatedExperiment,
+  serializeExperiment,
+  parseExperiment,
 };

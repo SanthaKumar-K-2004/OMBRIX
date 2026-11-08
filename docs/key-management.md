@@ -95,3 +95,4 @@ In Milestone 13 (`@ombrix/link-sharing`), ephemeral sharing links (`#link=...`) 
 > [!WARNING]
 > **JavaScript Memory Erasure Limitations**  
 > While Libsodium provides `sodium_memzero()` in C and WASM linear memory, higher-level JavaScript primitives (such as strings and immutable typed array buffers) are managed by the browser engine's garbage collector. Complete immediate erasure from physical hardware RAM cannot be mathematically guaranteed by any pure web application. Sensitive operations should be executed on trusted, physically secure endpoints.
+

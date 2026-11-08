@@ -273,6 +273,33 @@ importers:
         specifier: workspace:*
         version: link:../stego-interface
 
+  packages/cli:
+    dependencies:
+      '@ombrix/crypto-adapter':
+        specifier: workspace:*
+        version: link:../crypto-adapter
+      '@ombrix/edge-sdk':
+        specifier: workspace:*
+        version: link:../edge-sdk
+      '@ombrix/image-validation':
+        specifier: workspace:*
+        version: link:../image-validation
+      '@ombrix/stego-advanced':
+        specifier: workspace:*
+        version: link:../stego-advanced
+      '@ombrix/stego-forensics':
+        specifier: workspace:*
+        version: link:../stego-forensics
+      '@ombrix/stego-interface':
+        specifier: workspace:*
+        version: link:../stego-interface
+      '@ombrix/stego-lab':
+        specifier: workspace:*
+        version: link:../stego-lab
+      '@ombrix/stego-png-lsb':
+        specifier: workspace:*
+        version: link:../stego-png-lsb
+
   packages/crypto-adapter:
     dependencies:
       libsodium-wrappers-sumo:

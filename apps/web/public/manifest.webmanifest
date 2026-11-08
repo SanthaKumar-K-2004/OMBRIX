@@ -1,0 +1,19 @@
+{
+  "name": "OMBRIX — Air-Gapped Forensic Steganography Suite",
+  "short_name": "OMBRIX",
+  "description": "Offline-first zero-telemetry forensic steganography and visual cryptanalysis suite.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B0F19",
+  "theme_color": "#0B0F19",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

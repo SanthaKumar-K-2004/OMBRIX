@@ -39,3 +39,4 @@
 OMBRIX contains **zero network dependencies**. Once the static assets (`index.html`, `index.js`, `index.css`, `stego.worker.js`) are loaded into the browser:
 - All operations execute 100% offline.
 - Users can disconnect from the internet or run OMBRIX inside an air-gapped forensic workstation without loss of functionality.
+
