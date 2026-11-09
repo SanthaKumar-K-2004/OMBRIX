@@ -23,6 +23,7 @@ import {
   haarDwtStego,
   hyperMatrixMethod,
   pvdStego,
+  robustResilientStego,
   stealthMatrixMethod,
 } from '@ombrix/stego-advanced';
 import type { CapacityReport, CarrierImage } from '@ombrix/stego-interface';
@@ -47,6 +48,7 @@ import {
   Radar,
   Radio,
   RefreshCw,
+  Share2,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -94,6 +96,8 @@ function computeMethodCapacity(methodId: string, carrier: CarrierImage): Capacit
       return hyperMatrixMethod.calculateCapacity(carrier);
     case 'stego-stealth-matrix':
       return stealthMatrixMethod.calculateCapacity(carrier);
+    case 'stego-robust-resilient':
+      return robustResilientStego.calculateCapacity(carrier);
     case 'stego-dwt':
       return haarDwtStego.calculateCapacity(carrier);
     case 'stego-pvd':
@@ -167,6 +171,7 @@ export const CoreStudio: React.FC = () => {
   const [isEmbedding, setIsEmbedding] = useState(false);
   const [embedProgress, setEmbedProgress] = useState(0);
   const [embeddedImageUrl, setEmbeddedImageUrl] = useState<string | null>(null);
+  const embeddedBlobRef = useRef<Blob | null>(null);
   const [embedError, setEmbedError] = useState<string | null>(null);
   const embedAbortRef = useRef<AbortController | null>(null);
 
@@ -254,6 +259,7 @@ export const CoreStudio: React.FC = () => {
     setCarrierImageData(null);
     setCapacity(null);
     setEmbeddedImageUrl(null);
+    embeddedBlobRef.current = null;
     setSecretImageFile(null);
     setRawSecretFile(null);
     setSecretImageBytes(null);
@@ -745,6 +751,7 @@ export const CoreStudio: React.FC = () => {
       // Bit-exact lossless PNG encoding (bypasses canvas toBlob & GPU color conversion)
       const pngBytes = await encodePngAsync(stegoCarrier);
       const blob = new Blob([pngBytes as unknown as BlobPart], { type: 'image/png' });
+      embeddedBlobRef.current = blob;
       const url = URL.createObjectURL(blob);
       setEmbeddedImageUrl((prev) => {
         revokeTrackedUrl(prev);
@@ -1567,6 +1574,33 @@ export const CoreStudio: React.FC = () => {
                   </div>
                 </button>
 
+                {/* Flagship WhatsApp-Safe Option: Robust Messaging */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedMethod('stego-robust-resilient')}
+                  className={`w-full p-3.5 rounded-xl text-left border transition-all ${
+                    selectedMethod === 'stego-robust-resilient'
+                      ? 'bg-emerald-600/15 border-emerald-500/70 ring-1 ring-emerald-500/30'
+                      : 'bg-[#0B0F19] border-white/[0.06] hover:border-white/[0.15]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-white">Robust Messaging</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
+                        WhatsApp &amp; Social Safe
+                      </span>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium">
+                      JPEG Resilient
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">
+                    Block differential modulation + 5x FEC (Survives WhatsApp compression &amp;
+                    noise)
+                  </div>
+                </button>
+
                 {/* Specialized Engines Grid */}
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -1656,25 +1690,29 @@ export const CoreStudio: React.FC = () => {
                     <span className="text-slate-200 font-medium">
                       {selectedMethod === 'stego-hyper-matrix'
                         ? 'Wavelet-PVD Hybrid + CSPRNG Permutation'
-                        : selectedMethod === 'stego-stealth-matrix'
-                          ? 'ChaCha20 Coordinate Scatter + ±1 Matching'
-                          : selectedMethod === 'stego-dwt'
-                            ? '2D Haar Integer HH Subband Isolation'
-                            : selectedMethod === 'stego-pvd'
-                              ? 'Human Visual System Range Masking'
-                              : 'Sequential Raster Bit-Plane Scan'}
+                        : selectedMethod === 'stego-robust-resilient'
+                          ? 'Block Luminance Differential + 5x FEC (WhatsApp Safe)'
+                          : selectedMethod === 'stego-stealth-matrix'
+                            ? 'ChaCha20 Coordinate Scatter + ±1 Matching'
+                            : selectedMethod === 'stego-dwt'
+                              ? '2D Haar Integer HH Subband Isolation'
+                              : selectedMethod === 'stego-pvd'
+                                ? 'Human Visual System Range Masking'
+                                : 'Sequential Raster Bit-Plane Scan'}
                     </span>
                   </div>
                   <span className="font-mono text-[10px] text-sky-400">
                     {selectedMethod === 'stego-hyper-matrix'
                       ? 'PSNR >52 dB'
-                      : selectedMethod === 'stego-stealth-matrix'
-                        ? 'PSNR >50 dB'
-                        : selectedMethod === 'stego-dwt'
-                          ? 'Frequency'
-                          : selectedMethod === 'stego-pvd'
-                            ? 'Edge-Bound'
-                            : 'Linear'}
+                      : selectedMethod === 'stego-robust-resilient'
+                        ? 'WhatsApp Safe'
+                        : selectedMethod === 'stego-stealth-matrix'
+                          ? 'PSNR >50 dB'
+                          : selectedMethod === 'stego-dwt'
+                            ? 'Frequency'
+                            : selectedMethod === 'stego-pvd'
+                              ? 'Edge-Bound'
+                              : 'Linear'}
                   </span>
                 </div>
               </div>
@@ -1975,13 +2013,15 @@ export const CoreStudio: React.FC = () => {
                   <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     {selectedMethod === 'stego-hyper-matrix'
                       ? 'Hyper-Matrix (Quad-Hybrid)'
-                      : selectedMethod === 'stego-stealth-matrix'
-                        ? 'Stealth Matrix (±1)'
-                        : selectedMethod === 'stego-dwt'
-                          ? 'Haar DWT Wavelet'
-                          : selectedMethod === 'stego-pvd'
-                            ? 'PVD Differencing'
-                            : 'Sequential RGB LSB'}
+                      : selectedMethod === 'stego-robust-resilient'
+                        ? 'Robust Messaging (WhatsApp Safe)'
+                        : selectedMethod === 'stego-stealth-matrix'
+                          ? 'Stealth Matrix (±1)'
+                          : selectedMethod === 'stego-dwt'
+                            ? 'Haar DWT Wavelet'
+                            : selectedMethod === 'stego-pvd'
+                              ? 'PVD Differencing'
+                              : 'Sequential RGB LSB'}
                   </span>
                 </div>
               </div>
@@ -2023,6 +2063,39 @@ export const CoreStudio: React.FC = () => {
                     <Download className="w-4 h-4" />
                     <span>Download Stego PNG</span>
                   </a>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!embeddedImageUrl) return;
+                      try {
+                        const blob = embeddedBlobRef.current;
+                        if (blob) {
+                          const file = new File([blob], `ombrix-carrier-${Date.now()}.png`, {
+                            type: 'image/png',
+                          });
+                          if (navigator.canShare?.({ files: [file] })) {
+                            await navigator.share({
+                              title: 'OMBRIX Steganographic Carrier',
+                              text: 'OMBRIX secure carrier. Send as Document in WhatsApp to preserve lossless steganography.',
+                              files: [file],
+                            });
+                            return;
+                          }
+                        }
+                      } catch {
+                        // ignore cancelled share
+                      }
+                      // Fallback: download with document filename
+                      const a = document.createElement('a');
+                      a.href = embeddedImageUrl;
+                      a.download = `ombrix-doc-carrier-${Date.now()}.png`;
+                      a.click();
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-xs transition-colors cursor-pointer"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span>Share to WhatsApp / Mobile</span>
+                  </button>
                 </div>
 
                 {/* Cross-Studio Forensic Handoff Bar */}
@@ -2084,6 +2157,31 @@ export const CoreStudio: React.FC = () => {
                     <Radio className="w-3.5 h-3.5 text-emerald-400" />
                     <span>Transit &amp; Trace</span>
                   </button>
+                </div>
+              </div>
+
+              {/* WhatsApp & Social Media Transmission Guidance Callout */}
+              <div className="p-3.5 rounded-xl bg-violet-950/20 border border-violet-500/20 text-xs flex items-start gap-3">
+                <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 shrink-0 mt-0.5">
+                  <Share2 className="w-4 h-4" />
+                </div>
+                <div className="space-y-1">
+                  <div className="font-semibold text-white flex items-center gap-2">
+                    <span>Sending to Phone via WhatsApp or Telegram?</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono">
+                      Safe Transfer Tip
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    WhatsApp automatically recompresses standard photos and strips steganographic
+                    bits. To preserve 100% lossless quality, attach as a{' '}
+                    <strong className="text-emerald-300">Document</strong> (tap{' '}
+                    <span className="font-mono bg-white/10 px-1 py-0.5 rounded text-white">
+                      📎 ➔ Document
+                    </span>{' '}
+                    instead of Gallery/Photo). If sending as a normal photo, choose{' '}
+                    <strong className="text-violet-300">Robust Messaging Mode</strong> above.
+                  </p>
                 </div>
               </div>
             </div>
@@ -2171,6 +2269,9 @@ export const CoreStudio: React.FC = () => {
                   <option value="stego-hyper-matrix">
                     Hyper-Matrix (Quad-Hybrid Omni-Stealth)
                   </option>
+                  <option value="stego-robust-resilient">
+                    Robust Messaging (WhatsApp &amp; Social Safe)
+                  </option>
                   <option value="stego-stealth-matrix">Stealth Matrix (CSPRNG Permutation)</option>
                   <option value="png-lsb-sequential">Sequential RGB LSB</option>
                   <option value="stego-pvd">Pixel Value Differencing (PVD)</option>
@@ -2245,12 +2346,55 @@ export const CoreStudio: React.FC = () => {
               </div>
 
               {extractError && (
-                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2">
-                  <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <div className="font-semibold">Extraction Failed</div>
-                    <div>{extractError}</div>
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2">
+                    <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-semibold">Extraction Failed</div>
+                      <div className="mt-0.5 leading-relaxed">{extractError}</div>
+                    </div>
                   </div>
+
+                  {(revealFile?.name.toLowerCase().includes('whatsapp') ||
+                    revealFile?.name.toLowerCase().endsWith('.jpg') ||
+                    revealFile?.name.toLowerCase().endsWith('.jpeg') ||
+                    revealFile?.name.toLowerCase().endsWith('.webp') ||
+                    revealFile?.type === 'image/jpeg' ||
+                    revealFile?.type === 'image/webp') && (
+                    <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs space-y-2">
+                      <div className="flex items-center gap-2 font-semibold text-amber-300">
+                        <AlertTriangle className="w-4 h-4 text-amber-400" />
+                        <span>WhatsApp / Social Media Compression Detected</span>
+                      </div>
+                      <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                        This image appears to have been saved from WhatsApp as a standard photo.
+                        WhatsApp's lossy compression alters pixel values and discards standard
+                        steganographic least-significant bits.
+                      </p>
+                      <div className="p-2.5 rounded-lg bg-black/40 border border-amber-500/20 text-[11px] space-y-1.5">
+                        <div className="font-medium text-white flex items-center gap-1.5">
+                          <span>💡 2 Ways to Transmit Without Issue:</span>
+                        </div>
+                        <ul className="list-disc list-inside space-y-1 text-slate-300 text-[11px]">
+                          <li>
+                            <strong>Lossless Transfer (Best for photos &amp; files):</strong> Ask
+                            the sender on WhatsApp to attach the carrier as a{' '}
+                            <strong>Document</strong> (tap{' '}
+                            <span className="font-mono bg-white/10 px-1 py-0.5 rounded text-white">
+                              📎 ➔ Document
+                            </span>{' '}
+                            instead of Gallery/Photo). WhatsApp transfers documents with 100%
+                            bit-exact quality.
+                          </li>
+                          <li>
+                            <strong>Lossy-Resilient Mode:</strong> If sending as a normal photo,
+                            have the sender select <strong>Robust Messaging Mode</strong> during
+                            encoding, which survives WhatsApp lossy compression!
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

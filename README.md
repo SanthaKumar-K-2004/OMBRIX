@@ -5,7 +5,7 @@
 
 **Carrier-grade steganographic concealment, cryptographic scattering, edge-adaptive masking, and ±1 LSB matching.**
 
-[![Tests](https://img.shields.io/badge/tests-446%20passed%20%2F%20100%25-emerald?style=for-the-badge&logo=vitest&logoColor=white)](https://github.com/SanthaKumar-K-2004/OMBRIX)
+[![Tests](https://img.shields.io/badge/tests-451%20passed%20%2F%20100%25-emerald?style=for-the-badge&logo=vitest&logoColor=white)](https://github.com/SanthaKumar-K-2004/OMBRIX)
 [![Architecture](https://img.shields.io/badge/architecture-100%25%20Client--Side-violet?style=for-the-badge&logo=webassembly&logoColor=white)](https://github.com/SanthaKumar-K-2004/OMBRIX)
 [![Security](https://img.shields.io/badge/cryptography-Argon2id%20%2B%20Libsodium-blue?style=for-the-badge&logo=shield&logoColor=white)](https://github.com/SanthaKumar-K-2004/OMBRIX)
 [![Linter](https://img.shields.io/badge/code%20style-biome%20clean-cyan?style=for-the-badge&logo=biome&logoColor=white)](https://biomejs.dev/)
@@ -135,6 +135,7 @@ Payload bits are embedded primarily into the diagonal high-frequency subband ($y
 | Engine | Primary Transform | Modulo / Substitution | Optimal Carrier Type | Typical Capacity |
 | :--- | :--- | :--- | :--- | :---: |
 | **Hyper-Matrix** | 2D Haar Wavelet + PVD | $\pm 1$ LSB Matching + CSPRNG Permutation | High-detail photos, textures | ~15–25% |
+| **Robust Messaging** | Block Differential Modulation | Low-Frequency Luminance + 5x FEC | WhatsApp / Social Media Channels | ~1.5–3 KB |
 | **Stealth Matrix** | Spatial Raster Scatter | Fisher-Yates PRNG Shuffle + $\pm 1$ Matching | General photos, digital art | ~12–20% |
 | **PVD Differencing** | Edge-Adaptive Pixel Differencing | Multi-range quantization table | High-contrast scenery, architecture | ~20–35% |
 | **Haar Wavelet** | Subband Coefficient Transform | High-frequency quantization | Realistic camera photos | ~10–18% |

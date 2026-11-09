@@ -27,6 +27,13 @@ export {
   hyperMatrixMethod,
 } from './hyperMatrix.js';
 export {
+  RobustResilientStegoMethod,
+  robustResilientStego,
+  ROBUST_SYNC_MARKER,
+  FEC_REPETITION_FACTOR,
+  MODULATION_MARGIN,
+} from './robustResilient.js';
+export {
   ChaCha20Prng,
   hmacSha256,
   sha256,
