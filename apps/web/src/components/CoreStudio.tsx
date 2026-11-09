@@ -78,7 +78,11 @@ import {
   unpackFilePayload,
 } from '../utils/filePayload.js';
 import { type GhostCarrierTheme, generateGhostCarrier } from '../utils/ghostCarrier.js';
-import { getImageDimensions, optimizeSecretPhoto } from '../utils/secretImageScaler.js';
+import {
+  getImageDimensions,
+  optimizeCovertPhotoForRobustMessaging,
+  optimizeSecretPhoto,
+} from '../utils/secretImageScaler.js';
 import { SmartPasskeyAssistant } from './SmartPasskeyAssistant.js';
 import { SplitComparisonSlider } from './SplitComparisonSlider.js';
 
@@ -438,7 +442,10 @@ export const CoreStudio: React.FC = () => {
         const dims = await getImageDimensions(file);
 
         if (!forceRaw && autoScaleSecretPhoto && file.size > usableBudget * 0.8) {
-          const opt = await optimizeSecretPhoto(file, usableBudget);
+          const opt =
+            selectedMethod === 'stego-robust-resilient'
+              ? await optimizeCovertPhotoForRobustMessaging(file, usableBudget)
+              : await optimizeSecretPhoto(file, usableBudget);
           setSecretImageFile(opt.file);
           setSecretImageBytes(opt.bytes);
           setSecretImageDims({ width: opt.width, height: opt.height });
@@ -465,7 +472,7 @@ export const CoreStudio: React.FC = () => {
         setIsOptimizingSecretPhoto(false);
       }
     },
-    [autoScaleSecretPhoto, capacity, registerTrackedUrl, revokeTrackedUrl],
+    [autoScaleSecretPhoto, capacity, registerTrackedUrl, revokeTrackedUrl, selectedMethod],
   );
 
   const handleToggleSecretPhotoOptimization = useCallback(async () => {

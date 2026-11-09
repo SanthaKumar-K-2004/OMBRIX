@@ -155,6 +155,114 @@ export async function optimizeSecretPhoto(
 }
 
 /**
+ * Optimizes a covert photo payload specifically for Robust Messaging Steganography mode.
+ * Robust mode modulates 16x16 luminance blocks with 5x FEC to survive social media recompression,
+ * giving a usable budget of ~1KB - 2KB. This function scales the covert secret image down
+ * to a micro-thumbnail (e.g. 48x48 or 64x64 WebP/JPEG) so it can fit cleanly into the carrier.
+ */
+export async function optimizeCovertPhotoForRobustMessaging(
+  file: File,
+  maxAllowedBytes = 1400,
+): Promise<OptimizedSecretImageResult> {
+  const originalBuf = await file.arrayBuffer();
+  const originalBytes = new Uint8Array(originalBuf);
+  const originalSize = originalBytes.length;
+
+  if (originalSize <= maxAllowedBytes) {
+    const dims = await getImageDimensions(file);
+    return {
+      file,
+      bytes: originalBytes,
+      width: dims.width,
+      height: dims.height,
+      isOptimized: false,
+      originalSize,
+      newSize: originalSize,
+    };
+  }
+
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+
+    const origW = img.naturalWidth || img.width;
+    const origH = img.naturalHeight || img.height;
+
+    // Start with 64x64 micro-thumbnail, keeping aspect ratio
+    let targetW = 64;
+    let targetH = 64;
+    if (origW >= origH) {
+      targetH = Math.max(32, Math.round((origH / origW) * 64));
+    } else {
+      targetW = Math.max(32, Math.round((origW / origH) * 64));
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('Canvas 2D context creation failed.');
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, targetW, targetH);
+
+    let outputBlob: Blob | null = null;
+    let quality = 0.7;
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      outputBlob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((b) => resolve(b), 'image/webp', quality);
+      });
+
+      if (!outputBlob) {
+        outputBlob = await new Promise<Blob | null>((resolve) => {
+          canvas.toBlob((b) => resolve(b), 'image/jpeg', quality);
+        });
+      }
+
+      if (outputBlob && outputBlob.size <= maxAllowedBytes) {
+        break;
+      }
+
+      // Progressively reduce dimensions or quality
+      quality = Math.max(0.4, quality - 0.15);
+      targetW = Math.max(32, Math.round(targetW * 0.85));
+      targetH = Math.max(32, Math.round(targetH * 0.85));
+      canvas.width = targetW;
+      canvas.height = targetH;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+    }
+
+    if (!outputBlob) {
+      throw new Error('Failed to encode robust micro-thumbnail image.');
+    }
+
+    const optBuf = await outputBlob.arrayBuffer();
+    const optBytes = new Uint8Array(optBuf);
+    const format = outputBlob.type.includes('webp') ? 'webp' : 'jpg';
+    const optFileName = `${file.name.replace(/\.[^/.]+$/, '')}_robust_micro.${format}`;
+    const optFile = new File([outputBlob], optFileName, { type: outputBlob.type });
+
+    return {
+      file: optFile,
+      bytes: optBytes,
+      width: targetW,
+      height: targetH,
+      isOptimized: true,
+      originalSize,
+      newSize: optBytes.length,
+    };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
  * Helper to get natural dimensions of an image file.
  */
 export function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
