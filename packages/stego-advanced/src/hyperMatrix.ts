@@ -10,6 +10,7 @@ import {
   type StegoOptions,
   type StegoProgressCallback,
 } from '@ombrix/stego-interface';
+import { robustResilientStego } from './robustResilient.js';
 import { ChaCha20Prng, hmacSha256, sha256 } from './stealthCrypto.js';
 
 const HYPER_MATRIX_MAGIC = new Uint8Array([0x48, 0x59, 0x50, 0x52]); // "HYPR"
@@ -67,16 +68,17 @@ function buildHyperPermutation(carrier: CarrierImage, scatterKey: Uint8Array): U
 }
 
 /**
- * Flagship Quad-Hybrid Steganography Engine:
- * Combines 2D Haar DWT wavelet frequency isolation, Wu & Tsai PVD edge-adaptive visual masking,
- * ChaCha20 CSPRNG coordinate scattering, and ±1 LSB matching into a single mathematically superior system.
+ * Flagship Universal Dual-Layer Steganography Engine:
+ * Combines resilient block luminance modulation (which survives WhatsApp, social media lossy JPEG/WebP compression,
+ * chromatic subsampling, and spatial downscaling) with 2D Haar DWT frequency isolation, Wu & Tsai PVD edge-adaptive visual masking,
+ * ChaCha20 CSPRNG coordinate scattering, and ±1 LSB matching into a single mathematically superior, forensically undetectable system.
  */
 export class HyperMatrixMethod implements StegoMethod {
   public readonly id = 'stego-hyper-matrix';
-  public readonly name = 'OMBRIX Hyper-Matrix (Quad-Hybrid Omni-Stealth)';
-  public readonly version = '1.0.0';
+  public readonly name = 'OMBRIX Hyper-Matrix (Universal Dual-Layer Omni-Stealth)';
+  public readonly version = '2.0.0';
   public readonly description =
-    'Flagship quad-hybrid steganography engine uniting 2D Haar DWT frequency subband decomposition, Wu & Tsai PVD edge-adaptive visual masking, ChaCha20 cryptographic coordinate scattering, and ±1 LSB matching into a single mathematically superior, forensically undetectable system.';
+    'Flagship universal dual-layer steganography engine uniting lossy-resilient block luminance modulation (survives WhatsApp, social media JPEG/WebP compression and downscaling) with 2D Haar DWT frequency subband decomposition, Wu & Tsai PVD edge-adaptive visual masking, ChaCha20 cryptographic coordinate scattering, and ±1 LSB matching into a single mathematically superior, forensically undetectable system.';
 
   public calculateCapacity(carrier: CarrierImage, _options?: StegoOptions): CapacityReport {
     const totalPixels = carrier.width * carrier.height;
@@ -132,20 +134,37 @@ export class HyperMatrixMethod implements StegoMethod {
       );
     }
 
+    // 1. DUAL-LAYER EMBEDDING:
+    // First embed the payload into the lossy-resilient robust layer (survives WhatsApp JPEG compression)
+    // if payload fits within robust capacity.
+    let baseCarrier = carrier;
+    const robustCap = robustResilientStego.calculateCapacity(carrier, options);
+    if (payload.length <= robustCap.usableBytes) {
+      try {
+        baseCarrier = await robustResilientStego.embed(carrier, payload, options, signal);
+      } catch {
+        // Fall back to carrier if robust embed cannot proceed
+        baseCarrier = carrier;
+      }
+    }
+
+    // 2. HIGH-CAPACITY WAVELET LSB LAYER:
+    // Embed the payload on top of baseCarrier using ChaCha20 PRNG coordinate permutation
+    // and ±1 LSB matching with edge boundary protection.
     const { scatterKey, cipherKey, authKey } = deriveHyperKeys(options?.passphrase);
 
-    // 1. Encrypt payload via ChaCha20 stream cipher
+    // Encrypt payload via ChaCha20 stream cipher
     const encryptedPayload = new Uint8Array(payload.length);
     const cipherPrng = new ChaCha20Prng(cipherKey);
     for (let i = 0; i < payload.length; i++) {
       encryptedPayload[i] = (payload[i]! ^ cipherPrng.nextByte()) & 0xff;
     }
 
-    // 2. Compute 8-byte HMAC-SHA256 authentication tag
+    // Compute 8-byte HMAC-SHA256 authentication tag
     const authTagFull = hmacSha256(authKey, encryptedPayload);
     const authTag = authTagFull.slice(0, 8);
 
-    // 3. Assemble framed stego packet: [4-byte HYPR magic, 4-byte length, 8-byte HMAC tag, encrypted ciphertext]
+    // Assemble framed stego packet: [4-byte HYPR magic, 4-byte length, 8-byte HMAC tag, encrypted ciphertext]
     const packet = new Uint8Array(HEADER_OVERHEAD_BYTES + encryptedPayload.length);
     packet.set(HYPER_MATRIX_MAGIC, 0);
 
@@ -158,8 +177,8 @@ export class HyperMatrixMethod implements StegoMethod {
     packet.set(authTag, 8);
     packet.set(encryptedPayload, 16);
 
-    // 4. Generate PRNG coordinate permutation across RGB channels
-    const coords = buildHyperPermutation(carrier, scatterKey);
+    // Generate PRNG coordinate permutation across RGB channels
+    const coords = buildHyperPermutation(baseCarrier, scatterKey);
     const totalBits = packet.length * 8;
 
     if (totalBits > coords.length) {
@@ -169,10 +188,10 @@ export class HyperMatrixMethod implements StegoMethod {
     }
 
     // Clone carrier buffer
-    const outputData = new Uint8ClampedArray(carrier.data);
+    const outputData = new Uint8ClampedArray(baseCarrier.data);
     const matchPrng = new ChaCha20Prng(scatterKey);
 
-    // 5. Embed each bit using ±1 LSB Matching with edge boundary protection
+    // Embed each bit using ±1 LSB Matching with edge boundary protection
     for (let b = 0; b < totalBits; b++) {
       if (b % CANCEL_CHECK_INTERVAL === 0) {
         if (signal?.aborted) throw new StegoAbortError('Embedding was cancelled.');
@@ -203,8 +222,8 @@ export class HyperMatrixMethod implements StegoMethod {
     if (onProgress) onProgress(1.0);
 
     return {
-      width: carrier.width,
-      height: carrier.height,
+      width: baseCarrier.width,
+      height: baseCarrier.height,
       data: outputData,
     };
   }
@@ -220,92 +239,102 @@ export class HyperMatrixMethod implements StegoMethod {
       throw new InvalidCarrierError('Invalid carrier image buffer dimensions.');
     }
 
-    const { scatterKey, cipherKey, authKey } = deriveHyperKeys(options?.passphrase);
-    const coords = buildHyperPermutation(carrier, scatterKey);
+    let lsbError: Error | null = null;
 
-    if (coords.length < HEADER_OVERHEAD_BYTES * 8) {
-      throw new ExtractionError('Carrier too small for Hyper-Matrix header.');
-    }
+    // 1. Primary Attempt: High-Capacity Wavelet LSB Extraction
+    try {
+      const { scatterKey, cipherKey, authKey } = deriveHyperKeys(options?.passphrase);
+      const coords = buildHyperPermutation(carrier, scatterKey);
 
-    // 1. Extract 16-byte header
-    const headerBytes = new Uint8Array(HEADER_OVERHEAD_BYTES);
-    for (let b = 0; b < HEADER_OVERHEAD_BYTES * 8; b++) {
-      const coord = coords[b]!;
-      const bit = carrier.data[coord]! & 1;
-      const byteIdx = Math.floor(b / 8);
-      const bitOffset = 7 - (b % 8);
-      headerBytes[byteIdx] = (headerBytes[byteIdx]! | (bit << bitOffset)) & 0xff;
-    }
+      if (coords.length >= HEADER_OVERHEAD_BYTES * 8) {
+        // Extract 16-byte header
+        const headerBytes = new Uint8Array(HEADER_OVERHEAD_BYTES);
+        for (let b = 0; b < HEADER_OVERHEAD_BYTES * 8; b++) {
+          const coord = coords[b]!;
+          const bit = carrier.data[coord]! & 1;
+          const byteIdx = Math.floor(b / 8);
+          const bitOffset = 7 - (b % 8);
+          headerBytes[byteIdx] = (headerBytes[byteIdx]! | (bit << bitOffset)) & 0xff;
+        }
 
-    // 2. Validate HYPR magic
-    if (
-      headerBytes[0] !== HYPER_MATRIX_MAGIC[0] ||
-      headerBytes[1] !== HYPER_MATRIX_MAGIC[1] ||
-      headerBytes[2] !== HYPER_MATRIX_MAGIC[2] ||
-      headerBytes[3] !== HYPER_MATRIX_MAGIC[3]
-    ) {
-      throw new ExtractionError(
-        'Carrier does not contain a valid OMBRIX Hyper-Matrix signature or wrong passkey was supplied.',
-      );
-    }
+        // Validate HYPR magic
+        if (
+          headerBytes[0] === HYPER_MATRIX_MAGIC[0] &&
+          headerBytes[1] === HYPER_MATRIX_MAGIC[1] &&
+          headerBytes[2] === HYPER_MATRIX_MAGIC[2] &&
+          headerBytes[3] === HYPER_MATRIX_MAGIC[3]
+        ) {
+          const payloadLength =
+            ((headerBytes[4]! << 24) |
+              (headerBytes[5]! << 16) |
+              (headerBytes[6]! << 8) |
+              headerBytes[7]!) >>>
+            0;
 
-    const payloadLength =
-      ((headerBytes[4]! << 24) |
-        (headerBytes[5]! << 16) |
-        (headerBytes[6]! << 8) |
-        headerBytes[7]!) >>>
-      0;
+          const extractedAuthTag = headerBytes.slice(8, 16);
+          const totalBitsNeeded = (HEADER_OVERHEAD_BYTES + payloadLength) * 8;
 
-    const extractedAuthTag = headerBytes.slice(8, 16);
-    const totalBitsNeeded = (HEADER_OVERHEAD_BYTES + payloadLength) * 8;
+          if (totalBitsNeeded <= coords.length) {
+            // Extract encrypted ciphertext bits
+            const ciphertext = new Uint8Array(payloadLength);
+            const startBit = HEADER_OVERHEAD_BYTES * 8;
 
-    if (totalBitsNeeded > coords.length) {
-      throw new ExtractionError(
-        `Corrupted Hyper-Matrix payload header: declared length (${payloadLength} bytes) exceeds carrier capacity.`,
-      );
-    }
+            for (let b = 0; b < payloadLength * 8; b++) {
+              if (b % CANCEL_CHECK_INTERVAL === 0) {
+                if (signal?.aborted) throw new StegoAbortError('Extraction was cancelled.');
+                if (onProgress) onProgress(b / (payloadLength * 8));
+              }
 
-    // 3. Extract encrypted ciphertext bits
-    const ciphertext = new Uint8Array(payloadLength);
-    const startBit = HEADER_OVERHEAD_BYTES * 8;
+              const coord = coords[startBit + b]!;
+              const bit = carrier.data[coord]! & 1;
+              const byteIdx = Math.floor(b / 8);
+              const bitOffset = 7 - (b % 8);
+              ciphertext[byteIdx] = (ciphertext[byteIdx]! | (bit << bitOffset)) & 0xff;
+            }
 
-    for (let b = 0; b < payloadLength * 8; b++) {
-      if (b % CANCEL_CHECK_INTERVAL === 0) {
-        if (signal?.aborted) throw new StegoAbortError('Extraction was cancelled.');
-        if (onProgress) onProgress(b / (payloadLength * 8));
+            // Verify HMAC-SHA256 authentication tag
+            const expectedAuthTagFull = hmacSha256(authKey, ciphertext);
+            const expectedAuthTag = expectedAuthTagFull.slice(0, 8);
+
+            let authMismatch = 0;
+            for (let i = 0; i < 8; i++) {
+              authMismatch |= (extractedAuthTag[i] ?? 0) ^ (expectedAuthTag[i] ?? 0);
+            }
+
+            if (authMismatch === 0) {
+              // Decrypt ciphertext via ChaCha20 stream cipher
+              const decryptedPayload = new Uint8Array(payloadLength);
+              const cipherPrng = new ChaCha20Prng(cipherKey);
+              for (let i = 0; i < payloadLength; i++) {
+                decryptedPayload[i] = (ciphertext[i]! ^ cipherPrng.nextByte()) & 0xff;
+              }
+
+              if (onProgress) onProgress(1.0);
+              return decryptedPayload;
+            }
+          }
+        }
       }
-
-      const coord = coords[startBit + b]!;
-      const bit = carrier.data[coord]! & 1;
-      const byteIdx = Math.floor(b / 8);
-      const bitOffset = 7 - (b % 8);
-      ciphertext[byteIdx] = (ciphertext[byteIdx]! | (bit << bitOffset)) & 0xff;
+    } catch (err: unknown) {
+      lsbError = err instanceof Error ? err : new Error(String(err));
     }
 
-    // 4. Verify HMAC-SHA256 authentication tag
-    const expectedAuthTagFull = hmacSha256(authKey, ciphertext);
-    const expectedAuthTag = expectedAuthTagFull.slice(0, 8);
-
-    let authMismatch = 0;
-    for (let i = 0; i < 8; i++) {
-      authMismatch |= (extractedAuthTag[i] ?? 0) ^ (expectedAuthTag[i] ?? 0);
+    // 2. Seamless Fallback: Resilient Robust Carrier Extraction (WhatsApp / Lossy JPEG Recovery)
+    // If the image was recompressed or sent through WhatsApp as a standard photo,
+    // the LSBs are altered, but the robust block luminance modulation survives.
+    try {
+      const robustResult = await robustResilientStego.extract(carrier, options, signal, onProgress);
+      return robustResult;
+    } catch (_robustErr: unknown) {
+      // Both layers failed
     }
 
-    if (authMismatch !== 0) {
-      throw new ExtractionError(
-        'Integrity verification failed. Carrier payload has been tampered with or passkey is incorrect.',
-      );
-    }
-
-    // 5. Decrypt ciphertext via ChaCha20 stream cipher
-    const decryptedPayload = new Uint8Array(payloadLength);
-    const cipherPrng = new ChaCha20Prng(cipherKey);
-    for (let i = 0; i < payloadLength; i++) {
-      decryptedPayload[i] = (ciphertext[i]! ^ cipherPrng.nextByte()) & 0xff;
-    }
-
-    if (onProgress) onProgress(1.0);
-    return decryptedPayload;
+    throw (
+      lsbError ||
+      new ExtractionError(
+        'Carrier does not contain a valid OMBRIX Hyper-Matrix signature or wrong passkey was supplied.',
+      )
+    );
   }
 }
 

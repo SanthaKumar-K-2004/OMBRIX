@@ -295,14 +295,15 @@ export class RobustResilientStegoMethod implements StegoMethod {
         const originY = by * 8;
         const originX = bx * 8;
 
-        // Calculate Set A (even sum) and Set B (odd sum) sums
+        // Calculate Set A (diagonal 4x4 quadrants) and Set B (anti-diagonal 4x4 quadrants) sums
+        // Using 4x4 sub-quadrants survives downscaling, bilinear resampling, and JPEG low-frequency quantization
         let sumA = 0;
         let sumB = 0;
         for (let r = 0; r < 8; r++) {
           for (let col = 0; col < 8; col++) {
             const idx = ((originY + r) * width + (originX + col)) * 4 + c;
             const val = outData[idx] ?? 0;
-            if ((r + col) % 2 === 0) {
+            if (r < 4 === col < 4) {
               sumA += val;
             } else {
               sumB += val;
@@ -339,7 +340,7 @@ export class RobustResilientStegoMethod implements StegoMethod {
             for (let col = 0; col < 8; col++) {
               const idx = ((originY + r) * width + (originX + col)) * 4 + c;
               const cur = outData[idx] ?? 0;
-              if ((r + col) % 2 === 0) {
+              if (r < 4 === col < 4) {
                 outData[idx] = Math.max(0, Math.min(255, cur + deltaA));
               } else {
                 outData[idx] = Math.max(0, Math.min(255, cur + deltaB));
@@ -378,20 +379,73 @@ export class RobustResilientStegoMethod implements StegoMethod {
       return await this.extractDirect(carrier, options, signal, onProgress);
     } catch (primaryErr) {
       // If direct extraction failed, check if image was resized by WhatsApp / social platform
-      // Probe downscale recovery candidates
+      // Probe multi-scale recovery candidates (both upscaled and downscaled)
       const maxDim = Math.max(carrier.width, carrier.height);
-      const candidates = [1600, 1280, 1024, 720];
+      const candidateMaxes = [2560, 2048, 1920, 1600, 1440, 1280, 1080, 1024, 960, 800, 720];
 
-      for (const targetMax of candidates) {
-        if (Math.abs(maxDim - targetMax) < 8) continue; // Already close to current dim
+      // Build target dimension pairs (width, height)
+      const targetSizes: Array<{ w: number; h: number }> = [];
+      const tested = new Set<string>();
+      tested.add(`${carrier.width}x${carrier.height}`);
+
+      // 1. Proportional scaling by target max dimension
+      for (const targetMax of candidateMaxes) {
+        if (Math.abs(maxDim - targetMax) < 4) continue;
         const scale = targetMax / maxDim;
         const targetW = Math.round((carrier.width * scale) / 8) * 8;
         const targetH = Math.round((carrier.height * scale) / 8) * 8;
+        const key = `${targetW}x${targetH}`;
+        if (
+          !tested.has(key) &&
+          targetW >= 128 &&
+          targetH >= 128 &&
+          targetW <= 3840 &&
+          targetH <= 2160
+        ) {
+          tested.add(key);
+          targetSizes.push({ w: targetW, h: targetH });
+        }
+      }
 
-        if (targetW < 128 || targetH < 128) continue;
+      // 2. Specific social media scale factors (WhatsApp 1.5x, 1.25x, 1.333x, 2.0x, 0.667x, 0.8x, 0.75x)
+      const scaleFactors = [1.5, 1.25, 4 / 3, 2.0, 2 / 3, 0.8, 0.75, 0.5];
+      for (const sf of scaleFactors) {
+        const targetW = Math.round((carrier.width * sf) / 8) * 8;
+        const targetH = Math.round((carrier.height * sf) / 8) * 8;
+        const key = `${targetW}x${targetH}`;
+        if (
+          !tested.has(key) &&
+          targetW >= 128 &&
+          targetH >= 128 &&
+          targetW <= 3840 &&
+          targetH <= 2160
+        ) {
+          tested.add(key);
+          targetSizes.push({ w: targetW, h: targetH });
+        }
+      }
 
+      // 3. Exact 8x8 block boundary normalization (if dimensions were not multiples of 8)
+      if (carrier.width % 8 !== 0 || carrier.height % 8 !== 0) {
+        const floorW = Math.floor(carrier.width / 8) * 8;
+        const floorH = Math.floor(carrier.height / 8) * 8;
+        const keyFloor = `${floorW}x${floorH}`;
+        if (!tested.has(keyFloor) && floorW >= 128 && floorH >= 128) {
+          tested.add(keyFloor);
+          targetSizes.push({ w: floorW, h: floorH });
+        }
+        const roundW = Math.round(carrier.width / 8) * 8;
+        const roundH = Math.round(carrier.height / 8) * 8;
+        const keyRound = `${roundW}x${roundH}`;
+        if (!tested.has(keyRound) && roundW >= 128 && roundH >= 128) {
+          tested.add(keyRound);
+          targetSizes.push({ w: roundW, h: roundH });
+        }
+      }
+
+      for (const target of targetSizes) {
         try {
-          const resampled = resampleCarrier(carrier, targetW, targetH);
+          const resampled = resampleCarrier(carrier, target.w, target.h);
           return await this.extractDirect(resampled, options, signal, onProgress);
         } catch {
           // Candidate probe failed, continue searching
@@ -461,7 +515,7 @@ export class RobustResilientStegoMethod implements StegoMethod {
             for (let col = 0; col < 8; col++) {
               const idx = ((originY + r) * width + (originX + col)) * 4 + c;
               const val = srcData[idx] ?? 0;
-              if ((r + col) % 2 === 0) {
+              if (r < 4 === col < 4) {
                 sumA += val;
               } else {
                 sumB += val;

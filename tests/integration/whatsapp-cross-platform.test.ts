@@ -1,4 +1,4 @@
-import { robustResilientStego } from '@ombrix/stego-advanced';
+import { hyperMatrixMethod, robustResilientStego } from '@ombrix/stego-advanced';
 import type { CarrierImage } from '@ombrix/stego-interface';
 import { StegoWorkerHandler } from '@ombrix/stego-worker';
 import { simulateJpegCompression, simulateResize } from '@ombrix/transit-trace';
@@ -94,5 +94,70 @@ describe('Cross-Platform WhatsApp & Social Media Transmission Test', () => {
         passphrase: 'wrong-attack-key',
       }),
     ).rejects.toThrow();
+  });
+
+  it('UNIFIED HYPER-MATRIX: embeds via Hyper-Matrix, survives WhatsApp JPEG 75, extracts via HyperMatrix fallback', async () => {
+    const carrier = createPhotoCarrier(384, 384);
+    const secretText = 'TOP-SECRET-HYPER-MATRIX-WHATSAPP-UNIFIED';
+    const secretPayload = new TextEncoder().encode(secretText);
+    const passkey =
+      '2CC2-D98C-4E6B-641C-9D5D-CA4D-5831-C74B-A87E-26DD-20A3-C1F9-4523-37D8-5AEF-B491';
+
+    // 1. Laptop side: User encodes with flagship Hyper-Matrix engine (single default method)
+    const stegoCarrier = await hyperMatrixMethod.embed(carrier, secretPayload, {
+      passphrase: passkey,
+    });
+
+    // 2. WhatsApp transmission: Lossy JPEG recompression (Quality 75) alters LSBs
+    const whatsAppTranscoded = simulateJpegCompression(stegoCarrier, 75);
+
+    // 3. Phone side: Extract directly using Hyper-Matrix with the 32-byte passkey!
+    const recovered = await hyperMatrixMethod.extract(whatsAppTranscoded, {
+      passphrase: passkey,
+    });
+
+    expect(new TextDecoder().decode(recovered)).toBe(secretText);
+  });
+
+  it('UNIFIED HYPER-MATRIX: extracts lossless PNG carrier via High-Capacity Wavelet LSB layer', async () => {
+    const carrier = createPhotoCarrier(384, 384);
+    const secretText = 'LOSSLESS-DOCUMENT-TRANSFER-PERFECT-FIDELITY';
+    const secretPayload = new TextEncoder().encode(secretText);
+    const passkey = 'token-lossless-fidelity-key';
+
+    // 1. Encode with Hyper-Matrix
+    const stegoCarrier = await hyperMatrixMethod.embed(carrier, secretPayload, {
+      passphrase: passkey,
+    });
+
+    // 2. Lossless Document transfer (no JPEG transcoding)
+    const recovered = await hyperMatrixMethod.extract(stegoCarrier, {
+      passphrase: passkey,
+    });
+
+    expect(new TextDecoder().decode(recovered)).toBe(secretText);
+  });
+
+  it('UNIFIED HYPER-MATRIX: survives WhatsApp 1.5x downscaling + JPEG 75 compression via multi-scale probe', async () => {
+    const carrier = createPhotoCarrier(480, 480);
+    const secretText = 'WHATSAPP-DOWNSCALED-1.5X-RECOVERY';
+    const secretPayload = new TextEncoder().encode(secretText);
+    const passkey = 'scale-resilient-passkey-2026';
+
+    // 1. Encoded at 480x480 with Hyper-Matrix
+    const stegoCarrier = await hyperMatrixMethod.embed(carrier, secretPayload, {
+      passphrase: passkey,
+    });
+
+    // 2. WhatsApp downscales from 480x480 to 320x320 (1.5x downscale) + applies JPEG 75 compression
+    const downscaled = simulateResize(stegoCarrier, 320, 320);
+    const transcoded = simulateJpegCompression(downscaled, 75);
+
+    // 3. Phone side: HyperMatrix probe automatically detects downscaling, upscales to 480x480, and recovers!
+    const recovered = await hyperMatrixMethod.extract(transcoded, {
+      passphrase: passkey,
+    });
+
+    expect(new TextDecoder().decode(recovered)).toBe(secretText);
   });
 });

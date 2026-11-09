@@ -1002,14 +1002,14 @@ export const CoreStudio: React.FC = () => {
           setSignatureStatus('none');
         }
       } else {
-        // OMBRIX Quad-Hybrid / Stealth Matrix / Robust Messaging Payload
+        // OMBRIX Unified Hyper-Matrix / Robust Messaging Payload
         if (
           revealMethod === 'stego-robust-resilient' ||
           (revealFile && !revealFile.type.includes('png') && !revealFile.name.endsWith('.png'))
         ) {
-          setDetectedMethodName('Robust Messaging (WhatsApp & Social Media Resilient)');
+          setDetectedMethodName('OMBRIX Hyper-Matrix (Dual-Layer: WhatsApp Resilient Recovery)');
         } else {
-          setDetectedMethodName('OMBRIX Hyper-Matrix (Quad-Hybrid Frequency & Edge Scattered)');
+          setDetectedMethodName('OMBRIX Hyper-Matrix (Dual-Layer: Wavelet High-Capacity Recovery)');
         }
         setDecryptionStatus('decrypted');
         setSignatureStatus('none');
@@ -1567,18 +1567,6 @@ export const CoreStudio: React.FC = () => {
                 <div className="flex items-center gap-1.5 p-1 bg-black/40 rounded-xl border border-white/[0.08]">
                   <button
                     type="button"
-                    onClick={() => setSelectedMethod('stego-robust-resilient')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-[11px] font-semibold transition-all ${
-                      selectedMethod === 'stego-robust-resilient'
-                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
-                        : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
-                    }`}
-                  >
-                    <Smartphone className="w-3.5 h-3.5 text-emerald-300" />
-                    <span>Normal Social Send (WhatsApp Safe)</span>
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setSelectedMethod('stego-hyper-matrix')}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-[11px] font-semibold transition-all ${
                       selectedMethod === 'stego-hyper-matrix'
@@ -1587,7 +1575,19 @@ export const CoreStudio: React.FC = () => {
                     }`}
                   >
                     <Shield className="w-3.5 h-3.5 text-violet-300" />
-                    <span>Lossless Vault (Document Mode)</span>
+                    <span>Hyper-Matrix (Dual-Layer: WhatsApp + Vault)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMethod('stego-robust-resilient')}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-[11px] font-semibold transition-all ${
+                      selectedMethod === 'stego-robust-resilient'
+                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
+                        : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <Smartphone className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Dedicated Robust Messaging</span>
                   </button>
                 </div>
 
@@ -1603,17 +1603,20 @@ export const CoreStudio: React.FC = () => {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-white">Hyper-Matrix</span>
+                      <span className="text-xs font-semibold text-white">
+                        Hyper-Matrix Dual-Layer
+                      </span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-mono">
-                        Quad-Hybrid
+                        Universal Hybrid
                       </span>
                     </div>
                     <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-medium">
-                      Recommended
+                      Flagship Default
                     </span>
                   </div>
                   <div className="text-[11px] text-slate-400 mt-1">
-                    Wavelet frequency + edge masking + PRNG scatter + ±1 matching
+                    Dual-Layer: Survives normal WhatsApp/social photo sending + High-capacity
+                    wavelet vault
                   </div>
                 </button>
 
@@ -1732,7 +1735,7 @@ export const CoreStudio: React.FC = () => {
                     <span>Defense:</span>
                     <span className="text-slate-200 font-medium">
                       {selectedMethod === 'stego-hyper-matrix'
-                        ? 'Wavelet-PVD Hybrid + CSPRNG Permutation'
+                        ? 'Dual-Layer: WhatsApp Resilient + Wavelet LSB Hybrid'
                         : selectedMethod === 'stego-robust-resilient'
                           ? 'Block Luminance Differential + 5x FEC (WhatsApp Safe)'
                           : selectedMethod === 'stego-stealth-matrix'
@@ -1746,7 +1749,7 @@ export const CoreStudio: React.FC = () => {
                   </div>
                   <span className="font-mono text-[10px] text-sky-400">
                     {selectedMethod === 'stego-hyper-matrix'
-                      ? 'PSNR >52 dB'
+                      ? 'Universal (WhatsApp + Vault)'
                       : selectedMethod === 'stego-robust-resilient'
                         ? 'WhatsApp Safe'
                         : selectedMethod === 'stego-stealth-matrix'
@@ -2106,27 +2109,32 @@ export const CoreStudio: React.FC = () => {
                     <Download className="w-4 h-4" />
                     <span>Download Stego PNG</span>
                   </a>
-                  {selectedMethod === 'stego-robust-resilient' && (
+                  {(selectedMethod === 'stego-hyper-matrix' ||
+                    selectedMethod === 'stego-robust-resilient') && (
                     <button
                       type="button"
                       onClick={async () => {
                         if (!carrierImageData || !embeddedBlobRef.current) return;
                         const canvas = document.createElement('canvas');
-                        canvas.width = carrierImageData.width;
-                        canvas.height = carrierImageData.height;
+                        const maxDim = Math.max(carrierImageData.width, carrierImageData.height);
+                        const scale = maxDim > 1280 ? 1280 / maxDim : 1;
+                        const targetW = Math.round((carrierImageData.width * scale) / 8) * 8;
+                        const targetH = Math.round((carrierImageData.height * scale) / 8) * 8;
+                        canvas.width = targetW;
+                        canvas.height = targetH;
                         const ctx = canvas.getContext('2d');
                         if (!ctx) return;
                         const img = new Image();
                         img.src = embeddedImageUrl;
                         await img.decode();
-                        ctx.drawImage(img, 0, 0);
+                        ctx.drawImage(img, 0, 0, targetW, targetH);
                         canvas.toBlob(
                           (blob) => {
                             if (!blob) return;
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = `ombrix-social-carrier-${Date.now()}.jpg`;
+                            a.download = `ombrix-whatsapp-photo-${Date.now()}.jpg`;
                             a.click();
                             setTimeout(() => URL.revokeObjectURL(url), 2000);
                           },
@@ -2135,45 +2143,10 @@ export const CoreStudio: React.FC = () => {
                         );
                       }}
                       className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs transition-colors cursor-pointer"
-                      title="Download as JPEG ready for normal WhatsApp / social media photo sending"
+                      title="Download pre-formatted JPEG ready for normal WhatsApp / social media photo sending"
                     >
-                      <Download className="w-4 h-4" />
-                      <span>Download Social JPEG</span>
-                    </button>
-                  )}
-                  {selectedMethod === 'stego-robust-resilient' && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (!carrierImageData || !embeddedBlobRef.current) return;
-                        const canvas = document.createElement('canvas');
-                        canvas.width = carrierImageData.width;
-                        canvas.height = carrierImageData.height;
-                        const ctx = canvas.getContext('2d');
-                        if (!ctx) return;
-                        const img = new Image();
-                        img.src = embeddedImageUrl;
-                        await img.decode();
-                        ctx.drawImage(img, 0, 0);
-                        canvas.toBlob(
-                          (blob) => {
-                            if (!blob) return;
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `ombrix-social-carrier-${Date.now()}.jpg`;
-                            a.click();
-                            setTimeout(() => URL.revokeObjectURL(url), 2000);
-                          },
-                          'image/jpeg',
-                          0.85,
-                        );
-                      }}
-                      className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs transition-colors cursor-pointer"
-                      title="Download as JPEG ready for normal WhatsApp / social media photo sending"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Download Social JPEG</span>
+                      <Smartphone className="w-4 h-4" />
+                      <span>Download WhatsApp Photo (JPEG)</span>
                     </button>
                   )}
                   <button
