@@ -6,6 +6,7 @@ import { DemoShowcaseModal } from './components/DemoShowcaseModal.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { GhostFibers } from './components/GhostFibers.js';
 import { Navbar, type ProductModule } from './components/Navbar.js';
+import { OmbrixLogo } from './components/OmbrixLogo.js';
 import { studioDataBus } from './services/studioDataBus.js';
 
 // Lazy-load secondary studios to accelerate initial load and minimize main-thread bundle size
@@ -162,7 +163,8 @@ export const App: React.FC = () => {
         {/* Glassmorphism Footer */}
         <footer className="border-t border-[#1E293B]/80 bg-[#0B0F19]/85 backdrop-blur-md py-6 text-xs text-[#64748B]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
+              <OmbrixLogo size={20} showText={false} />
               <span className="font-semibold text-white tracking-wide">OMBRIX™</span>
               <span>—</span>
               <span className="italic text-[#94A3B8]">Beyond what the eye can see.</span>
