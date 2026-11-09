@@ -67,4 +67,32 @@ describe('Cross-Platform WhatsApp & Social Media Transmission Test', () => {
     const decodedSecret = new TextDecoder().decode(responsePayload!);
     expect(decodedSecret).toBe(secretText);
   });
+
+  it('survives WhatsApp JPEG 75 compression when armored with a secret passkey', async () => {
+    const carrier = createPhotoCarrier(384, 384);
+    const secretText = 'PASSKEY-ARMORED-MESSAGE-OVER-WHATSAPP';
+    const secretPayload = new TextEncoder().encode(secretText);
+    const passkey = 'military-grade-whatsapp-key-2026';
+
+    // 1. Laptop side: User encodes with Robust Messaging Mode + Passkey
+    const stegoCarrier = await robustResilientStego.embed(carrier, secretPayload, {
+      passphrase: passkey,
+    });
+
+    // 2. WhatsApp transmission: Lossy JPEG recompression (Quality 75)
+    const whatsAppTranscoded = simulateJpegCompression(stegoCarrier, 75);
+
+    // 3. Phone side: Extract with matching passkey
+    const extractedWithKey = await robustResilientStego.extract(whatsAppTranscoded, {
+      passphrase: passkey,
+    });
+    expect(new TextDecoder().decode(extractedWithKey)).toBe(secretText);
+
+    // 4. Attacker side: Extract with wrong passkey -> rejected by HMAC
+    await expect(
+      robustResilientStego.extract(whatsAppTranscoded, {
+        passphrase: 'wrong-attack-key',
+      }),
+    ).rejects.toThrow();
+  });
 });

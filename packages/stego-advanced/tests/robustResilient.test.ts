@@ -33,7 +33,7 @@ describe('RobustResilientStegoMethod', () => {
     const carrier = createTestCarrier(256, 256);
     const capacity = robustResilientStego.calculateCapacity(carrier);
     expect(capacity.usableBytes).toBeGreaterThan(50);
-    expect(capacity.overheadBytes).toBe(12);
+    expect(capacity.overheadBytes).toBe(20);
   });
 
   it('embeds and extracts payload bit-for-bit in direct lossless mode', async () => {
@@ -48,6 +48,25 @@ describe('RobustResilientStegoMethod', () => {
     expect(new TextDecoder().decode(extracted)).toBe(
       'Mission Alpha: Coordinate 48.8584, 2.2945 verified.',
     );
+  });
+
+  it('secures payload with passkey-keyed ChaCha20 encryption and HMAC authentication', async () => {
+    const carrier = createTestCarrier(256, 256);
+    const secretText = 'TOP-SECRET-KEYED-PAYLOAD-7799';
+    const secret = new TextEncoder().encode(secretText);
+    const passphrase = 'correct-horse-battery-staple';
+
+    // Embed with passphrase
+    const stego = await robustResilientStego.embed(carrier, secret, { passphrase });
+
+    // Extract with matching passphrase -> succeeds
+    const extracted = await robustResilientStego.extract(stego, { passphrase });
+    expect(new TextDecoder().decode(extracted)).toBe(secretText);
+
+    // Extract without passphrase or with wrong passphrase -> fails
+    await expect(
+      robustResilientStego.extract(stego, { passphrase: 'wrong-passphrase' }),
+    ).rejects.toThrow();
   });
 
   it('survives random channel noise via 5x Forward Error Correction', async () => {
