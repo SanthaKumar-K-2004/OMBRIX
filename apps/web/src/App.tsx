@@ -1,30 +1,62 @@
 import { Shield } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useState } from 'react';
-import { AirGapStudio } from './components/AirGapStudio.js';
+import { Suspense, lazy, startTransition, useEffect, useState } from 'react';
 import { CoreStudio } from './components/CoreStudio.js';
 import { DemoShowcaseModal } from './components/DemoShowcaseModal.js';
-import { EdgeStudio } from './components/EdgeStudio.js';
-import { FlowStudio } from './components/FlowStudio.js';
+import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { GhostFibers } from './components/GhostFibers.js';
-import { LabStudio } from './components/LabStudio.js';
-import { LensStudio } from './components/LensStudio.js';
-import { LinkStudio } from './components/LinkStudio.js';
 import { Navbar, type ProductModule } from './components/Navbar.js';
-import { RelayStudio } from './components/RelayStudio.js';
-import { ScanStudio } from './components/ScanStudio.js';
-import { TransitStudio } from './components/TransitStudio.js';
-import { VaultStudio } from './components/VaultStudio.js';
 import { studioDataBus } from './services/studioDataBus.js';
+
+// Lazy-load secondary studios to accelerate initial load and minimize main-thread bundle size
+const VaultStudio = lazy(() =>
+  import('./components/VaultStudio.js').then((m) => ({ default: m.VaultStudio })),
+);
+const LensStudio = lazy(() =>
+  import('./components/LensStudio.js').then((m) => ({ default: m.LensStudio })),
+);
+const LabStudio = lazy(() =>
+  import('./components/LabStudio.js').then((m) => ({ default: m.LabStudio })),
+);
+const TransitStudio = lazy(() =>
+  import('./components/TransitStudio.js').then((m) => ({ default: m.TransitStudio })),
+);
+const LinkStudio = lazy(() =>
+  import('./components/LinkStudio.js').then((m) => ({ default: m.LinkStudio })),
+);
+const FlowStudio = lazy(() =>
+  import('./components/FlowStudio.js').then((m) => ({ default: m.FlowStudio })),
+);
+const EdgeStudio = lazy(() =>
+  import('./components/EdgeStudio.js').then((m) => ({ default: m.EdgeStudio })),
+);
+const ScanStudio = lazy(() =>
+  import('./components/ScanStudio.js').then((m) => ({ default: m.ScanStudio })),
+);
+const AirGapStudio = lazy(() =>
+  import('./components/AirGapStudio.js').then((m) => ({ default: m.AirGapStudio })),
+);
+const RelayStudio = lazy(() =>
+  import('./components/RelayStudio.js').then((m) => ({ default: m.RelayStudio })),
+);
 
 export const App: React.FC = () => {
   const [activeModule, setActiveModule] = useState<ProductModule>('core');
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
 
+  // Smooth module transition wrapper to preserve immediate input responsiveness
+  const handleSelectModule = (mod: ProductModule) => {
+    startTransition(() => {
+      setActiveModule(mod);
+    });
+  };
+
   // Subscribe to cross-studio programmatic navigation
   useEffect(() => {
     const unsubscribe = studioDataBus.subscribeNavigation((targetModule) => {
-      setActiveModule(targetModule);
+      startTransition(() => {
+        setActiveModule(targetModule);
+      });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
     return unsubscribe;
@@ -34,44 +66,46 @@ export const App: React.FC = () => {
     <div className="min-h-screen bg-[#0B0F19] text-[#E2E8F0] flex flex-col font-sans relative overflow-x-hidden selection:bg-[#7C3AED]/30 selection:text-white">
       {/* Atmospheric GhostFibers WebGL2 & CSS Background */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <GhostFibers
-          glowColor="#7C3AED"
-          lineColor="#38BDF8"
-          secondaryColor="#818CF8"
-          gradient="along"
-          speed={0.35}
-          scale={1.4}
-          rotation={20}
-          rollSpeed={0.16}
-          layers={2}
-          waves={1.8}
-          twist={1.2}
-          threads={36}
-          volume={1.3}
-          spread={1.4}
-          density={0.8}
-          thickness={1.3}
-          flow={0.4}
-          fiberStyle="lines"
-          tips={0.15}
-          foldGlow={1.4}
-          perspective={0.7}
-          depthOfField={0.65}
-          focusDepth={0}
-          particles={0.35}
-          sparkle={0.6}
-          glow={1.3}
-          brightness={1.5}
-          vignette={0.2}
-          grain={0.02}
-          dpr={1}
-          mouseInteraction
-          hoverEffect="focus"
-          mouseStrength={1.0}
-          pulseOnClick
-          intro
-          lightMode={false}
-        />
+        <ErrorBoundary name="Atmospheric Background">
+          <GhostFibers
+            glowColor="#7C3AED"
+            lineColor="#38BDF8"
+            secondaryColor="#818CF8"
+            gradient="along"
+            speed={0.25}
+            scale={1.3}
+            rotation={16}
+            rollSpeed={0.12}
+            layers={2}
+            waves={1.5}
+            twist={1.0}
+            threads={22}
+            volume={1.2}
+            spread={1.3}
+            density={0.5}
+            thickness={1.2}
+            flow={0.3}
+            fiberStyle="lines"
+            tips={0.1}
+            foldGlow={1.0}
+            perspective={0.7}
+            depthOfField={0.5}
+            focusDepth={0}
+            particles={0.15}
+            sparkle={0.4}
+            glow={0.8}
+            brightness={1.3}
+            vignette={0.2}
+            grain={0.01}
+            dpr={0.85}
+            mouseInteraction={false}
+            hoverEffect="none"
+            mouseStrength={0}
+            pulseOnClick={false}
+            intro
+            lightMode={false}
+          />
+        </ErrorBoundary>
         {/* Subtle cybernetic dot grid overlay */}
         <div className="absolute inset-0 bg-grid-pattern opacity-25 mix-blend-overlay pointer-events-none" />
       </div>
@@ -81,7 +115,7 @@ export const App: React.FC = () => {
         {/* Top Navbar with Glassmorphism */}
         <Navbar
           activeModule={activeModule}
-          onSelectModule={setActiveModule}
+          onSelectModule={handleSelectModule}
           onOpenDemoModal={() => setIsDemoModalOpen(true)}
         />
 
@@ -90,28 +124,39 @@ export const App: React.FC = () => {
 
         {/* Main Studio Workspace */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
-          {/* Module Content */}
-          {activeModule === 'core' && <CoreStudio />}
+          <ErrorBoundary key={activeModule} name={`${activeModule.toUpperCase()} Studio`}>
+            <Suspense
+              fallback={
+                <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400 gap-3">
+                  <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs font-mono">Loading studio workspace...</span>
+                </div>
+              }
+            >
+              {/* Module Content */}
+              {activeModule === 'core' && <CoreStudio />}
 
-          {activeModule === 'vault' && <VaultStudio />}
+              {activeModule === 'vault' && <VaultStudio />}
 
-          {activeModule === 'lens' && <LensStudio />}
+              {activeModule === 'lens' && <LensStudio />}
 
-          {activeModule === 'lab' && <LabStudio />}
+              {activeModule === 'lab' && <LabStudio />}
 
-          {activeModule === 'transit' && <TransitStudio />}
+              {activeModule === 'transit' && <TransitStudio />}
 
-          {activeModule === 'link' && <LinkStudio />}
+              {activeModule === 'link' && <LinkStudio />}
 
-          {activeModule === 'flow' && <FlowStudio />}
+              {activeModule === 'flow' && <FlowStudio />}
 
-          {activeModule === 'edge' && <EdgeStudio />}
+              {activeModule === 'edge' && <EdgeStudio />}
 
-          {activeModule === 'scan' && <ScanStudio />}
+              {activeModule === 'scan' && <ScanStudio />}
 
-          {activeModule === 'airgap' && <AirGapStudio />}
+              {activeModule === 'airgap' && <AirGapStudio />}
 
-          {activeModule === 'relay' && <RelayStudio />}
+              {activeModule === 'relay' && <RelayStudio />}
+            </Suspense>
+          </ErrorBoundary>
         </main>
 
         {/* Glassmorphism Footer */}
@@ -133,10 +178,10 @@ export const App: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setActiveModule('core');
+                  handleSelectModule('core');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="text-[#94A3B8] hover:text-white transition-colors"
+                className="text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
               >
                 Core Stego Engine
               </button>

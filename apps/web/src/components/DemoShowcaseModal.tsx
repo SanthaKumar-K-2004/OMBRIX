@@ -46,8 +46,17 @@ export const DemoShowcaseModal: React.FC<DemoShowcaseModalProps> = ({ isOpen, on
     ctx.putImageData(imgData, 0, 0);
     const dataUrl = canvas.toDataURL('image/png');
 
+    // Extract base64 and decode synchronously to direct PNG bytes without fetch()
+    const base64 = dataUrl.split(',')[1] || '';
+    const binaryStr = atob(base64);
+    const pngBytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      pngBytes[i] = binaryStr.charCodeAt(i);
+    }
+
     studioDataBus.sendCarrierToModule(targetModule, {
       dataUrl,
+      bytes: pngBytes,
       name: `${type}-reference.png`,
       source: 'demo-dataset',
     });

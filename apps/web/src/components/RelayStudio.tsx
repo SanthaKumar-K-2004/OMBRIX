@@ -43,6 +43,7 @@ export const RelayStudio: React.FC = () => {
     expiresAt: number;
     maxRetrievals: number;
   } | null>(null);
+  const [depositError, setDepositError] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<boolean>(false);
   const [copiedId, setCopiedId] = useState<boolean>(false);
 
@@ -95,6 +96,7 @@ export const RelayStudio: React.FC = () => {
 
   // Handle Deposit Action
   const handleDeposit = async () => {
+    setDepositError(null);
     try {
       await initCrypto();
       let ciphertext: Uint8Array;
@@ -123,7 +125,7 @@ export const RelayStudio: React.FC = () => {
       setRetrieveToken(res.bearerToken);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      alert(`Deposit error: ${msg}`);
+      setDepositError(`Deposit error: ${msg}`);
     }
   };
 
@@ -305,6 +307,13 @@ export const RelayStudio: React.FC = () => {
                 />
                 <span>Encrypt with Libsodium Box Seal prior to relay deposit</span>
               </label>
+
+              {depositError && (
+                <div className="p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{depositError}</span>
+                </div>
+              )}
 
               <button
                 type="button"

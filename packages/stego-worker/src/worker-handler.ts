@@ -58,6 +58,7 @@ export class StegoWorkerHandler {
           throw new Error('Payload buffer is required for EMBED operation.');
         }
 
+        const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
         const payload = new Uint8Array(message.payloadBuffer);
         const method = resolveMethod(message.options?.methodId);
 
@@ -75,26 +76,39 @@ export class StegoWorkerHandler {
           },
         );
 
+        // Compute empirical MSE & PSNR inside worker to eliminate main-thread lag
+        let sumSq = 0;
+        const totalBytes = carrierData.length;
+        for (let i = 0; i < totalBytes; i++) {
+          const d = (carrierData[i] ?? 0) - (resultCarrier.data[i] ?? 0);
+          sumSq += d * d;
+        }
+        const calculatedMse = sumSq / totalBytes;
+        const calculatedPsnr =
+          calculatedMse === 0 ? 99.9 : 10 * Math.log10((255 * 255) / calculatedMse);
+        const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        const elapsedMs = Math.round((endTime - startTime) * 100) / 100;
+        const metrics = {
+          mse: Math.round(calculatedMse * 10000) / 10000,
+          psnr: Math.round(calculatedPsnr * 10) / 10,
+          elapsedMs,
+        };
+
         const resultBuffer = resultCarrier.data.buffer as ArrayBuffer;
         this.port.postMessage(
           {
             id: message.id,
             type: 'SUCCESS',
             carrierBuffer: resultBuffer,
+            metrics,
           },
           [resultBuffer],
         );
       } else if (message.type === 'EXTRACT') {
         let extracted: Uint8Array | null = null;
-        let lastError: unknown = null;
-
         const requestedMethodId = message.options?.methodId;
 
-        if (
-          requestedMethodId &&
-          requestedMethodId !== 'auto' &&
-          requestedMethodId !== 'stego-stealth-matrix'
-        ) {
+        if (requestedMethodId && requestedMethodId !== 'auto') {
           // Explicit method requested
           const method = resolveMethod(requestedMethodId);
           extracted = await method.extract(
@@ -136,13 +150,15 @@ export class StegoWorkerHandler {
               if (extracted && extracted.length > 0) {
                 break;
               }
-            } catch (err) {
-              lastError = err;
+            } catch {
+              // Method probe failed, try next method in probe sequence
             }
           }
 
-          if (!extracted) {
-            throw lastError || new Error('No valid steganographic payload detected in carrier.');
+          if (!extracted || extracted.length === 0) {
+            throw new Error(
+              'No valid steganographic payload detected in this carrier. If this secret is locked with a Passkey or Token, please ensure the exact matching passkey is entered. Also verify the carrier image was not recompressed or resized by third-party messaging apps.',
+            );
           }
         }
 

@@ -21,6 +21,29 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { studioDataBus } from '../services/studioDataBus.js';
 
+// Helper to parse carrier payload into a File without network fetch (CSP connect-src 'none' compliant)
+function parsePayloadToFile(payload: {
+  dataUrl?: string;
+  bytes?: Uint8Array;
+  name?: string;
+}): File | null {
+  const filename = payload.name || 'carrier.png';
+  if (payload.bytes && payload.bytes.length > 0) {
+    return new File([payload.bytes as unknown as BlobPart], filename, { type: 'image/png' });
+  }
+  if (payload.dataUrl) {
+    const commaIdx = payload.dataUrl.indexOf(',');
+    const base64 = commaIdx >= 0 ? payload.dataUrl.slice(commaIdx + 1) : payload.dataUrl;
+    const binaryStr = atob(base64);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    return new File([bytes as unknown as BlobPart], filename, { type: 'image/png' });
+  }
+  return null;
+}
+
 export const ScanStudio: React.FC = () => {
   const [carrierData, setCarrierData] = useState<CarrierImage | null>(null);
   const [carrierMeta, setCarrierMeta] = useState<{
@@ -55,13 +78,16 @@ export const ScanStudio: React.FC = () => {
   }, [scanReport, carrierData]);
 
   // Clean up object URL when carrier preview changes or unmounts
+  const carrierPreviewRef = useRef<string | null>(null);
+  carrierPreviewRef.current = carrierPreview;
+
   useEffect(() => {
     return () => {
-      if (carrierPreview?.startsWith('blob:')) {
-        URL.revokeObjectURL(carrierPreview);
+      if (carrierPreviewRef.current?.startsWith('blob:')) {
+        URL.revokeObjectURL(carrierPreviewRef.current);
       }
     };
-  }, [carrierPreview]);
+  }, []);
 
   // Load Clean Synthetic Image
   const loadSyntheticCarrier = useCallback((isStego: boolean) => {
@@ -97,7 +123,12 @@ export const ScanStudio: React.FC = () => {
     if (ctx) {
       const img = new ImageData(data, width, height);
       ctx.putImageData(img, 0, 0);
-      setCarrierPreview(canvas.toDataURL());
+      setCarrierPreview((prev) => {
+        if (prev?.startsWith('blob:')) {
+          URL.revokeObjectURL(prev);
+        }
+        return canvas.toDataURL();
+      });
     }
 
     const carrier: CarrierImage = { width, height, data };
@@ -132,7 +163,8 @@ export const ScanStudio: React.FC = () => {
 
         const blob = new Blob([bytes], { type: file.type || 'image/png' });
         const img = new Image();
-        img.src = URL.createObjectURL(blob);
+        const objUrl = URL.createObjectURL(blob);
+        img.src = objUrl;
 
         img.onload = () => {
           const canvas = document.createElement('canvas');
@@ -152,9 +184,19 @@ export const ScanStudio: React.FC = () => {
 
           setCarrierData(carrier);
           setCarrierMeta({ width: img.width, height: img.height, name: file.name });
-          setCarrierPreview(img.src);
+          setCarrierPreview((prev) => {
+            if (prev?.startsWith('blob:') && prev !== objUrl) {
+              URL.revokeObjectURL(prev);
+            }
+            return objUrl;
+          });
 
           runForensicsScan(carrier);
+        };
+
+        img.onerror = () => {
+          URL.revokeObjectURL(objUrl);
+          setCarrierError('Failed to load carrier image');
         };
       } catch (err) {
         setCarrierError((err as Error).message);
@@ -166,12 +208,12 @@ export const ScanStudio: React.FC = () => {
   // Listen for incoming carriers from Studio Data Bus
   useEffect(() => {
     const unsubscribe = studioDataBus.subscribeCarrier(async (payload) => {
-      if (!payload?.dataUrl) return;
+      if (!payload?.dataUrl && !payload?.bytes) return;
       try {
-        const res = await fetch(payload.dataUrl);
-        const blob = await res.blob();
-        const file = new File([blob], payload.name || 'carrier.png', { type: 'image/png' });
-        handleCarrierUpload(file);
+        const file = parsePayloadToFile(payload);
+        if (file) {
+          handleCarrierUpload(file);
+        }
       } catch (_err) {
         // Fallback
       }

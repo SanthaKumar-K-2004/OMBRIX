@@ -10,7 +10,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@nauverse/react-aurora-background": "^2.0.0",
     "@ombrix/batch-pipeline": "workspace:*",
     "@ombrix/carrier-lens": "workspace:*",
     "@ombrix/crypto-adapter": "workspace:*",

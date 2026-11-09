@@ -31,6 +31,7 @@ export interface StegoWorkerSuccessResponse {
   readonly carrierBuffer?: ArrayBuffer;
   readonly payloadBuffer?: ArrayBuffer;
   readonly analysis?: CarrierAnalysis;
+  readonly metrics?: { mse: number; psnr: number; elapsedMs: number };
 }
 
 export interface StegoWorkerErrorResponse {

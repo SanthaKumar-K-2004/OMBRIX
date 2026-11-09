@@ -13,6 +13,7 @@ import {
   seal,
   signDetached,
   verifyDetached,
+  zeroMemory,
 } from '@ombrix/crypto-adapter';
 import { validatePngOrThrow } from '@ombrix/image-validation';
 import type { PngMetadata } from '@ombrix/image-validation';
@@ -31,6 +32,7 @@ import {
   AlertTriangle,
   Camera,
   CheckCircle2,
+  ChevronDown,
   Copy,
   Download,
   Eye,
@@ -38,6 +40,7 @@ import {
   FileText,
   Image as ImageIcon,
   Key,
+  Layers,
   Loader2,
   Lock,
   Maximize2,
@@ -47,7 +50,7 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
-  Sparkles,
+  Trash2,
   UserCheck,
   XCircle,
   ZoomIn,
@@ -60,6 +63,7 @@ import {
   getSavedContacts,
 } from '../security/sessionIdentity.js';
 import { studioDataBus } from '../services/studioDataBus.js';
+import { encodePngAsync, loadCarrierImageLossless } from '../utils/browserPngCodec.js';
 import {
   isChameleonContainer,
   packChameleonContainer,
@@ -72,6 +76,7 @@ import {
   unpackFilePayload,
 } from '../utils/filePayload.js';
 import { type GhostCarrierTheme, generateGhostCarrier } from '../utils/ghostCarrier.js';
+import { getImageDimensions, optimizeSecretPhoto } from '../utils/secretImageScaler.js';
 import { SmartPasskeyAssistant } from './SmartPasskeyAssistant.js';
 import { SplitComparisonSlider } from './SplitComparisonSlider.js';
 
@@ -103,6 +108,7 @@ export const CoreStudio: React.FC = () => {
 
   // Stego Method & Passphrase State (Default to Flagship Hyper-Matrix)
   const [selectedMethod, setSelectedMethod] = useState<string>('stego-hyper-matrix');
+  const [revealMethod, setRevealMethod] = useState<string>('auto');
   const [passphrase, setPassphrase] = useState<string>('');
   const [revealPassphrase, setRevealPassphrase] = useState<string>('');
   const [detectedMethodName, setDetectedMethodName] = useState<string | null>(null);
@@ -138,11 +144,18 @@ export const CoreStudio: React.FC = () => {
   const [payloadMode, setPayloadMode] = useState<'text' | 'image'>('text');
   const [payloadText, setPayloadText] = useState('Secret message protected by OMBRIX Core.');
   const [secretImageFile, setSecretImageFile] = useState<File | null>(null);
+  const [rawSecretFile, setRawSecretFile] = useState<File | null>(null);
   const [secretImageBytes, setSecretImageBytes] = useState<Uint8Array | null>(null);
   const [secretImagePreview, setSecretImagePreview] = useState<string | null>(null);
   const [secretImageDims, setSecretImageDims] = useState<{ width: number; height: number } | null>(
     null,
   );
+  const [autoScaleSecretPhoto, setAutoScaleSecretPhoto] = useState<boolean>(true);
+  const [isOptimizingSecretPhoto, setIsOptimizingSecretPhoto] = useState<boolean>(false);
+  const [optimizedSecretMeta, setOptimizedSecretMeta] = useState<{
+    originalSize: number;
+    newSize: number;
+  } | null>(null);
   // Chameleon Anti-Coercion (Dual-Layer) State
   const [isChameleonEnabled, setIsChameleonEnabled] = useState(false);
   const [decoyText, setDecoyText] = useState(
@@ -150,6 +163,7 @@ export const CoreStudio: React.FC = () => {
   );
   const [decoyPassphrase, setDecoyPassphrase] = useState('decoy-safe-pass');
   const [useEnvelope, setUseEnvelope] = useState(true);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isEmbedding, setIsEmbedding] = useState(false);
   const [embedProgress, setEmbedProgress] = useState(0);
   const [embeddedImageUrl, setEmbeddedImageUrl] = useState<string | null>(null);
@@ -180,6 +194,85 @@ export const CoreStudio: React.FC = () => {
   const [extractError, setExtractError] = useState<string | null>(null);
   const [copiedPayload, setCopiedPayload] = useState(false);
   const extractAbortRef = useRef<AbortController | null>(null);
+
+  // Security & Forensic Memory Zeroization
+  const [memoryScrubbedToast, setMemoryScrubbedToast] = useState(false);
+  const activeObjectUrls = useRef<Set<string>>(new Set());
+
+  const registerTrackedUrl = useCallback((url: string | null | undefined): string | null => {
+    if (!url) return null;
+    activeObjectUrls.current.add(url);
+    return url;
+  }, []);
+
+  const revokeTrackedUrl = useCallback((url: string | null | undefined) => {
+    if (url && activeObjectUrls.current.has(url)) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // ignore
+      }
+      activeObjectUrls.current.delete(url);
+    }
+  }, []);
+
+  const purgeAllTrackedUrls = useCallback(() => {
+    for (const url of activeObjectUrls.current) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // ignore
+      }
+    }
+    activeObjectUrls.current.clear();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      purgeAllTrackedUrls();
+    };
+  }, [purgeAllTrackedUrls]);
+
+  // Forensic RAM Memory Sanitization & Panic Flush
+  const handlePanicZeroize = useCallback(() => {
+    // 1. In-place wipe of carrier raster
+    if (carrierImageData?.data) {
+      carrierImageData.data.fill(0);
+    }
+    // 2. In-place wipe of secret payload buffers
+    if (secretImageBytes) {
+      zeroMemory(secretImageBytes);
+    }
+    if (extractedSecretFile?.data) {
+      zeroMemory(extractedSecretFile.data);
+    }
+    // 3. Purge all object URLs from browser memory
+    purgeAllTrackedUrls();
+    // 4. Reset state
+    setCarrierFile(null);
+    setCarrierPreview(null);
+    setCarrierImageData(null);
+    setCapacity(null);
+    setEmbeddedImageUrl(null);
+    setSecretImageFile(null);
+    setRawSecretFile(null);
+    setSecretImageBytes(null);
+    setSecretImagePreview(null);
+    setPassphrase('');
+    setRevealFile(null);
+    setRevealPreview(null);
+    setRevealPassphrase('');
+    setExtractedPayloadText(null);
+    setExtractedSecretFile(null);
+    setExtractedEnvelope(null);
+    setUnlockedChameleonLayer(null);
+    setDecryptionStatus(null);
+    setSignatureStatus('none');
+    setExtractError(null);
+    setEmbedError(null);
+    setMemoryScrubbedToast(true);
+    setTimeout(() => setMemoryScrubbedToast(false), 3500);
+  }, [carrierImageData, secretImageBytes, extractedSecretFile, purgeAllTrackedUrls]);
 
   // Worker client ref
   const workerClientRef = useRef<StegoWorkerClient | null>(null);
@@ -267,7 +360,10 @@ export const CoreStudio: React.FC = () => {
       setMse(null);
 
       const previewUrl = URL.createObjectURL(file);
-      setCarrierPreview(previewUrl);
+      setCarrierPreview((prev) => {
+        revokeTrackedUrl(prev);
+        return registerTrackedUrl(previewUrl);
+      });
 
       try {
         const isPng = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
@@ -281,23 +377,13 @@ export const CoreStudio: React.FC = () => {
           }
         }
 
-        // Decode into ImageData via an off-screen canvas
-        const img = new Image();
-        img.src = previewUrl;
-        await img.decode();
-
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) throw new Error('Could not acquire 2D rendering context.');
-
-        ctx.drawImage(img, 0, 0);
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        // Ensure opaque alpha across all pixels so canvas premultiplication never truncates RGB values
-        for (let i = 3; i < imgData.data.length; i += 4) {
-          imgData.data[i] = 255;
-        }
+        // Bit-exact lossless carrier raster loading
+        const carrierImg = await loadCarrierImageLossless(file);
+        const imgData = new ImageData(
+          new Uint8ClampedArray(carrierImg.data),
+          carrierImg.width,
+          carrierImg.height,
+        );
         setCarrierImageData(imgData);
 
         const cap = computeMethodCapacity(selectedMethod, {
@@ -311,7 +397,7 @@ export const CoreStudio: React.FC = () => {
         setValidationError(msg);
       }
     },
-    [selectedMethod],
+    [selectedMethod, registerTrackedUrl, revokeTrackedUrl],
   );
 
   // Handle 1-Click Procedural Ghost Carrier Synthesis
@@ -335,20 +421,53 @@ export const CoreStudio: React.FC = () => {
     [ghostTheme, handleCarrierSelect],
   );
 
-  // Handle Secret Image selection
-  const handleSecretImageSelect = useCallback(async (file: File) => {
-    setSecretImageFile(file);
-    const url = URL.createObjectURL(file);
-    setSecretImagePreview(url);
-    const buf = await file.arrayBuffer();
-    setSecretImageBytes(new Uint8Array(buf));
+  // Handle Secret Image selection with smart auto-optimization for large photos
+  const handleSecretImageSelect = useCallback(
+    async (file: File, forceRaw = false) => {
+      setRawSecretFile(file);
+      setIsOptimizingSecretPhoto(true);
 
-    const img = new Image();
-    img.src = url;
-    img.onload = () => {
-      setSecretImageDims({ width: img.naturalWidth, height: img.naturalHeight });
-    };
-  }, []);
+      try {
+        const usableBudget = capacity?.usableBytes ?? 150 * 1024;
+        const dims = await getImageDimensions(file);
+
+        if (!forceRaw && autoScaleSecretPhoto && file.size > usableBudget * 0.8) {
+          const opt = await optimizeSecretPhoto(file, usableBudget);
+          setSecretImageFile(opt.file);
+          setSecretImageBytes(opt.bytes);
+          setSecretImageDims({ width: opt.width, height: opt.height });
+          const optUrl = URL.createObjectURL(opt.file);
+          setSecretImagePreview((prev) => {
+            revokeTrackedUrl(prev);
+            return registerTrackedUrl(optUrl);
+          });
+          setOptimizedSecretMeta({ originalSize: opt.originalSize, newSize: opt.newSize });
+        } else {
+          const buf = await file.arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          setSecretImageFile(file);
+          setSecretImageBytes(bytes);
+          setSecretImageDims(dims);
+          const rawUrl = URL.createObjectURL(file);
+          setSecretImagePreview((prev) => {
+            revokeTrackedUrl(prev);
+            return registerTrackedUrl(rawUrl);
+          });
+          setOptimizedSecretMeta(null);
+        }
+      } finally {
+        setIsOptimizingSecretPhoto(false);
+      }
+    },
+    [autoScaleSecretPhoto, capacity, registerTrackedUrl, revokeTrackedUrl],
+  );
+
+  const handleToggleSecretPhotoOptimization = useCallback(async () => {
+    if (!rawSecretFile) return;
+    const nextState = !autoScaleSecretPhoto;
+    setAutoScaleSecretPhoto(nextState);
+    await handleSecretImageSelect(rawSecretFile, !nextState);
+  }, [rawSecretFile, autoScaleSecretPhoto, handleSecretImageSelect]);
 
   // Compute estimated payload size
   const rawPayloadBytes = useMemo(() => {
@@ -379,23 +498,27 @@ export const CoreStudio: React.FC = () => {
       setCompressionSavings(null);
       return;
     }
-    smartCompress(rawPayloadBytes).then(({ data, compressed, savedBytes }) => {
-      if (!active) return;
-      if (compressed) {
-        setCompressedPayloadBytes(data);
-        const pct = Math.round((savedBytes / rawPayloadBytes.length) * 100);
-        setCompressionSavings({
-          original: rawPayloadBytes.length,
-          compressed: data.length,
-          percent: pct,
-        });
-      } else {
-        setCompressedPayloadBytes(rawPayloadBytes);
-        setCompressionSavings(null);
-      }
-    });
+    const timer = setTimeout(() => {
+      smartCompress(rawPayloadBytes).then(({ data, compressed, savedBytes }) => {
+        if (!active) return;
+        if (compressed) {
+          setCompressedPayloadBytes(data);
+          const pct = Math.round((savedBytes / rawPayloadBytes.length) * 100);
+          setCompressionSavings({
+            original: rawPayloadBytes.length,
+            compressed: data.length,
+            percent: pct,
+          });
+        } else {
+          setCompressedPayloadBytes(rawPayloadBytes);
+          setCompressionSavings(null);
+        }
+      });
+    }, 250);
+
     return () => {
       active = false;
+      clearTimeout(timer);
     };
   }, [rawPayloadBytes]);
 
@@ -598,36 +721,35 @@ export const CoreStudio: React.FC = () => {
         (p) => setEmbedProgress(Math.round(p * 100)),
       );
 
-      // Calculate empirical PSNR & MSE between original carrier and stego result
-      let sumSq = 0;
-      const totalBytes = carrierImageData.data.length;
-      for (let i = 0; i < totalBytes; i++) {
-        const d = (carrierImageData.data[i] ?? 0) - (stegoCarrier.data[i] ?? 0);
-        sumSq += d * d;
-      }
-      const calculatedMse = sumSq / totalBytes;
-      const calculatedPsnr =
-        calculatedMse === 0 ? 99.9 : 10 * Math.log10((255 * 255) / calculatedMse);
-      setMse(Math.round(calculatedMse * 10000) / 10000);
-      setPsnr(Math.round(calculatedPsnr * 10) / 10);
-
-      // Render back to canvas and create PNG download URL
-      const canvas = document.createElement('canvas');
-      canvas.width = stegoCarrier.width;
-      canvas.height = stegoCarrier.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas context failure.');
-
-      const clampedData = new Uint8ClampedArray(stegoCarrier.data);
-      const newImgData = new ImageData(clampedData, stegoCarrier.width, stegoCarrier.height);
-      ctx.putImageData(newImgData, 0, 0);
-
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          setEmbeddedImageUrl(url);
+      // Calculate empirical PSNR & MSE using worker-computed metrics to prevent main-thread lag
+      if (stegoCarrier.metrics) {
+        setMse(stegoCarrier.metrics.mse);
+        setPsnr(stegoCarrier.metrics.psnr);
+      } else {
+        let sumSq = 0;
+        const totalBytes = carrierImageData.data.length;
+        const step = totalBytes > 1000000 ? 16 : 1;
+        let sampled = 0;
+        for (let i = 0; i < totalBytes; i += step) {
+          const d = (carrierImageData.data[i] ?? 0) - (stegoCarrier.data[i] ?? 0);
+          sumSq += d * d;
+          sampled++;
         }
-      }, 'image/png');
+        const calculatedMse = sumSq / sampled;
+        const calculatedPsnr =
+          calculatedMse === 0 ? 99.9 : 10 * Math.log10((255 * 255) / calculatedMse);
+        setMse(Math.round(calculatedMse * 10000) / 10000);
+        setPsnr(Math.round(calculatedPsnr * 10) / 10);
+      }
+
+      // Bit-exact lossless PNG encoding (bypasses canvas toBlob & GPU color conversion)
+      const pngBytes = await encodePngAsync(stegoCarrier);
+      const blob = new Blob([pngBytes as unknown as BlobPart], { type: 'image/png' });
+      const url = URL.createObjectURL(blob);
+      setEmbeddedImageUrl((prev) => {
+        revokeTrackedUrl(prev);
+        return registerTrackedUrl(url);
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setEmbedError(msg);
@@ -643,7 +765,10 @@ export const CoreStudio: React.FC = () => {
     setRevealValidationError(null);
     setRevealValidation(null);
     setExtractedPayloadText(null);
-    setExtractedSecretFile(null);
+    setExtractedSecretFile((prev) => {
+      if (prev?.blobUrl) revokeTrackedUrl(prev.blobUrl);
+      return null;
+    });
     setExtractedEnvelope(null);
     setUnlockedChameleonLayer(null);
     setDecryptionStatus(null);
@@ -653,7 +778,10 @@ export const CoreStudio: React.FC = () => {
     setDetectedMethodName(null);
 
     const previewUrl = URL.createObjectURL(file);
-    setRevealPreview(previewUrl);
+    setRevealPreview((prev) => {
+      revokeTrackedUrl(prev);
+      return registerTrackedUrl(previewUrl);
+    });
 
     const isPng = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
     if (isPng) {
@@ -686,31 +814,17 @@ export const CoreStudio: React.FC = () => {
     extractAbortRef.current = controller;
 
     try {
-      const img = new Image();
-      img.src = revealPreview;
-      await img.decode();
-
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) throw new Error('Could not acquire 2D rendering context.');
-
-      ctx.drawImage(img, 0, 0);
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      // Ensure opaque alpha across all pixels so canvas premultiplication never truncates RGB values
-      for (let i = 3; i < imgData.data.length; i += 4) {
-        imgData.data[i] = 255;
-      }
+      if (!revealFile) throw new Error('Please select a stego carrier image first.');
+      const carrierImg = await loadCarrierImageLossless(revealFile);
 
       const extractedBytes = await workerClientRef.current.extract(
         {
-          width: imgData.width,
-          height: imgData.height,
-          data: imgData.data,
+          width: carrierImg.width,
+          height: carrierImg.height,
+          data: carrierImg.data,
         },
         {
-          methodId: 'auto',
+          methodId: revealMethod,
           passphrase: revealPassphrase.trim() || undefined,
         },
         controller.signal,
@@ -795,10 +909,17 @@ export const CoreStudio: React.FC = () => {
         const restoredBytes = await smartDecompress(contentBytes);
         const secretFile = unpackFilePayload(restoredBytes);
         if (secretFile) {
-          setExtractedSecretFile(secretFile);
+          registerTrackedUrl(secretFile.blobUrl);
+          setExtractedSecretFile((prev) => {
+            if (prev?.blobUrl) revokeTrackedUrl(prev.blobUrl);
+            return secretFile;
+          });
           setExtractedPayloadText(null);
         } else {
-          setExtractedSecretFile(null);
+          setExtractedSecretFile((prev) => {
+            if (prev?.blobUrl) revokeTrackedUrl(prev.blobUrl);
+            return null;
+          });
           setExtractedPayloadText(new TextDecoder().decode(restoredBytes));
         }
 
@@ -910,10 +1031,17 @@ export const CoreStudio: React.FC = () => {
         const restoredBytes = await smartDecompress(contentBytes);
         const secretFile = unpackFilePayload(restoredBytes);
         if (secretFile) {
-          setExtractedSecretFile(secretFile);
+          registerTrackedUrl(secretFile.blobUrl);
+          setExtractedSecretFile((prev) => {
+            if (prev?.blobUrl) revokeTrackedUrl(prev.blobUrl);
+            return secretFile;
+          });
           setExtractedPayloadText(null);
         } else {
-          setExtractedSecretFile(null);
+          setExtractedSecretFile((prev) => {
+            if (prev?.blobUrl) revokeTrackedUrl(prev.blobUrl);
+            return null;
+          });
           setExtractedPayloadText(new TextDecoder().decode(restoredBytes));
         }
       }
@@ -929,430 +1057,282 @@ export const CoreStudio: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Studio Header & Tab Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-[#111827]/90 via-[#0F172A]/90 to-[#111827]/90 backdrop-blur-xl border border-[#1E293B]/80 shadow-2xl">
-        <div>
-          <h2 className="text-xl font-bold font-['Sora'] text-white flex items-center gap-2.5">
-            <span>OMBRIX Steganography Engine</span>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#14B8A6]/20 border border-[#14B8A6]/40 text-[#14B8A6] font-mono">
-              Undetectable Stealth
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h2 className="text-lg font-bold font-['Sora'] text-white tracking-tight flex items-center gap-2">
+              <Layers className="w-5 h-5 text-violet-400" />
+              <span>OMBRIX Steganography Engine</span>
+            </h2>
+            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Undetectable Stealth • 100% Client-Side</span>
             </span>
-          </h2>
-          <p className="text-xs text-[#94A3B8] mt-1">
-            Universal carrier encoding with cryptographic scattering, edge-adaptive masking, and ±1
-            LSB matching.
+          </div>
+          <p className="text-xs text-slate-400">
+            Carrier-grade steganographic concealment with cryptographic scattering, edge-adaptive
+            masking, and ±1 LSB matching.
           </p>
         </div>
 
-        <div
-          className="inline-flex p-1 rounded-xl bg-[#0B0F19] border border-[#1E293B]"
-          role="tablist"
-        >
+        {/* Primary Studio Controls: Security Badge, Mode Switcher, & Zeroize RAM */}
+        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto shrink-0">
+          {/* Security Badge */}
+          <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 font-mono text-[11px]">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Argon2id Salted • Zero-Leakage</span>
+          </div>
+
+          {/* Primary Studio Segmented Controller */}
+          <div
+            className="inline-flex p-1 rounded-xl bg-[#0B0F19] border border-white/[0.08] shadow-inner"
+            role="tablist"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'hide'}
+              onClick={() => {
+                setActiveTab('hide');
+                studioDataBus.setCoreTab('hide');
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'hide'
+                  ? 'bg-violet-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+              }`}
+            >
+              <EyeOff className="w-4 h-4 text-violet-300" />
+              <span>Hide Secret (Encode)</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'reveal'}
+              onClick={() => {
+                setActiveTab('reveal');
+                studioDataBus.setCoreTab('reveal');
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'reveal'
+                  ? 'bg-sky-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+              }`}
+            >
+              <Eye className="w-4 h-4 text-sky-300" />
+              <span>Reveal Secret (Decode)</span>
+            </button>
+          </div>
+
+          {/* Zeroize RAM / Panic Scrub Button */}
           <button
             type="button"
-            role="tab"
-            aria-selected={activeTab === 'hide'}
-            onClick={() => {
-              setActiveTab('hide');
-              studioDataBus.setCoreTab('hide');
-            }}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'hide'
-                ? 'bg-gradient-to-r from-[#7C3AED] to-[#A855F7] text-white shadow-[0_0_15px_rgba(124,58,237,0.4)]'
-                : 'text-[#94A3B8] hover:text-white'
-            }`}
+            onClick={handlePanicZeroize}
+            title="Forensic RAM Zeroization: Instantly wipes all in-memory carrier and payload buffers and purges object URLs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border border-rose-500/30 text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 transition-all shadow-sm"
           >
-            <EyeOff className="w-4 h-4 text-[#C084FC]" />
-            <span>Hide Secret (Encode)</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'reveal'}
-            onClick={() => {
-              setActiveTab('reveal');
-              studioDataBus.setCoreTab('reveal');
-            }}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'reveal'
-                ? 'bg-gradient-to-r from-[#3B82F6] to-[#14B8A6] text-white shadow-[0_0_15px_rgba(59,130,246,0.4)]'
-                : 'text-[#94A3B8] hover:text-white'
-            }`}
-          >
-            <Eye className="w-4 h-4 text-[#38BDF8]" />
-            <span>Reveal Secret (Decode)</span>
+            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+            <span className="hidden sm:inline">Zeroize RAM</span>
           </button>
         </div>
       </div>
 
+      {/* Forensic Memory Scrubbed Alert Toast */}
+      {memoryScrubbedToast && (
+        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-200 text-xs font-medium animate-in fade-in slide-in-from-top-2 duration-200 shadow-lg">
+          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>
+            Forensic Memory Zeroized: All carrier buffers, decrypted secrets, and object URLs have
+            been wiped from RAM.
+          </span>
+        </div>
+      )}
+
       {/* Mode Content */}
       {activeTab === 'hide' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column: Carrier Upload & Inspection */}
-          <div className="lg:col-span-6 space-y-4">
-            <div className="p-5 rounded-xl bg-[#111827]/85 backdrop-blur-xl border border-[#1E293B]/80 shadow-2xl space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-[#A855F7]" />
-                  <span>1. Carrier Image (PNG, JPG, WEBP, BMP)</span>
-                </h3>
-                <div className="flex items-center gap-2">
-                  {carrierImageData && (
-                    <span className="flex items-center gap-1 text-xs text-[#14B8A6] font-medium mr-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Ready
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleGenerateGhostCarrier();
-                    }}
-                    disabled={isGeneratingGhost}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#7C3AED]/30 to-[#3B82F6]/30 hover:from-[#7C3AED]/50 hover:to-[#3B82F6]/50 border border-[#7C3AED]/40 text-xs font-medium text-white transition-all shadow-[0_0_10px_rgba(124,58,237,0.25)]"
-                  >
-                    {isGeneratingGhost ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C084FC]" />
-                        <span>Synthesizing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-3.5 h-3.5 text-[#C084FC]" />
-                        <span>Ghost-Gen Carrier</span>
-                      </>
+        <div className="space-y-6">
+          {/* Main 2-Column Studio Grid: Balanced Left & Right */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* LEFT COLUMN: Assets & Inputs Workshop */}
+            <div className="lg:col-span-6 space-y-5">
+              {/* Card 1: Carrier Cover Image */}
+              <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-violet-400" />
+                    <span>1. Carrier Image (Cover)</span>
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    {carrierImageData && (
+                      <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium font-mono">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Ready
+                      </span>
                     )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Dropzone */}
-              <label
-                htmlFor="carrier-input"
-                className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
-                  carrierPreview
-                    ? 'border-[#7C3AED]/40 bg-[#0B0F19]'
-                    : 'border-[#334155] hover:border-[#7C3AED] bg-[#0B0F19]/50 hover:bg-[#0B0F19]'
-                }`}
-              >
-                {carrierPreview ? (
-                  <div className="relative w-full max-h-56 flex items-center justify-center overflow-hidden rounded-lg">
-                    <img
-                      src={carrierPreview}
-                      alt="Carrier Preview"
-                      className="max-h-56 object-contain rounded-lg"
-                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleGenerateGhostCarrier();
+                      }}
+                      disabled={isGeneratingGhost}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1E293B] hover:bg-[#334155] border border-white/[0.08] text-xs font-medium text-slate-200 transition-colors"
+                      title="Generate untraceable procedural carrier"
+                    >
+                      {isGeneratingGhost ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-400" />
+                          <span>Synthesizing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-3 h-3 text-violet-400" />
+                          <span>Ghost-Gen Carrier</span>
+                        </>
+                      )}
+                    </button>
                   </div>
-                ) : (
-                  <div className="text-center space-y-3">
-                    <div className="w-10 h-10 mx-auto rounded-full bg-[#7C3AED]/10 flex items-center justify-center text-[#A855F7]">
-                      <ImageIcon className="w-5 h-5" />
+                </div>
+
+                {/* Dropzone */}
+                <label
+                  htmlFor="carrier-input"
+                  className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
+                    carrierPreview
+                      ? 'border-violet-500/40 bg-[#0B0F19]'
+                      : 'border-slate-700/70 hover:border-violet-500/70 bg-[#0B0F19]/60 hover:bg-[#0B0F19]'
+                  }`}
+                >
+                  {carrierPreview ? (
+                    <div className="relative w-full max-h-56 flex items-center justify-center overflow-hidden rounded-lg">
+                      <img
+                        src={carrierPreview}
+                        alt="Carrier Preview"
+                        className="max-h-56 object-contain rounded-lg shadow-md"
+                      />
                     </div>
-                    <div className="space-y-0.5">
-                      <div className="text-sm text-[#E2E8F0] font-medium">
-                        Select or drop any carrier image (PNG, JPG, WEBP, BMP)
+                  ) : (
+                    <div className="text-center space-y-3">
+                      <div className="w-10 h-10 mx-auto rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
+                        <ImageIcon className="w-5 h-5" />
                       </div>
-                      <div className="text-xs text-[#94A3B8]">
-                        Automatic lossless RGB raster conversion & high-capacity analysis
+                      <div className="space-y-1">
+                        <div className="text-sm text-slate-200 font-medium">
+                          Select or drop carrier image (PNG, JPG, WEBP, BMP)
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          Lossless RGB raster conversion with automatic capacity analysis
+                        </div>
+                      </div>
+                      {/* Procedural Ghost Chips */}
+                      <div className="pt-2 border-t border-white/[0.06] space-y-1.5">
+                        <div className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                          Or synthesize zero-provenance carrier:
+                        </div>
+                        <div className="flex flex-wrap items-center justify-center gap-1.5">
+                          {(['nebula', 'cyber', 'quantum', 'aurora'] as const).map((theme) => (
+                            <button
+                              key={theme}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                handleGenerateGhostCarrier(theme);
+                              }}
+                              className="px-2.5 py-1 rounded-md bg-[#131B2E] hover:bg-[#1E293B] border border-white/[0.08] text-[11px] text-slate-300 capitalize transition-colors"
+                            >
+                              {theme}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    {/* Instant Ghost Carrier Synthesis Bar */}
-                    <div className="pt-2 border-t border-[#1E293B] space-y-1.5">
-                      <div className="text-[10px] text-[#64748B] uppercase tracking-wider font-semibold">
-                        Or synthesize untraceable zero-provenance carrier:
+                  )}
+                  <input
+                    id="carrier-input"
+                    type="file"
+                    accept="image/png, image/jpeg, image/jpg, image/webp, image/bmp"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleCarrierSelect(f);
+                    }}
+                  />
+                </label>
+
+                {/* Validation Error Alert */}
+                {validationError && (
+                  <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2.5">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-red-400" />
+                    <div>
+                      <div className="font-semibold">Validation Rejected</div>
+                      <div>{validationError}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Carrier Specs Grid */}
+                {carrierImageData && capacity && (
+                  <div className="space-y-2 pt-2 border-t border-white/[0.06]">
+                    <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      Carrier Specifications
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                      <div className="p-2 rounded-lg bg-[#0B0F19] border border-white/[0.06]">
+                        <div className="text-[10px] text-slate-400">Dimensions</div>
+                        <div className="font-mono text-white font-semibold">
+                          {carrierImageData.width} × {carrierImageData.height}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap items-center justify-center gap-1.5">
-                        {(['nebula', 'cyber', 'quantum', 'aurora'] as const).map((theme) => (
-                          <button
-                            key={theme}
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              handleGenerateGhostCarrier(theme);
-                            }}
-                            className="px-2.5 py-1 rounded-md bg-[#111827] hover:bg-[#1E293B] border border-[#334155] hover:border-[#7C3AED] text-[11px] text-[#E2E8F0] capitalize transition-all"
-                          >
-                            {theme}
-                          </button>
-                        ))}
+                      <div className="p-2 rounded-lg bg-[#0B0F19] border border-white/[0.06]">
+                        <div className="text-[10px] text-slate-400">Pixels</div>
+                        <div className="font-mono text-white font-semibold">
+                          {(carrierImageData.width * carrierImageData.height).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="p-2 rounded-lg bg-[#0B0F19] border border-white/[0.06]">
+                        <div className="text-[10px] text-slate-400">Usable Capacity</div>
+                        <div className="font-mono text-emerald-400 font-semibold">
+                          {capacity.usableBytes.toLocaleString()} B
+                        </div>
+                      </div>
+                      <div className="p-2 rounded-lg bg-[#0B0F19] border border-white/[0.06]">
+                        <div className="text-[10px] text-slate-400">Format</div>
+                        <div className="font-mono text-slate-300 font-semibold truncate">
+                          {validationResult?.colorTypeName || 'RGBA Raster'}
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
-                <input
-                  id="carrier-input"
-                  type="file"
-                  accept="image/png, image/jpeg, image/jpg, image/webp, image/bmp"
-                  className="sr-only"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleCarrierSelect(f);
-                  }}
-                />
-              </label>
-
-              {/* Validation Error Alert */}
-              {validationError && (
-                <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2.5">
-                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-red-400" />
-                  <div>
-                    <div className="font-semibold">Validation Rejected</div>
-                    <div>{validationError}</div>
-                  </div>
-                </div>
-              )}
-
-              {/* Carrier Inspection Specs */}
-              {carrierImageData && capacity && (
-                <div className="space-y-3 pt-2 border-t border-[#1E293B]">
-                  <div className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wider">
-                    Carrier Specifications
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                    <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
-                      <div className="text-[#64748B]">Resolution</div>
-                      <div className="font-mono text-white font-semibold">
-                        {carrierImageData.width} × {carrierImageData.height}
-                      </div>
-                    </div>
-                    <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
-                      <div className="text-[#64748B]">Pixel Count</div>
-                      <div className="font-mono text-white font-semibold">
-                        {(carrierImageData.width * carrierImageData.height).toLocaleString()} px
-                      </div>
-                    </div>
-                    <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
-                      <div className="text-[#64748B]">Security Tier</div>
-                      <div className="font-mono text-[#14B8A6] font-semibold">
-                        {selectedMethod === 'stego-stealth-matrix'
-                          ? 'Undetectable (±1)'
-                          : 'Standard'}
-                      </div>
-                    </div>
-                    <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
-                      <div className="text-[#64748B]">Usable Capacity</div>
-                      <div className="font-mono text-[#14B8A6] font-semibold">
-                        {capacity.usableBytes.toLocaleString()} bytes
-                      </div>
-                    </div>
-                    <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
-                      <div className="text-[#64748B]">Channels Used</div>
-                      <div className="font-mono text-[#94A3B8] font-semibold">
-                        RGB (3 bits/pixel)
-                      </div>
-                    </div>
-                    <div className="p-2.5 rounded bg-[#0B0F19] border border-[#1E293B]">
-                      <div className="text-[#64748B]">Format</div>
-                      <div className="font-mono text-[#94A3B8] font-semibold">
-                        {validationResult?.colorTypeName || 'RGBA Raster'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Column: Payload Input, Protocol Framing & Embedding */}
-          <div className="lg:col-span-6 space-y-4">
-            <div className="p-5 rounded-xl bg-[#111827]/85 backdrop-blur-xl border border-[#1E293B]/80 shadow-2xl space-y-4">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[#3B82F6]" />
-                <span>2. Stego Algorithm & Payload Configuration</span>
-              </h3>
-
-              {/* Steganography Algorithm Engine Selector */}
-              <div className="space-y-3 p-3.5 rounded-xl bg-[#0B0F19] border border-[#1E293B]">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 text-white font-semibold">
-                    <Sparkles className="w-3.5 h-3.5 text-[#A855F7]" />
-                    <span>Steganography Engine</span>
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#14B8A6]/10 border border-[#14B8A6]/30 text-[#14B8A6] font-mono flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#14B8A6]" />
-                    <span>Undetectable</span>
-                  </span>
-                </div>
-
-                {/* Flagship Quad-Hybrid Option */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedMethod('stego-hyper-matrix')}
-                  className={`w-full p-3 rounded-lg text-left border transition-all ${
-                    selectedMethod === 'stego-hyper-matrix'
-                      ? 'bg-gradient-to-r from-[#7C3AED]/20 to-[#3B82F6]/20 border-[#7C3AED] shadow-[0_0_15px_rgba(124,58,237,0.25)]'
-                      : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-3.5 h-3.5 text-[#C084FC]" />
-                      <span className="text-xs font-semibold text-white">Hyper-Matrix</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#7C3AED]/20 text-[#C084FC] font-medium font-mono">
-                        Quad-Hybrid
-                      </span>
-                    </div>
-                    <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium">
-                      Recommended
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-[#94A3B8] mt-1 pl-6">
-                    Wavelet frequency + edge masking + PRNG scatter + ±1 matching
-                  </div>
-                </button>
-
-                {/* Specialized Engines Grid */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMethod('stego-stealth-matrix')}
-                    className={`p-2.5 rounded-lg text-left border transition-all ${
-                      selectedMethod === 'stego-stealth-matrix'
-                        ? 'bg-[#14B8A6]/15 border-[#14B8A6] shadow-[0_0_12px_rgba(20,184,166,0.2)]'
-                        : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-white">Stealth Matrix</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#14B8A6]/20 text-[#14B8A6] font-mono">
-                        ±1
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-[#94A3B8] mt-0.5">
-                      PRNG scatter &amp; ±1 matching
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMethod('stego-dwt')}
-                    className={`p-2.5 rounded-lg text-left border transition-all ${
-                      selectedMethod === 'stego-dwt'
-                        ? 'bg-[#3B82F6]/15 border-[#3B82F6] shadow-[0_0_12px_rgba(59,130,246,0.2)]'
-                        : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-white">Haar Wavelet</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3B82F6]/20 text-[#3B82F6] font-mono">
-                        DWT
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-[#94A3B8] mt-0.5">
-                      Diagonal high-frequency subband
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMethod('stego-pvd')}
-                    className={`p-2.5 rounded-lg text-left border transition-all ${
-                      selectedMethod === 'stego-pvd'
-                        ? 'bg-[#F59E0B]/15 border-[#F59E0B] shadow-[0_0_12px_rgba(245,158,11,0.2)]'
-                        : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-white">PVD Differencing</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#F59E0B]/20 text-[#F59E0B] font-mono">
-                        PVD
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-[#94A3B8] mt-0.5">
-                      Edge-adaptive contrast masking
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMethod('png-lsb-sequential')}
-                    className={`p-2.5 rounded-lg text-left border transition-all ${
-                      selectedMethod === 'png-lsb-sequential'
-                        ? 'bg-[#94A3B8]/15 border-[#94A3B8] shadow-[0_0_12px_rgba(148,163,184,0.2)]'
-                        : 'bg-[#111827] border-[#1E293B] hover:border-[#334155]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-white">Sequential LSB</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#64748B]/20 text-[#94A3B8] font-mono">
-                        Raster
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-[#94A3B8] mt-0.5">
-                      Deterministic sequential scan
-                    </div>
-                  </button>
-                </div>
-
-                {/* Single-line Dynamic Technical Status Bar */}
-                <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-[#111827] border border-[#1E293B] text-[11px]">
-                  <div className="flex items-center gap-1.5 text-[#94A3B8]">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#14B8A6]" />
-                    <span>Defense:</span>
-                    <span className="text-white font-medium">
-                      {selectedMethod === 'stego-hyper-matrix'
-                        ? 'Wavelet-PVD Hybrid + CSPRNG Permutation'
-                        : selectedMethod === 'stego-stealth-matrix'
-                          ? 'ChaCha20 Coordinate Scatter + ±1 Matching'
-                          : selectedMethod === 'stego-dwt'
-                            ? '2D Haar Integer HH Subband Isolation'
-                            : selectedMethod === 'stego-pvd'
-                              ? 'Human Visual System Range Masking'
-                              : 'Sequential Raster Bit-Plane Scan'}
-                    </span>
-                  </div>
-                  <span className="font-mono text-[10px] text-[#38BDF8]">
-                    {selectedMethod === 'stego-hyper-matrix'
-                      ? 'PSNR >52 dB'
-                      : selectedMethod === 'stego-stealth-matrix'
-                        ? 'PSNR >50 dB'
-                        : selectedMethod === 'stego-dwt'
-                          ? 'Frequency'
-                          : selectedMethod === 'stego-pvd'
-                            ? 'Edge-Bound'
-                            : 'Linear'}
-                  </span>
-                </div>
-
-                {/* Smart Passkey Assistant for Encode */}
-                <div className="pt-2 border-t border-[#1E293B]">
-                  <SmartPasskeyAssistant
-                    idPrefix="encode-passkey"
-                    value={passphrase}
-                    onChange={(newKey) => setPassphrase(newKey)}
-                    mode="encode"
-                    placeholder="Enter passkey, or pick Memorable Words, Photo Key, 32-Byte Token, or Biometrics..."
-                  />
-                </div>
               </div>
 
-              {/* Secret Payload Mode Selector & Inputs */}
-              <div className="space-y-3 p-3.5 rounded-xl bg-[#0B0F19] border border-[#1E293B]">
+              {/* Card 2: Secret Payload Input */}
+              <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#C084FC]" />
-                    <span className="text-xs font-semibold text-white">Secret Payload Type</span>
-                  </div>
-                  <div className="inline-flex p-0.5 rounded-lg bg-[#111827] border border-[#1E293B]">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-sky-400" />
+                    <span>2. Secret Payload</span>
+                  </h3>
+                  <div className="inline-flex p-0.5 rounded-lg bg-[#0B0F19] border border-white/[0.08]">
                     <button
                       type="button"
                       onClick={() => setPayloadMode('text')}
                       className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
                         payloadMode === 'text'
-                          ? 'bg-[#7C3AED] text-white shadow-[0_0_10px_rgba(124,58,237,0.4)]'
-                          : 'text-[#94A3B8] hover:text-[#E2E8F0]'
+                          ? 'bg-violet-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
                       }`}
                     >
                       <FileText className="w-3.5 h-3.5" />
-                      <span>Text Message</span>
+                      <span>Text</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setPayloadMode('image')}
                       className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
                         payloadMode === 'image'
-                          ? 'bg-gradient-to-r from-[#A855F7] to-[#3B82F6] text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]'
-                          : 'text-[#94A3B8] hover:text-[#E2E8F0]'
+                          ? 'bg-violet-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
                       }`}
                     >
                       <ImageIcon className="w-3.5 h-3.5" />
@@ -1362,41 +1342,35 @@ export const CoreStudio: React.FC = () => {
                 </div>
 
                 {payloadMode === 'text' ? (
-                  <div className="space-y-1.5 pt-1">
-                    <label
-                      htmlFor="payload-textarea"
-                      className="text-xs text-[#94A3B8] flex items-center justify-between"
-                    >
-                      <span>Confidential Text Message</span>
-                      <div className="flex items-center gap-2">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-slate-400">
+                      <span>Confidential Message</span>
+                      <div className="flex items-center gap-2 font-mono text-[11px]">
                         {compressionSavings && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-medium flex items-center gap-1 border border-emerald-500/30">
-                            <Sparkles className="w-3 h-3" />
-                            <span>Compressed -{compressionSavings.percent}%</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                            -{compressionSavings.percent}% compressed
                           </span>
                         )}
-                        <span className="font-mono text-[#E2E8F0]">
+                        <span className="text-slate-300">
                           {rawPayloadBytes.length.toLocaleString()} bytes
-                          {compressionSavings &&
-                            ` (${compressionSavings.compressed.toLocaleString()} on wire)`}
                         </span>
                       </div>
-                    </label>
+                    </div>
                     <textarea
                       id="payload-textarea"
                       value={payloadText}
                       onChange={(e) => setPayloadText(e.target.value)}
-                      rows={5}
-                      className="w-full p-3 rounded-lg bg-[#111827] border border-[#1E293B] text-white text-xs font-mono focus:outline-none focus:border-[#7C3AED] resize-y min-h-[96px] max-h-[300px]"
-                      placeholder="Enter confidential message to hide inside image (no character limits)..."
+                      rows={4}
+                      className="w-full p-3 rounded-xl bg-[#0B0F19] border border-white/[0.08] text-slate-200 text-xs font-mono focus:outline-none focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/40 resize-y min-h-[96px] max-h-[260px]"
+                      placeholder="Enter secret message to conceal..."
                     />
                   </div>
                 ) : (
-                  <div className="space-y-2 pt-1">
-                    <div className="flex items-center justify-between text-xs text-[#94A3B8]">
-                      <span>Secret Image to Conceal</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-slate-400">
+                      <span>Covert Image to Embed</span>
                       {secretImageBytes && (
-                        <span className="font-mono text-[#14B8A6] font-semibold">
+                        <span className="font-mono text-emerald-400 font-semibold text-[11px]">
                           {(secretImageBytes.length / 1024).toFixed(1)} KB
                           {secretImageDims
                             ? ` • ${secretImageDims.width}×${secretImageDims.height}`
@@ -1406,44 +1380,90 @@ export const CoreStudio: React.FC = () => {
                     </div>
 
                     {secretImagePreview ? (
-                      <div className="p-3 rounded-xl bg-[#111827] border border-[#1E293B] flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <img
-                            src={secretImagePreview}
-                            alt="Secret Preview"
-                            className="w-14 h-14 object-cover rounded-lg border border-[#334155] shrink-0"
-                          />
-                          <div className="min-w-0">
-                            <div className="text-xs font-medium text-white truncate">
-                              {secretImageFile?.name}
-                            </div>
-                            <div className="text-[11px] text-[#94A3B8]">
-                              {(secretImageBytes ? secretImageBytes.length / 1024 : 0).toFixed(1)}{' '}
-                              KB • {secretImageFile?.type || 'Image'}
+                      <div className="p-3.5 rounded-xl bg-[#0B0F19] border border-white/[0.08] space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <img
+                              src={secretImagePreview}
+                              alt="Secret Preview"
+                              className="w-14 h-14 object-cover rounded-lg border border-slate-700 shrink-0 shadow"
+                            />
+                            <div className="min-w-0 space-y-0.5">
+                              <div className="text-xs font-medium text-white truncate">
+                                {secretImageFile?.name}
+                              </div>
+                              <div className="text-[11px] text-slate-400 font-mono">
+                                {(secretImageBytes ? secretImageBytes.length / 1024 : 0).toFixed(1)}{' '}
+                                KB •{' '}
+                                {secretImageDims
+                                  ? `${secretImageDims.width}×${secretImageDims.height} px`
+                                  : ''}
+                              </div>
+                              {optimizedSecretMeta && (
+                                <div className="text-[10px] text-emerald-400 font-mono flex items-center gap-1.5">
+                                  <span className="px-1.5 py-0.2 rounded bg-emerald-500/10 border border-emerald-500/30">
+                                    Auto-fit: -
+                                    {Math.round(
+                                      ((optimizedSecretMeta.originalSize -
+                                        optimizedSecretMeta.newSize) /
+                                        optimizedSecretMeta.originalSize) *
+                                        100,
+                                    )}
+                                    %
+                                  </span>
+                                  <span className="text-slate-500">
+                                    ({(optimizedSecretMeta.originalSize / 1024).toFixed(0)} KB →{' '}
+                                    {(optimizedSecretMeta.newSize / 1024).toFixed(0)} KB)
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSecretImageFile(null);
+                              setSecretImageBytes(null);
+                              setSecretImagePreview(null);
+                              setSecretImageDims(null);
+                              setRawSecretFile(null);
+                              setOptimizedSecretMeta(null);
+                            }}
+                            className="px-2.5 py-1 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+                          >
+                            Remove
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSecretImageFile(null);
-                            setSecretImageBytes(null);
-                            setSecretImagePreview(null);
-                            setSecretImageDims(null);
-                          }}
-                          className="px-2.5 py-1 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
-                        >
-                          Remove
-                        </button>
+
+                        {/* Smart Optimization Switch */}
+                        {rawSecretFile && (
+                          <div className="pt-2.5 border-t border-white/[0.06] flex items-center justify-between text-xs">
+                            <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                              <input
+                                type="checkbox"
+                                checked={autoScaleSecretPhoto}
+                                onChange={handleToggleSecretPhotoOptimization}
+                                disabled={isOptimizingSecretPhoto}
+                                className="rounded bg-[#111827] border-slate-700 text-violet-600 focus:ring-violet-600"
+                              />
+                              <span className="text-[11px]">
+                                Auto-Fit Photo to Carrier Capacity
+                              </span>
+                            </label>
+                            {isOptimizingSecretPhoto && (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-400" />
+                            )}
+                          </div>
+                        )}
                       </div>
                     ) : (
-                      <label className="border-2 border-dashed border-[#334155] hover:border-[#A855F7]/70 rounded-xl p-5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors bg-[#111827]/70 hover:bg-[#111827]">
-                        <ImageIcon className="w-8 h-8 text-[#A855F7]" />
-                        <span className="text-xs font-semibold text-white">
+                      <label className="border-2 border-dashed border-slate-700 hover:border-violet-500/70 rounded-xl p-5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors bg-[#0B0F19]/60 hover:bg-[#0B0F19]">
+                        <ImageIcon className="w-7 h-7 text-violet-400" />
+                        <span className="text-xs font-semibold text-slate-200">
                           Select or drop secret image to embed
                         </span>
-                        <span className="text-[11px] text-[#64748B]">
-                          PNG, JPG, WebP, GIF, or SVG
+                        <span className="text-[11px] text-slate-400">
+                          Large photos automatically scaled &amp; optimized to fit carrier
                         </span>
                         <input
                           type="file"
@@ -1460,547 +1480,651 @@ export const CoreStudio: React.FC = () => {
                 )}
               </div>
 
-              {/* Chameleon Dual-Layer (Anti-Coercion Plausible Deniability) */}
-              <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#1E293B] space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-[#F59E0B]" />
-                    <span className="text-xs font-semibold text-white">
-                      Chameleon Dual-Layer (Anti-Coercion)
-                    </span>
-                  </div>
-                  <label className="flex items-center gap-2 text-xs text-[#94A3B8] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isChameleonEnabled}
-                      onChange={(e) => setIsChameleonEnabled(e.target.checked)}
-                      className="rounded bg-[#111827] border-[#334155] text-[#F59E0B] focus:ring-[#F59E0B]"
-                    />
-                    <span>Enable Dual-Layer Deniability</span>
-                  </label>
-                </div>
-                <p className="text-[11px] text-[#94A3B8] leading-relaxed">
-                  Embeds an authentic decoy payload alongside your confidential secret. If forced to
-                  surrender a passkey under duress, the decoy passkey reveals only the harmless
-                  decoy, leaving no mathematical trace of the master layer.
-                </p>
-
-                {isChameleonEnabled && (
-                  <div className="space-y-3 pt-2 border-t border-[#1E293B] text-xs">
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="decoy-payload-input"
-                        className="text-[#94A3B8] flex items-center justify-between"
-                      >
-                        <span>Decoy Message (Surrendered under Duress)</span>
-                        <span className="font-mono text-[#64748B]">{decoyText.length} chars</span>
-                      </label>
-                      <textarea
-                        id="decoy-payload-input"
-                        value={decoyText}
-                        onChange={(e) => setDecoyText(e.target.value)}
-                        rows={2}
-                        className="w-full p-2.5 rounded-lg bg-[#111827] border border-[#1E293B] text-white text-xs font-mono focus:outline-none focus:border-[#F59E0B] resize-y"
-                        placeholder="Enter harmless decoy message..."
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label htmlFor="decoy-passkey-input" className="text-[#94A3B8] block">
-                        Decoy Passkey (Surrender this if coerced)
-                      </label>
-                      <input
-                        id="decoy-passkey-input"
-                        type="text"
-                        value={decoyPassphrase}
-                        onChange={(e) => setDecoyPassphrase(e.target.value)}
-                        placeholder="Enter decoy passkey..."
-                        className="w-full p-2 rounded-lg bg-[#111827] border border-[#1E293B] text-white text-xs font-mono focus:outline-none focus:border-[#F59E0B]"
-                      />
-                      <div className="text-[10px] text-[#64748B]">
-                        Your confidential payload uses your primary passkey above. The decoy payload
-                        uses this decoy passkey.
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Chameleon Dual-Layer (Anti-Coercion Plausible Deniability) */}
-              <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#1E293B] space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-[#F59E0B]" />
-                    <span className="text-xs font-semibold text-white">
-                      Chameleon Dual-Layer (Anti-Coercion)
-                    </span>
-                  </div>
-                  <label className="flex items-center gap-2 text-xs text-[#94A3B8] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isChameleonEnabled}
-                      onChange={(e) => setIsChameleonEnabled(e.target.checked)}
-                      className="rounded bg-[#111827] border-[#334155] text-[#F59E0B] focus:ring-[#F59E0B]"
-                    />
-                    <span>Enable Dual-Layer Deniability</span>
-                  </label>
-                </div>
-                <p className="text-[11px] text-[#94A3B8] leading-relaxed">
-                  Embeds an authentic decoy payload alongside your confidential secret. If forced to
-                  surrender a passkey under duress, the decoy passkey reveals only the harmless
-                  decoy, leaving no mathematical trace of the master layer.
-                </p>
-
-                {isChameleonEnabled && (
-                  <div className="space-y-3 pt-2 border-t border-[#1E293B] text-xs">
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="decoy-payload-input"
-                        className="text-[#94A3B8] flex items-center justify-between"
-                      >
-                        <span>Decoy Message (Surrendered under Duress)</span>
-                        <span className="font-mono text-[#64748B]">{decoyText.length} chars</span>
-                      </label>
-                      <textarea
-                        id="decoy-payload-input"
-                        value={decoyText}
-                        onChange={(e) => setDecoyText(e.target.value)}
-                        rows={2}
-                        className="w-full p-2.5 rounded-lg bg-[#111827] border border-[#1E293B] text-white text-xs font-mono focus:outline-none focus:border-[#F59E0B] resize-y"
-                        placeholder="Enter harmless decoy message..."
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label htmlFor="decoy-passkey-input" className="text-[#94A3B8] block">
-                        Decoy Passkey (Surrender this if coerced)
-                      </label>
-                      <input
-                        id="decoy-passkey-input"
-                        type="text"
-                        value={decoyPassphrase}
-                        onChange={(e) => setDecoyPassphrase(e.target.value)}
-                        placeholder="Enter decoy passkey..."
-                        className="w-full p-2 rounded-lg bg-[#111827] border border-[#1E293B] text-white text-xs font-mono focus:outline-none focus:border-[#F59E0B]"
-                      />
-                      <div className="text-[10px] text-[#64748B]">
-                        Your confidential payload uses your primary passkey above. The decoy payload
-                        uses this decoy passkey.
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Protocol & Encryption Options */}
-              <div className="p-4 rounded-xl bg-[#0B0F19] border border-[#1E293B] space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-[#7C3AED]" />
-                    <span className="text-xs font-semibold text-white">
-                      OMB1 Protocol & Cryptography
-                    </span>
-                  </div>
-                  <label className="flex items-center gap-2 text-xs text-[#94A3B8] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={useEnvelope}
-                      onChange={(e) => setUseEnvelope(e.target.checked)}
-                      className="rounded bg-[#111827] border-[#334155] text-[#7C3AED] focus:ring-[#7C3AED]"
-                    />
-                    <span>Binary Envelope Framing</span>
-                  </label>
-                </div>
-
-                {useEnvelope && (
-                  <div className="space-y-3 pt-2 border-t border-[#1E293B]/60 text-xs">
-                    {/* Cipher Suite Selector */}
-                    <div className="space-y-1.5">
-                      <label htmlFor="cipher-suite-select" className="text-[#94A3B8] block">
-                        Encryption Mode
-                      </label>
-                      <select
-                        id="cipher-suite-select"
-                        value={cryptoSuite}
-                        onChange={(e) => setCryptoSuite(e.target.value as CryptoSuite)}
-                        className="w-full p-2.5 rounded-lg bg-[#111827] border border-[#1E293B] text-white text-xs focus:outline-none focus:border-[#7C3AED]"
-                      >
-                        <option value="NONE">
-                          Passkey / Stego-Symmetric Direct (Recommended when using Passkey)
-                        </option>
-                        <option value="X25519_XSALSA20_POLY1305">
-                          Libsodium Sealed Box (X25519) — Recipient Vault Public Key
-                        </option>
-                      </select>
-                    </div>
-
-                    {/* Recipient Selection for Sealed Box */}
-                    {cryptoSuite === 'X25519_XSALSA20_POLY1305' && (
-                      <div className="space-y-2 p-3 rounded-lg bg-[#111827] border border-[#1E293B]">
-                        <div className="flex items-center justify-between">
-                          <span className="text-white font-medium flex items-center gap-1.5">
-                            <Lock className="w-3.5 h-3.5 text-[#3B82F6]" />
-                            <span>Recipient Encryption Key</span>
-                          </span>
-                          {contacts.length > 0 && (
-                            <select
-                              value={selectedRecipientId}
-                              onChange={(e) => {
-                                setSelectedRecipientId(e.target.value);
-                                const found = contacts.find((c) => c.id === e.target.value);
-                                if (found) {
-                                  setRecipientPublicKeyBase64(found.encPublicKey);
-                                }
-                              }}
-                              className="text-[11px] p-1 rounded bg-[#0B0F19] border border-[#334155] text-[#94A3B8]"
-                            >
-                              <option value="custom">Manual Key Input</option>
-                              {contacts.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-
-                        <input
-                          type="text"
-                          value={recipientPublicKeyBase64}
-                          onChange={(e) => {
-                            setRecipientPublicKeyBase64(e.target.value);
-                            setSelectedRecipientId('custom');
-                          }}
-                          placeholder="Paste recipient's 32-byte key (Base64, Hex, or 32-Byte Token format)..."
-                          className="w-full p-2.5 rounded bg-[#0B0F19] border border-[#1E293B] text-white font-mono text-[11px] focus:outline-none focus:border-[#3B82F6]"
-                        />
-
-                        <div className="text-[10px] text-[#64748B]">
-                          Accepts Base64, raw 64-char Hex, or 32-Byte Token (ACD7-AE04-...).
-                          {!recipientPublicKeyBase64.trim() && activeIdentity && (
-                            <span className="text-[#14B8A6] ml-1">
-                              (Auto-using your active Vault key: {activeIdentity.name})
-                            </span>
-                          )}
-                        </div>
-
-                        {(recipientPublicKeyBase64.trim() ||
-                          activeIdentity?.encryptionKeyPair?.publicKey) && (
-                          <div className="flex items-center justify-between text-[10px] text-[#64748B] font-mono">
-                            <span>Key Status:</span>
-                            <span className="text-[#3B82F6]">
-                              {(() => {
-                                try {
-                                  const raw =
-                                    recipientPublicKeyBase64.trim() ||
-                                    activeIdentity?.encryptionKeyPair?.publicKey ||
-                                    '';
-                                  const bytes = parseAnyKey32(raw);
-                                  if (bytes.length === 32) {
-                                    return `Valid 32-byte Key (ID: ${Array.from(computeKeyId(bytes))
-                                      .map((b) => b.toString(16).padStart(2, '0'))
-                                      .join('')})`;
-                                  }
-                                  return 'Invalid length';
-                                } catch {
-                                  return 'Invalid key format';
-                                }
-                              })()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Sender Ed25519 Signature Option */}
-                    <div className="flex items-start gap-2.5 p-3 rounded-lg bg-[#111827] border border-[#1E293B]">
-                      <input
-                        type="checkbox"
-                        id="sign-toggle"
-                        checked={signMessage}
-                        onChange={(e) => setSignMessage(e.target.checked)}
-                        className="mt-0.5 rounded bg-[#0B0F19] border-[#334155] text-[#7C3AED] focus:ring-[#7C3AED]"
-                      />
-                      <label
-                        htmlFor="sign-toggle"
-                        className="text-xs text-[#E2E8F0] cursor-pointer"
-                      >
-                        <div className="font-medium text-white flex items-center gap-1.5">
-                          <UserCheck className="w-3.5 h-3.5 text-[#14B8A6]" />
-                          <span>Attach Sender Ed25519 Detached Signature</span>
-                        </div>
-                        <div className="text-[11px] text-[#64748B] pt-0.5">
-                          Signs the canonical SignDoc using active Vault identity (
-                          <span className="text-[#A855F7] font-mono">
-                            {activeIdentity?.name || 'Active Identity'}
-                          </span>
-                          ) to guarantee origin authenticity and metadata integrity.
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Capacity Utilization Bar */}
+              {/* Card 3: Capacity Utilization Meter & Auto-Scale */}
               {capacity && (
-                <div className="space-y-1.5">
+                <div className="p-4 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-2.5">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#94A3B8]">Carrier Capacity Utilization</span>
+                    <span className="text-slate-400 font-medium">Carrier Capacity Budget</span>
                     <span
-                      className={`font-mono font-semibold ${capacityUsedPercent > 90 ? 'text-red-400' : 'text-[#14B8A6]'}`}
+                      className={`font-mono font-semibold text-xs ${
+                        capacityUsedPercent > 90 ? 'text-red-400' : 'text-emerald-400'
+                      }`}
                     >
                       {effectivePayloadLength.toLocaleString()} /{' '}
                       {capacity.usableBytes.toLocaleString()} bytes ({capacityUsedPercent}%)
                     </span>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-[#0B0F19] overflow-hidden">
+                  <div className="w-full h-2 rounded-full bg-[#0B0F19] overflow-hidden border border-white/[0.04]">
                     <div
                       className={`h-full transition-all duration-300 ${
                         capacityUsedPercent > 90
                           ? 'bg-red-500'
                           : capacityUsedPercent > 50
-                            ? 'bg-[#A855F7]'
-                            : 'bg-[#14B8A6]'
+                            ? 'bg-amber-500'
+                            : 'bg-emerald-500'
                       }`}
                       style={{ width: `${capacityUsedPercent}%` }}
                     />
                   </div>
-                </div>
-              )}
-
-              {/* Auto-Scale Carrier Suggestion when payload exceeds capacity */}
-              {carrierImageData && capacity && effectivePayloadLength > capacity.usableBytes && (
-                <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#3B82F6]/15 via-[#7C3AED]/15 to-[#3B82F6]/15 border border-[#3B82F6]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-lg">
-                  <div className="flex items-start gap-2.5">
-                    <Sparkles className="w-4 h-4 text-[#3B82F6] shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-semibold text-white">
-                        Payload Exceeds Carrier Capacity
+                  {/* Auto-Scale Suggestion if payload exceeds capacity */}
+                  {carrierImageData && effectivePayloadLength > capacity.usableBytes && (
+                    <div className="pt-2 flex items-center justify-between gap-3 text-xs">
+                      <div className="text-red-400 text-[11px]">
+                        Payload exceeds capacity by{' '}
+                        {(effectivePayloadLength - capacity.usableBytes).toLocaleString()} bytes.
                       </div>
-                      <div className="text-[#94A3B8] text-[11px] mt-0.5">
-                        Current carrier ({carrierImageData.width}×{carrierImageData.height}) holds{' '}
-                        {capacity.usableBytes.toLocaleString()} bytes. Payload requires{' '}
-                        {effectivePayloadLength.toLocaleString()} bytes.
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAutoScaleCarrier}
-                    className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#3B82F6] to-[#7C3AED] hover:from-[#2563EB] hover:to-[#6D28D9] text-white font-medium text-xs shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all flex items-center gap-1.5 shrink-0"
-                  >
-                    <Maximize2 className="w-3.5 h-3.5" />
-                    <span>Auto-Scale Carrier to Fit</span>
-                  </button>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="pt-2 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleEmbed}
-                  disabled={
-                    !carrierImageData ||
-                    isEmbedding ||
-                    Boolean(validationError) ||
-                    (payloadMode === 'image' && !secretImageBytes) ||
-                    (Boolean(capacity) && effectivePayloadLength > (capacity?.usableBytes ?? 0))
-                  }
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-[0_0_20px_rgba(124,58,237,0.3)] transition-all"
-                >
-                  {isEmbedding ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Embedding in Worker ({embedProgress}%)...</span>
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff className="w-4 h-4" />
-                      <span>Embed & Conceal Payload</span>
-                    </>
-                  )}
-                </button>
-
-                {isEmbedding && (
-                  <button
-                    type="button"
-                    onClick={() => embedAbortRef.current?.abort()}
-                    className="px-3 py-2.5 rounded-lg bg-[#1E293B] hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-[#334155] transition-colors"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-
-              {embedError && (
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
-                  <XCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>{embedError}</span>
-                </div>
-              )}
-
-              {/* Download Stego Output */}
-              {embeddedImageUrl && (
-                <div className="p-4 rounded-xl bg-[#14B8A6]/10 border border-[#14B8A6]/30 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-[#14B8A6]">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Steganographic Embedding Complete</span>
-                    </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#14B8A6]/20 text-[#14B8A6]">
-                      {selectedMethod === 'stego-hyper-matrix'
-                        ? 'Hyper-Matrix (Quad-Hybrid)'
-                        : selectedMethod === 'stego-stealth-matrix'
-                          ? 'Stealth Matrix (±1)'
-                          : selectedMethod === 'stego-dwt'
-                            ? 'Haar DWT Wavelet'
-                            : selectedMethod === 'stego-pvd'
-                              ? 'PVD (Wu & Tsai)'
-                              : 'Sequential RGB LSB'}
-                    </span>
-                  </div>
-
-                  {/* Interactive Before vs After Split Slider */}
-                  {carrierPreview && (
-                    <SplitComparisonSlider
-                      originalUrl={carrierPreview}
-                      stegoUrl={embeddedImageUrl}
-                      psnr={psnr}
-                      mse={mse}
-                    />
-                  )}
-
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-                    <div className="text-xs text-[#94A3B8]">
-                      Pristine lossless raster with embedded payload. No visual distortion.
-                    </div>
-                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => {
-                          setRevealPreview(embeddedImageUrl);
-                          setRevealFile(new File([], 'stego-output.png'));
-                          setRevealPassphrase(passphrase);
-                          setActiveTab('reveal');
-                          studioDataBus.setCoreTab('reveal');
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#3B82F6] hover:bg-[#2563EB] text-white font-semibold text-xs transition-colors"
+                        onClick={handleAutoScaleCarrier}
+                        className="px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-medium text-xs flex items-center gap-1.5 shrink-0"
                       >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Test Reveal</span>
+                        <Maximize2 className="w-3.5 h-3.5" />
+                        <span>Auto-Scale Carrier</span>
                       </button>
-                      <a
-                        href={embeddedImageUrl}
-                        download={`ombrix-stego-${Date.now()}.png`}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#14B8A6] text-black font-semibold text-xs hover:bg-[#0D9488] transition-colors"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Download PNG</span>
-                      </a>
                     </div>
-                  </div>
-
-                  {/* Cross-Studio Actions Row */}
-                  <div className="pt-2 border-t border-[#14B8A6]/20 flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] font-medium text-[#14B8A6] mr-1">Handoff:</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        studioDataBus.sendCarrierToModule('lens', {
-                          dataUrl: embeddedImageUrl,
-                          name: 'stego-embedded.png',
-                          source: 'core-studio',
-                        });
-                      }}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0B0F19] hover:bg-[#1E293B] border border-[#1E293B] hover:border-[#3B82F6]/50 text-[11px] text-[#E2E8F0] transition-colors"
-                    >
-                      <ZoomIn className="w-3 h-3 text-[#3B82F6]" />
-                      <span>Analyze in Lens</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        studioDataBus.sendCarrierToModule('scan', {
-                          dataUrl: embeddedImageUrl,
-                          name: 'stego-embedded.png',
-                          source: 'core-studio',
-                        });
-                      }}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0B0F19] hover:bg-[#1E293B] border border-[#1E293B] hover:border-[#06B6D4]/50 text-[11px] text-[#E2E8F0] transition-colors"
-                    >
-                      <Radar className="w-3 h-3 text-[#06B6D4]" />
-                      <span>Scan Forensics</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        studioDataBus.sendCarrierToModule('airgap', {
-                          dataUrl: embeddedImageUrl,
-                          name: 'stego-embedded.png',
-                          source: 'core-studio',
-                        });
-                      }}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0B0F19] hover:bg-[#1E293B] border border-[#1E293B] hover:border-[#A855F7]/50 text-[11px] text-[#E2E8F0] transition-colors"
-                    >
-                      <Camera className="w-3 h-3 text-[#A855F7]" />
-                      <span>Transmit via Air-Gap</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        studioDataBus.sendCarrierToModule('transit', {
-                          dataUrl: embeddedImageUrl,
-                          name: 'stego-embedded.png',
-                          source: 'core-studio',
-                        });
-                      }}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0B0F19] hover:bg-[#1E293B] border border-[#1E293B] hover:border-[#14B8A6]/50 text-[11px] text-[#E2E8F0] transition-colors"
-                    >
-                      <Radio className="w-3 h-3 text-[#14B8A6]" />
-                      <span>Test in Transit</span>
-                    </button>
-                  </div>
+                  )}
                 </div>
               )}
             </div>
+
+            {/* RIGHT COLUMN: Steganography Engine, Security & Execution */}
+            <div className="lg:col-span-6 space-y-5">
+              {/* Card 1: Steganography Engine Selector */}
+              <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-3.5">
+                <div className="flex items-center justify-between text-xs">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-violet-400" />
+                    <span>3. Steganography Engine</span>
+                  </h3>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono">
+                    ±1 LSB Undetectable
+                  </span>
+                </div>
+
+                {/* Flagship Option: Hyper-Matrix */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedMethod('stego-hyper-matrix')}
+                  className={`w-full p-3.5 rounded-xl text-left border transition-all ${
+                    selectedMethod === 'stego-hyper-matrix'
+                      ? 'bg-violet-600/15 border-violet-500/70 ring-1 ring-violet-500/30'
+                      : 'bg-[#0B0F19] border-white/[0.06] hover:border-white/[0.15]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-white">Hyper-Matrix</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-mono">
+                        Quad-Hybrid
+                      </span>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-medium">
+                      Recommended
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">
+                    Wavelet frequency + edge masking + PRNG scatter + ±1 matching
+                  </div>
+                </button>
+
+                {/* Specialized Engines Grid */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMethod('stego-stealth-matrix')}
+                    className={`p-2.5 rounded-xl text-left border transition-all ${
+                      selectedMethod === 'stego-stealth-matrix'
+                        ? 'bg-emerald-500/15 border-emerald-500/70 ring-1 ring-emerald-500/30'
+                        : 'bg-[#0B0F19] border-white/[0.06] hover:border-white/[0.15]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-white">Stealth Matrix</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono">
+                        ±1
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      PRNG scatter &amp; ±1 matching
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMethod('stego-dwt')}
+                    className={`p-2.5 rounded-xl text-left border transition-all ${
+                      selectedMethod === 'stego-dwt'
+                        ? 'bg-sky-500/15 border-sky-500/70 ring-1 ring-sky-500/30'
+                        : 'bg-[#0B0F19] border-white/[0.06] hover:border-white/[0.15]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-white">Haar Wavelet</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-mono">
+                        DWT
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Diagonal HH subband</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMethod('stego-pvd')}
+                    className={`p-2.5 rounded-xl text-left border transition-all ${
+                      selectedMethod === 'stego-pvd'
+                        ? 'bg-amber-500/15 border-amber-500/70 ring-1 ring-amber-500/30'
+                        : 'bg-[#0B0F19] border-white/[0.06] hover:border-white/[0.15]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-white">PVD Differencing</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-mono">
+                        PVD
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      Contrast-adaptive masking
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMethod('png-lsb-sequential')}
+                    className={`p-2.5 rounded-xl text-left border transition-all ${
+                      selectedMethod === 'png-lsb-sequential'
+                        ? 'bg-slate-700/30 border-slate-500 ring-1 ring-slate-500/30'
+                        : 'bg-[#0B0F19] border-white/[0.06] hover:border-white/[0.15]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-white">Sequential LSB</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-mono">
+                        Raster
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      Deterministic raster scan
+                    </div>
+                  </button>
+                </div>
+
+                {/* Technical defense status bar */}
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#0B0F19] border border-white/[0.06] text-[11px]">
+                  <div className="flex items-center gap-1.5 text-slate-400">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Defense:</span>
+                    <span className="text-slate-200 font-medium">
+                      {selectedMethod === 'stego-hyper-matrix'
+                        ? 'Wavelet-PVD Hybrid + CSPRNG Permutation'
+                        : selectedMethod === 'stego-stealth-matrix'
+                          ? 'ChaCha20 Coordinate Scatter + ±1 Matching'
+                          : selectedMethod === 'stego-dwt'
+                            ? '2D Haar Integer HH Subband Isolation'
+                            : selectedMethod === 'stego-pvd'
+                              ? 'Human Visual System Range Masking'
+                              : 'Sequential Raster Bit-Plane Scan'}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[10px] text-sky-400">
+                    {selectedMethod === 'stego-hyper-matrix'
+                      ? 'PSNR >52 dB'
+                      : selectedMethod === 'stego-stealth-matrix'
+                        ? 'PSNR >50 dB'
+                        : selectedMethod === 'stego-dwt'
+                          ? 'Frequency'
+                          : selectedMethod === 'stego-pvd'
+                            ? 'Edge-Bound'
+                            : 'Linear'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 2: Passkey Protection */}
+              <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl">
+                <SmartPasskeyAssistant
+                  idPrefix="encode-passkey"
+                  value={passphrase}
+                  onChange={(newKey) => setPassphrase(newKey)}
+                  mode="encode"
+                  placeholder="Enter passkey, or pick Memorable Words, Photo Key, 32-Byte Token, or Biometrics..."
+                />
+              </div>
+
+              {/* Card 3: Advanced Cryptography & Anti-Coercion (Progressive Disclosure Accordion) */}
+              <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-4">
+                <button
+                  type="button"
+                  onClick={() => setIsAdvancedOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between text-left focus:outline-none cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-violet-400" />
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                      Advanced Security &amp; Anti-Coercion
+                    </span>
+                    {(isChameleonEnabled || cryptoSuite !== 'NONE' || !signMessage) && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-mono">
+                        Active
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                    <span>{isAdvancedOpen ? 'Collapse' : 'Configure'}</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                        isAdvancedOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </div>
+                </button>
+
+                {isAdvancedOpen && (
+                  <div className="space-y-4 pt-3 border-t border-white/[0.06] text-xs">
+                    {/* Chameleon Dual-Layer (Anti-Coercion Plausible Deniability) - DEDUPLICATED SINGLE INSTANCE */}
+                    <div className="p-3.5 rounded-xl bg-[#0B0F19] border border-white/[0.06] space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                          <span className="font-semibold text-slate-200">
+                            Chameleon Dual-Layer (Anti-Coercion)
+                          </span>
+                        </div>
+                        <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isChameleonEnabled}
+                            onChange={(e) => setIsChameleonEnabled(e.target.checked)}
+                            className="rounded bg-[#111827] border-slate-700 text-amber-500 focus:ring-amber-500"
+                          />
+                          <span>Enable Deniability</span>
+                        </label>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        Embeds an authentic decoy payload. If forced to surrender a passkey under
+                        duress, the decoy passkey reveals only the harmless decoy, leaving zero
+                        mathematical trace of the master secret.
+                      </p>
+
+                      {isChameleonEnabled && (
+                        <div className="space-y-3 pt-2 border-t border-white/[0.06]">
+                          <div className="space-y-1">
+                            <label
+                              htmlFor="decoy-payload-input"
+                              className="text-slate-400 flex items-center justify-between text-[11px]"
+                            >
+                              <span>Decoy Message (Surrendered under Duress)</span>
+                              <span className="font-mono text-slate-500">
+                                {decoyText.length} chars
+                              </span>
+                            </label>
+                            <textarea
+                              id="decoy-payload-input"
+                              value={decoyText}
+                              onChange={(e) => setDecoyText(e.target.value)}
+                              rows={2}
+                              className="w-full p-2.5 rounded-lg bg-[#111827] border border-white/[0.08] text-slate-200 text-xs font-mono focus:outline-none focus:border-amber-500 resize-y"
+                              placeholder="Enter harmless decoy message..."
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label
+                              htmlFor="decoy-passkey-input"
+                              className="text-slate-400 block text-[11px]"
+                            >
+                              Decoy Passkey (Surrender this if coerced)
+                            </label>
+                            <input
+                              id="decoy-passkey-input"
+                              type="text"
+                              value={decoyPassphrase}
+                              onChange={(e) => setDecoyPassphrase(e.target.value)}
+                              placeholder="Enter decoy passkey..."
+                              className="w-full p-2 rounded-lg bg-[#111827] border border-white/[0.08] text-slate-200 text-xs font-mono focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* OMB1 Protocol & Libsodium Cryptography */}
+                    <div className="p-3.5 rounded-xl bg-[#0B0F19] border border-white/[0.06] space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-3.5 h-3.5 text-violet-400" />
+                          <span className="font-semibold text-slate-200">
+                            Binary Envelope &amp; Cryptography
+                          </span>
+                        </div>
+                        <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={useEnvelope}
+                            onChange={(e) => setUseEnvelope(e.target.checked)}
+                            className="rounded bg-[#111827] border-slate-700 text-violet-600 focus:ring-violet-600"
+                          />
+                          <span>OMB1 Protocol Framing</span>
+                        </label>
+                      </div>
+
+                      {useEnvelope && (
+                        <div className="space-y-3 pt-2 border-t border-white/[0.06]">
+                          <div className="space-y-1">
+                            <label
+                              htmlFor="cipher-suite-select"
+                              className="text-slate-400 block text-[11px]"
+                            >
+                              Encryption Mode
+                            </label>
+                            <select
+                              id="cipher-suite-select"
+                              value={cryptoSuite}
+                              onChange={(e) => setCryptoSuite(e.target.value as CryptoSuite)}
+                              className="w-full p-2 rounded-lg bg-[#111827] border border-white/[0.08] text-slate-200 text-xs focus:outline-none focus:border-violet-500"
+                            >
+                              <option value="NONE">
+                                Passkey / Stego-Symmetric Direct (Recommended with Passkey)
+                              </option>
+                              <option value="X25519_XSALSA20_POLY1305">
+                                Libsodium Sealed Box (X25519) — Recipient Vault Public Key
+                              </option>
+                            </select>
+                          </div>
+
+                          {/* Recipient Selection for Sealed Box */}
+                          {cryptoSuite === 'X25519_XSALSA20_POLY1305' && (
+                            <div className="space-y-2 p-2.5 rounded-lg bg-[#111827] border border-white/[0.08]">
+                              <div className="flex items-center justify-between">
+                                <span className="text-slate-200 font-medium flex items-center gap-1.5 text-[11px]">
+                                  <Lock className="w-3.5 h-3.5 text-sky-400" />
+                                  <span>Recipient Key</span>
+                                </span>
+                                {contacts.length > 0 && (
+                                  <select
+                                    value={selectedRecipientId}
+                                    onChange={(e) => {
+                                      setSelectedRecipientId(e.target.value);
+                                      const found = contacts.find((c) => c.id === e.target.value);
+                                      if (found) setRecipientPublicKeyBase64(found.encPublicKey);
+                                    }}
+                                    className="text-[10px] p-1 rounded bg-[#0B0F19] border border-slate-700 text-slate-400"
+                                  >
+                                    <option value="custom">Manual Key</option>
+                                    {contacts.map((c) => (
+                                      <option key={c.id} value={c.id}>
+                                        {c.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+                              </div>
+                              <input
+                                type="text"
+                                value={recipientPublicKeyBase64}
+                                onChange={(e) => {
+                                  setRecipientPublicKeyBase64(e.target.value);
+                                  setSelectedRecipientId('custom');
+                                }}
+                                placeholder="Paste recipient 32-byte key (Base64, Hex, or 32-Byte Token)..."
+                                className="w-full p-2 rounded bg-[#0B0F19] border border-white/[0.08] text-slate-200 font-mono text-[11px] focus:outline-none focus:border-sky-500"
+                              />
+                            </div>
+                          )}
+
+                          {/* Sender Detached Signature */}
+                          <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-[#111827] border border-white/[0.08]">
+                            <input
+                              type="checkbox"
+                              id="sign-toggle"
+                              checked={signMessage}
+                              onChange={(e) => setSignMessage(e.target.checked)}
+                              className="mt-0.5 rounded bg-[#0B0F19] border-slate-700 text-violet-600 focus:ring-violet-600"
+                            />
+                            <label
+                              htmlFor="sign-toggle"
+                              className="text-xs text-slate-300 cursor-pointer"
+                            >
+                              <div className="font-medium text-white flex items-center gap-1.5 text-[11px]">
+                                <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Attach Sender Ed25519 Detached Signature</span>
+                              </div>
+                              <div className="text-[10px] text-slate-400 pt-0.5">
+                                Signs canonical SignDoc with active Vault identity (
+                                <span className="text-violet-400 font-mono">
+                                  {activeIdentity?.name || 'Active Identity'}
+                                </span>
+                                ) for provenance verification.
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Card 4: Action Button */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleEmbed}
+                    disabled={
+                      !carrierImageData ||
+                      isEmbedding ||
+                      Boolean(validationError) ||
+                      (payloadMode === 'image' && !secretImageBytes) ||
+                      (Boolean(capacity) && effectivePayloadLength > (capacity?.usableBytes ?? 0))
+                    }
+                    className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-md transition-all cursor-pointer"
+                  >
+                    {isEmbedding ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Embedding in Worker ({embedProgress}%)...</span>
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="w-4 h-4" />
+                        <span>Embed &amp; Conceal Payload</span>
+                      </>
+                    )}
+                  </button>
+
+                  {isEmbedding && (
+                    <button
+                      type="button"
+                      onClick={() => embedAbortRef.current?.abort()}
+                      className="px-4 py-3 rounded-xl bg-[#1E293B] hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-white/[0.08] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+
+                {embedError && (
+                  <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                    <XCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{embedError}</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
+
+          {/* Stego Output Inspection Card (When embedded) */}
+          {embeddedImageUrl && (
+            <div className="p-6 rounded-2xl bg-[#0F172A]/90 backdrop-blur-xl border border-emerald-500/30 shadow-2xl space-y-5 animate-in fade-in duration-300">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.06] pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-white">
+                      Steganographic Concealment Complete
+                    </h4>
+                    <p className="text-xs text-slate-400">
+                      Pristine lossless raster with concealed payload. Zero humanly perceivable
+                      distortion.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 font-mono text-[11px]">
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    {selectedMethod === 'stego-hyper-matrix'
+                      ? 'Hyper-Matrix (Quad-Hybrid)'
+                      : selectedMethod === 'stego-stealth-matrix'
+                        ? 'Stealth Matrix (±1)'
+                        : selectedMethod === 'stego-dwt'
+                          ? 'Haar DWT Wavelet'
+                          : selectedMethod === 'stego-pvd'
+                            ? 'PVD Differencing'
+                            : 'Sequential RGB LSB'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Interactive Split Comparison Slider */}
+              {carrierPreview && (
+                <div className="rounded-xl overflow-hidden border border-white/[0.08] bg-[#0B0F19] p-3">
+                  <SplitComparisonSlider
+                    originalUrl={carrierPreview}
+                    stegoUrl={embeddedImageUrl}
+                    psnr={psnr}
+                    mse={mse}
+                  />
+                </div>
+              )}
+
+              {/* Download & Verification Actions */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRevealPreview(embeddedImageUrl);
+                      setRevealFile(new File([], 'stego-output.png'));
+                      setRevealPassphrase(passphrase);
+                      setActiveTab('reveal');
+                      studioDataBus.setCoreTab('reveal');
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs transition-colors"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>Test Reveal in 1-Click</span>
+                  </button>
+                  <a
+                    href={embeddedImageUrl}
+                    download={`ombrix-stego-${Date.now()}.png`}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Stego PNG</span>
+                  </a>
+                </div>
+
+                {/* Cross-Studio Forensic Handoff Bar */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-medium text-slate-400 mr-1">Handoff:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      studioDataBus.sendCarrierToModule('lens', {
+                        dataUrl: embeddedImageUrl,
+                        name: 'stego-embedded.png',
+                        source: 'core-studio',
+                      });
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111827] hover:bg-[#1E293B] border border-white/[0.08] text-[11px] text-slate-300 transition-colors"
+                  >
+                    <ZoomIn className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Visual Lens</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      studioDataBus.sendCarrierToModule('scan', {
+                        dataUrl: embeddedImageUrl,
+                        name: 'stego-embedded.png',
+                        source: 'core-studio',
+                      });
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111827] hover:bg-[#1E293B] border border-white/[0.08] text-[11px] text-slate-300 transition-colors"
+                  >
+                    <Radar className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Forensic Scan</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      studioDataBus.sendCarrierToModule('airgap', {
+                        dataUrl: embeddedImageUrl,
+                        name: 'stego-embedded.png',
+                        source: 'core-studio',
+                      });
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111827] hover:bg-[#1E293B] border border-white/[0.08] text-[11px] text-slate-300 transition-colors"
+                  >
+                    <Camera className="w-3.5 h-3.5 text-violet-400" />
+                    <span>Optical Air-Gap</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      studioDataBus.sendCarrierToModule('transit', {
+                        dataUrl: embeddedImageUrl,
+                        name: 'stego-embedded.png',
+                        source: 'core-studio',
+                      });
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111827] hover:bg-[#1E293B] border border-white/[0.08] text-[11px] text-slate-300 transition-colors"
+                  >
+                    <Radio className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Transit &amp; Trace</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
-        /* Reveal (Extract) Tab */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-6 space-y-4">
-            <div className="p-5 rounded-xl bg-[#111827]/85 backdrop-blur-xl border border-[#1E293B]/80 shadow-2xl space-y-4">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-[#3B82F6]" />
-                <span>Upload Stego Carrier Image</span>
+        /* REVEAL (DECODE) TAB - Balanced 2-Column Studio */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left Column: Carrier Ingestion & Keys */}
+          <div className="lg:col-span-6 space-y-5">
+            <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-sky-400" />
+                <span>1. Upload Stego Carrier Image</span>
               </h3>
 
               <label
                 htmlFor="reveal-input"
                 className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
                   revealPreview
-                    ? 'border-[#3B82F6]/40 bg-[#0B0F19]'
-                    : 'border-[#334155] hover:border-[#3B82F6] bg-[#0B0F19]/50 hover:bg-[#0B0F19]'
+                    ? 'border-sky-500/40 bg-[#0B0F19]'
+                    : 'border-slate-700/70 hover:border-sky-500/70 bg-[#0B0F19]/60 hover:bg-[#0B0F19]'
                 }`}
               >
                 {revealPreview ? (
                   <img
                     src={revealPreview}
                     alt="Stego Candidate"
-                    className="max-h-56 object-contain rounded-lg"
+                    className="max-h-56 object-contain rounded-lg shadow-md"
                   />
                 ) : (
                   <div className="text-center space-y-2">
-                    <div className="w-10 h-10 mx-auto rounded-full bg-[#3B82F6]/10 flex items-center justify-center text-[#3B82F6]">
+                    <div className="w-10 h-10 mx-auto rounded-full bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
                       <Eye className="w-5 h-5" />
                     </div>
-                    <div className="text-sm text-[#E2E8F0] font-medium">
+                    <div className="text-sm text-slate-200 font-medium">
                       Select or drop stego carrier image (PNG, JPG, WEBP, BMP)
                     </div>
-                    <div className="text-xs text-[#94A3B8]">
-                      Universal decoder with automatic algorithm detection
+                    <div className="text-xs text-slate-400">
+                      Universal decoder with automatic algorithm detection &amp; signature
+                      verification
                     </div>
                   </div>
                 )}
@@ -2017,30 +2141,61 @@ export const CoreStudio: React.FC = () => {
               </label>
 
               {revealValidationError && (
-                <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                   <span>{revealValidationError}</span>
                 </div>
               )}
 
-              {/* Smart Passkey Assistant for Decode */}
-              <div className="p-3.5 rounded-xl bg-[#0B0F19] border border-[#1E293B]">
+              {/* Extraction Algorithm Selector (Auto-Detect Default + Manual Override) */}
+              <div className="space-y-1.5 p-3.5 rounded-xl bg-[#0B0F19] border border-white/[0.06]">
+                <div className="flex items-center justify-between text-xs">
+                  <label
+                    htmlFor="reveal-method-select"
+                    className="text-slate-400 flex items-center gap-1.5"
+                  >
+                    <Layers className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Steganography Algorithm</span>
+                  </label>
+                  <span className="text-[10px] font-mono text-sky-400">
+                    {revealMethod === 'auto' ? 'Auto-Detect' : 'Manual Lock'}
+                  </span>
+                </div>
+                <select
+                  id="reveal-method-select"
+                  value={revealMethod}
+                  onChange={(e) => setRevealMethod(e.target.value)}
+                  className="w-full p-2.5 rounded-lg bg-[#111827] border border-white/[0.08] text-slate-200 text-xs font-mono focus:outline-none focus:border-sky-500 cursor-pointer"
+                >
+                  <option value="auto">Auto-Detect Algorithm (Recommended)</option>
+                  <option value="stego-hyper-matrix">
+                    Hyper-Matrix (Quad-Hybrid Omni-Stealth)
+                  </option>
+                  <option value="stego-stealth-matrix">Stealth Matrix (CSPRNG Permutation)</option>
+                  <option value="png-lsb-sequential">Sequential RGB LSB</option>
+                  <option value="stego-pvd">Pixel Value Differencing (PVD)</option>
+                  <option value="stego-dwt">Haar Wavelet Subband (DWT)</option>
+                </select>
+              </div>
+
+              {/* Passkey Unlock Assistant */}
+              <div className="pt-2 border-t border-white/[0.06]">
                 <SmartPasskeyAssistant
                   idPrefix="decode-passkey"
                   value={revealPassphrase}
                   onChange={(newKey) => setRevealPassphrase(newKey)}
                   mode="decode"
-                  placeholder="Enter unlock passkey, or drop the Photo Key / scan Biometrics..."
+                  placeholder="Enter unlock passkey, drop Photo Key, or scan Biometrics..."
                 />
               </div>
 
-              {/* Optional Sender Public Key for Verification */}
-              <div className="space-y-1.5 p-3 rounded-lg bg-[#0B0F19] border border-[#1E293B]">
+              {/* Optional Sender Key for Signature Verification */}
+              <div className="space-y-1.5 p-3.5 rounded-xl bg-[#0B0F19] border border-white/[0.06]">
                 <label
                   htmlFor="sender-pubkey-verify"
-                  className="text-xs text-[#94A3B8] flex items-center gap-1.5"
+                  className="text-xs text-slate-400 flex items-center gap-1.5"
                 >
-                  <Key className="w-3.5 h-3.5 text-[#3B82F6]" />
+                  <Key className="w-3.5 h-3.5 text-sky-400" />
                   <span>Sender Signing Key (Optional)</span>
                 </label>
                 <input
@@ -2049,20 +2204,21 @@ export const CoreStudio: React.FC = () => {
                   value={senderPublicKeyInput}
                   onChange={(e) => setSenderPublicKeyInput(e.target.value)}
                   placeholder="Auto-checks contacts and identity, or paste custom Base64 key..."
-                  className="w-full p-2 rounded bg-[#111827] border border-[#334155] text-white font-mono text-[11px] focus:outline-none focus:border-[#3B82F6]"
+                  className="w-full p-2.5 rounded-lg bg-[#111827] border border-white/[0.08] text-slate-200 font-mono text-[11px] focus:outline-none focus:border-sky-500"
                 />
-                <div className="text-[10px] text-[#64748B]">
+                <div className="text-[10px] text-slate-500">
                   Leave blank to automatically check against your saved Vault contacts and session
                   identities.
                 </div>
               </div>
 
+              {/* Extract CTA */}
               <div className="pt-2 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleExtract}
                   disabled={!revealPreview || isExtracting || Boolean(revealValidationError)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#3B82F6] hover:bg-[#2563EB] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all"
+                  className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-md transition-all cursor-pointer"
                 >
                   {isExtracting ? (
                     <>
@@ -2081,7 +2237,7 @@ export const CoreStudio: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => extractAbortRef.current?.abort()}
-                    className="px-3 py-2.5 rounded-lg bg-[#1E293B] hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-[#334155] transition-colors"
+                    className="px-4 py-3 rounded-xl bg-[#1E293B] hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-white/[0.08] transition-colors"
                   >
                     Cancel
                   </button>
@@ -2089,7 +2245,7 @@ export const CoreStudio: React.FC = () => {
               </div>
 
               {extractError && (
-                <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2">
+                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2">
                   <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="font-semibold">Extraction Failed</div>
@@ -2100,25 +2256,25 @@ export const CoreStudio: React.FC = () => {
             </div>
           </div>
 
-          {/* Reveal Result Column */}
-          <div className="lg:col-span-6 space-y-4">
-            <div className="p-5 rounded-xl bg-[#111827]/85 backdrop-blur-xl border border-[#1E293B]/80 shadow-2xl space-y-4">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[#14B8A6]" />
-                <span>Extracted Secret Information</span>
+          {/* Right Column: Extracted Secret Inspector */}
+          <div className="lg:col-span-6 space-y-5">
+            <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-emerald-400" />
+                <span>2. Extracted Secret Information</span>
               </h3>
 
               {extractedPayloadText !== null || extractedSecretFile !== null ? (
                 <div className="space-y-4">
                   {/* Detected Algorithm Badge */}
                   {detectedMethodName && (
-                    <div className="p-3 rounded-lg bg-[#7C3AED]/15 border border-[#7C3AED]/40 text-xs flex items-center justify-between">
+                    <div className="p-3 rounded-xl bg-[#0B0F19] border border-violet-500/30 text-xs flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-[#A855F7]" />
+                        <Layers className="w-4 h-4 text-violet-400" />
                         <span className="font-semibold text-white">Algorithm Detected:</span>
-                        <span className="text-[#C084FC] font-mono">{detectedMethodName}</span>
+                        <span className="text-violet-300 font-mono">{detectedMethodName}</span>
                       </div>
-                      <span className="px-2 py-0.5 rounded bg-[#14B8A6]/20 text-[#14B8A6] text-[10px] font-mono">
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-mono border border-emerald-500/20">
                         Integrity Verified
                       </span>
                     </div>
@@ -2128,29 +2284,29 @@ export const CoreStudio: React.FC = () => {
                   <div className="space-y-2">
                     {/* Passkey Authenticated Status */}
                     {decryptionStatus === 'passkey_decrypted' && (
-                      <div className="p-3 rounded-lg bg-[#7C3AED]/15 border border-[#7C3AED]/40 text-[#C084FC] text-xs flex items-center gap-2">
-                        <Lock className="w-4 h-4 flex-shrink-0 text-[#A855F7]" />
+                      <div className="p-3 rounded-xl bg-violet-500/10 border border-violet-500/30 text-violet-300 text-xs flex items-center gap-2.5">
+                        <Lock className="w-4 h-4 flex-shrink-0 text-violet-400" />
                         <div>
                           <div className="font-semibold text-white">
-                            Passkey Decryption Authenticated & Successful
+                            Passkey Decryption Successful
                           </div>
-                          <div className="text-[11px] text-[#C084FC]/90">
+                          <div className="text-[11px] text-violet-300/80">
                             Payload unlocked using your secret passkey / 32-byte token.
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Chameleon Pluralistic Layer Status */}
+                    {/* Chameleon Multi-Layer Status */}
                     {unlockedChameleonLayer && (
-                      <div className="p-3 rounded-lg bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 text-xs flex items-center gap-2">
-                        <Shield className="w-4 h-4 flex-shrink-0 text-indigo-400" />
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2.5">
+                        <Shield className="w-4 h-4 flex-shrink-0 text-amber-400" />
                         <div>
                           <div className="font-semibold text-white">
                             Chameleon Multi-Layer Payload Unlocked (
                             {unlockedChameleonLayer.toUpperCase()} Layer)
                           </div>
-                          <div className="text-[11px] text-indigo-300/90">
+                          <div className="text-[11px] text-amber-300/80">
                             {unlockedChameleonLayer === 'master'
                               ? 'Master vault payload unlocked with master secret.'
                               : 'Decoy layer revealed with plausible deniability key.'}
@@ -2161,19 +2317,21 @@ export const CoreStudio: React.FC = () => {
 
                     {/* Decryption Status */}
                     {decryptionStatus === 'decrypted' && (
-                      <div className="p-3 rounded-lg bg-[#14B8A6]/10 border border-[#14B8A6]/30 text-[#14B8A6] text-xs flex items-center gap-2">
-                        <Lock className="w-4 h-4 flex-shrink-0" />
+                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2.5">
+                        <Lock className="w-4 h-4 flex-shrink-0 text-emerald-400" />
                         <div>
-                          <div className="font-semibold">Decryption Authenticated & Successful</div>
-                          <div className="text-[11px] text-[#14B8A6]/80">
-                            Payload unlocked using your active Vault identity's X25519 private key.
+                          <div className="font-semibold text-white">
+                            Decryption Authenticated & Successful
+                          </div>
+                          <div className="text-[11px] text-emerald-300/80">
+                            Payload unlocked using active Vault identity X25519 private key.
                           </div>
                         </div>
                       </div>
                     )}
 
                     {decryptionStatus === 'failed' && (
-                      <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                      <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2.5">
                         <ShieldAlert className="w-4 h-4 flex-shrink-0" />
                         <div>
                           <div className="font-semibold">Decryption Failed</div>
@@ -2185,21 +2343,21 @@ export const CoreStudio: React.FC = () => {
                     )}
 
                     {decryptionStatus === 'plaintext' && (
-                      <div className="p-2.5 rounded-lg bg-[#1E293B] border border-[#334155] text-[#94A3B8] text-xs flex items-center gap-2">
-                        <FileText className="w-4 h-4 flex-shrink-0 text-[#94A3B8]" />
+                      <div className="p-2.5 rounded-xl bg-[#0B0F19] border border-white/[0.06] text-slate-400 text-xs flex items-center gap-2">
+                        <FileText className="w-4 h-4 flex-shrink-0" />
                         <span>Unencrypted Plaintext Payload (No cryptographic seal applied)</span>
                       </div>
                     )}
 
                     {/* Signature Status */}
                     {signatureStatus === 'verified_contact' && (
-                      <div className="p-3 rounded-lg bg-[#14B8A6]/10 border border-[#14B8A6]/30 text-[#14B8A6] text-xs flex items-center gap-2">
-                        <UserCheck className="w-4 h-4 flex-shrink-0 text-[#14B8A6]" />
+                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2.5">
+                        <UserCheck className="w-4 h-4 flex-shrink-0 text-emerald-400" />
                         <div>
-                          <div className="font-semibold">
+                          <div className="font-semibold text-white">
                             Sender Verified: {verifiedContactName}
                           </div>
-                          <div className="text-[11px] text-[#14B8A6]/80">
+                          <div className="text-[11px] text-emerald-300/80">
                             Canonical SignDoc Ed25519 signature matches saved public key.
                           </div>
                         </div>
@@ -2207,67 +2365,61 @@ export const CoreStudio: React.FC = () => {
                     )}
 
                     {signatureStatus === 'verified_unknown' && (
-                      <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2.5">
                         <ShieldCheck className="w-4 h-4 flex-shrink-0 text-amber-400" />
                         <div>
-                          <div className="font-semibold">
+                          <div className="font-semibold text-white">
                             Valid Ed25519 Signature (Unverified Key)
                           </div>
                           <div className="text-[11px] text-amber-300/80">
-                            Signature is mathematically valid, but the sender key is not in your
-                            Vault contacts.
+                            Signature is mathematically valid, but key is not in your saved
+                            contacts.
                           </div>
                         </div>
                       </div>
                     )}
 
                     {signatureStatus === 'invalid' && (
-                      <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                      <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2.5">
                         <ShieldAlert className="w-4 h-4 flex-shrink-0 text-red-400" />
                         <div>
                           <div className="font-semibold">Signature Verification Rejected</div>
                           <div className="text-[11px] text-red-400/80">
-                            The detached Ed25519 signature does not match the provided public key or
-                            metadata was altered.
+                            Detached Ed25519 signature does not match or metadata was altered.
                           </div>
                         </div>
                       </div>
                     )}
-
-                    {signatureStatus === 'none' && extractedEnvelope && (
-                      <div className="p-2 rounded-lg bg-[#0B0F19] border border-[#1E293B] text-[#64748B] text-xs">
-                        No digital signature attached to this message.
-                      </div>
-                    )}
                   </div>
 
+                  {/* OMB1 Protocol Metadata */}
                   {extractedEnvelope && (
-                    <div className="p-3.5 rounded-lg bg-[#0B0F19] border border-[#7C3AED]/30 space-y-2 text-xs">
+                    <div className="p-3.5 rounded-xl bg-[#0B0F19] border border-white/[0.06] space-y-2 text-xs">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-white flex items-center gap-1.5">
-                          <ShieldCheck className="w-4 h-4 text-[#7C3AED]" />
-                          <span>OMB1 Protocol Envelope Verified</span>
+                          <ShieldCheck className="w-4 h-4 text-violet-400" />
+                          <span>OMB1 Protocol Envelope</span>
                         </span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#7C3AED]/20 text-[#A855F7]">
-                          OMB1 Secure Envelope
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-500/10 text-violet-300 border border-violet-500/20">
+                          Secure Envelope
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
                         <div>
-                          <span className="text-[#64748B]">Crypto Suite: </span>
-                          <span className="text-[#E2E8F0] font-mono">
+                          <span className="text-slate-500">Crypto Suite: </span>
+                          <span className="text-slate-300 font-mono">
                             {extractedEnvelope.cryptoSuite}
                           </span>
                         </div>
                         <div>
-                          <span className="text-[#64748B]">Stego Method: </span>
-                          <span className="text-[#E2E8F0] font-mono">
+                          <span className="text-slate-500">Stego Method: </span>
+                          <span className="text-slate-300 font-mono">
                             {extractedEnvelope.stegoMethod}
                           </span>
                         </div>
                         <div className="col-span-2">
-                          <span className="text-[#64748B]">Message ID: </span>
-                          <span className="text-[#14B8A6] font-mono">
+                          <span className="text-slate-500">Message ID: </span>
+                          <span className="text-emerald-400 font-mono">
                             {Array.from(extractedEnvelope.messageId)
                               .map((b) => b.toString(16).padStart(2, '0'))
                               .join('')}
@@ -2277,32 +2429,30 @@ export const CoreStudio: React.FC = () => {
                     </div>
                   )}
 
+                  {/* Secret Image Result */}
                   {extractedSecretFile ? (
-                    <div className="space-y-3 p-4 rounded-xl bg-gradient-to-br from-[#111827] via-[#0F172A] to-[#111827] border border-[#14B8A6]/40 shadow-xl">
+                    <div className="space-y-3 p-4 rounded-xl bg-[#0B0F19] border border-emerald-500/30 shadow-lg">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-[#14B8A6]" />
-                          <span className="text-xs font-bold text-white uppercase tracking-wider">
+                        <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                          <ImageIcon className="w-4 h-4 text-emerald-400" />
+                          <span>
                             {extractedSecretFile.isImage
                               ? 'Secret Image Revealed'
                               : 'Secret File Recovered'}
                           </span>
-                        </div>
+                        </span>
                         <a
                           href={extractedSecretFile.blobUrl}
                           download={extractedSecretFile.name}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#14B8A6] to-[#06B6D4] text-white text-xs font-semibold shadow-md hover:brightness-110 transition-all"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-semibold transition-all"
                         >
                           <Download className="w-3.5 h-3.5" />
-                          <span>
-                            Download {extractedSecretFile.isImage ? 'Secret Image' : 'File'}
-                          </span>
+                          <span>Download {extractedSecretFile.isImage ? 'Image' : 'File'}</span>
                         </a>
                       </div>
 
-                      {/* Secret Image Preview */}
                       {extractedSecretFile.isImage && (
-                        <div className="relative rounded-lg overflow-hidden border border-[#1E293B] bg-[#050811] flex items-center justify-center p-2 max-h-80">
+                        <div className="relative rounded-lg overflow-hidden border border-white/[0.06] bg-[#050811] flex items-center justify-center p-2 max-h-80">
                           <img
                             src={extractedSecretFile.blobUrl}
                             alt={extractedSecretFile.name}
@@ -2311,20 +2461,19 @@ export const CoreStudio: React.FC = () => {
                         </div>
                       )}
 
-                      {/* File Details Badges */}
                       <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
-                        <span className="px-2 py-0.5 rounded bg-[#1E293B] text-[#E2E8F0]">
+                        <span className="px-2 py-0.5 rounded bg-[#111827] text-slate-300 border border-white/[0.06]">
                           {extractedSecretFile.name}
                         </span>
-                        <span className="px-2 py-0.5 rounded bg-[#1E293B] text-[#14B8A6]">
+                        <span className="px-2 py-0.5 rounded bg-[#111827] text-emerald-400 border border-white/[0.06]">
                           {(extractedSecretFile.size / 1024).toFixed(1)} KB
                         </span>
                         {extractedSecretFile.width && extractedSecretFile.height && (
-                          <span className="px-2 py-0.5 rounded bg-[#1E293B] text-[#A855F7]">
+                          <span className="px-2 py-0.5 rounded bg-[#111827] text-violet-300 border border-white/[0.06]">
                             {extractedSecretFile.width} × {extractedSecretFile.height} px
                           </span>
                         )}
-                        <span className="px-2 py-0.5 rounded bg-[#1E293B] text-[#3B82F6]">
+                        <span className="px-2 py-0.5 rounded bg-[#111827] text-sky-400 border border-white/[0.06]">
                           {extractedSecretFile.mime}
                         </span>
                       </div>
@@ -2332,7 +2481,7 @@ export const CoreStudio: React.FC = () => {
                   ) : extractedPayloadText !== null ? (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <label htmlFor="extracted-content-textarea" className="text-[#94A3B8]">
+                        <label htmlFor="extracted-content-textarea" className="text-slate-400">
                           Recovered Payload Text
                         </label>
                         <div className="flex items-center gap-2">
@@ -2345,7 +2494,7 @@ export const CoreStudio: React.FC = () => {
                                 setTimeout(() => setCopiedPayload(false), 2000);
                               }
                             }}
-                            className="flex items-center gap-1 px-2 py-1 rounded bg-[#1E293B] hover:bg-[#334155] text-[11px] text-[#E2E8F0] transition-colors"
+                            className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#1E293B] hover:bg-[#334155] text-[11px] text-slate-200 transition-colors"
                           >
                             <Copy className="w-3 h-3" />
                             <span>{copiedPayload ? 'Copied!' : 'Copy'}</span>
@@ -2353,7 +2502,7 @@ export const CoreStudio: React.FC = () => {
                           <a
                             href={`data:text/plain;charset=utf-8,${encodeURIComponent(extractedPayloadText)}`}
                             download={`ombrix-extracted-${Date.now()}.txt`}
-                            className="flex items-center gap-1 px-2 py-1 rounded bg-[#1E293B] hover:bg-[#334155] text-[11px] text-[#E2E8F0] transition-colors"
+                            className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#1E293B] hover:bg-[#334155] text-[11px] text-slate-200 transition-colors"
                           >
                             <Download className="w-3 h-3" />
                             <span>Download</span>
@@ -2365,14 +2514,13 @@ export const CoreStudio: React.FC = () => {
                         readOnly
                         value={extractedPayloadText}
                         rows={5}
-                        className="w-full p-3 rounded-lg bg-[#0B0F19] border border-[#1E293B] text-[#14B8A6] font-mono text-xs focus:outline-none resize-none"
+                        className="w-full p-3 rounded-xl bg-[#0B0F19] border border-white/[0.08] text-emerald-400 font-mono text-xs focus:outline-none resize-none"
                       />
                     </div>
                   ) : null}
 
-                  {/* Security Notice */}
-                  <div className="p-3 rounded-lg bg-[#0B0F19] border border-[#1E293B] flex items-center gap-2 text-[11px] text-[#64748B]">
-                    <ShieldAlert className="w-4 h-4 text-[#64748B] flex-shrink-0" />
+                  <div className="p-3 rounded-xl bg-[#0B0F19] border border-white/[0.06] flex items-center gap-2 text-[11px] text-slate-500">
+                    <ShieldAlert className="w-4 h-4 flex-shrink-0" />
                     <span>
                       Security Guarantee: Extracted payloads are isolated in memory and never
                       auto-executed.
@@ -2380,9 +2528,9 @@ export const CoreStudio: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="p-8 text-center text-[#64748B] text-xs">
-                  Upload an image and run extraction to view decoded payload contents and envelope
-                  metadata.
+                <div className="p-12 text-center text-slate-500 text-xs">
+                  Upload an image and run extraction to inspect decoded payload contents and
+                  envelope metadata.
                 </div>
               )}
             </div>

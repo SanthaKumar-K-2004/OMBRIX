@@ -1,5 +1,5 @@
 import type React from 'react';
-import { type HTMLAttributes, useEffect, useRef, useState } from 'react';
+import { type HTMLAttributes, memo, useEffect, useRef, useState } from 'react';
 
 export type GhostFibersFiberStyle = 'dots' | 'dashes' | 'lines';
 export type GhostFibersGradient = 'depth' | 'along' | 'across';
@@ -93,10 +93,9 @@ type Target = {
   height: number;
 };
 type Camera = { eye: number[]; viewProj: number[]; orient: number[] };
-type Nearest = { gap: number; s: number; ribbon: number; depth: number };
 
-const MAX_RENDER_DIM = 1600;
-const BLOOM_LEVELS = 3;
+const MAX_RENDER_DIM = 1280;
+const BLOOM_LEVELS = 1;
 const INTRO_SECONDS = 2.0;
 const CAMERA = 7.5;
 const FOV = 0.56;
@@ -647,13 +646,7 @@ const orientation = (yaw: number, pitch: number, roll: number) => {
   return mul(rz, mul(rx, ry));
 };
 
-const applyMat3 = (m: number[], v: number[]) => [
-  (m[0] ?? 0) * (v[0] ?? 0) + (m[3] ?? 0) * (v[1] ?? 0) + (m[6] ?? 0) * (v[2] ?? 0),
-  (m[1] ?? 0) * (v[0] ?? 0) + (m[4] ?? 0) * (v[1] ?? 0) + (m[7] ?? 0) * (v[2] ?? 0),
-  (m[2] ?? 0) * (v[0] ?? 0) + (m[5] ?? 0) * (v[1] ?? 0) + (m[8] ?? 0) * (v[2] ?? 0),
-];
-
-export const GhostFibers: React.FC<GhostFibersProps> = ({
+const GhostFibersComponent: React.FC<GhostFibersProps> = ({
   glowColor = '#8b5cf6',
   lineColor,
   secondaryColor,
@@ -825,7 +818,6 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
       focus: CAMERA + settingsRef.current.focusDepth * 3,
       pulse: { s: 0, age: 9, strength: 0, ribbon: 0 },
       camera: null as Camera | null,
-      lastNear: null as Nearest | null,
     };
     let raf = 0;
     let last = 0;
@@ -864,20 +856,6 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
       else state.line = s.lightMode ? state.glow : state.glow.map((c) => c + (1 - c) * 0.72);
     };
 
-    const centerLocal = (s: number, t: number, ribbon: number, waves: number) => {
-      const place = PLACEMENTS[ribbon] ?? [0, 0, 0, 0];
-      const ph = place[3] ?? 0;
-      const x = s * RIBBON_LENGTH;
-      const y =
-        waves *
-          (0.52 * Math.sin(x * 0.43 + t * 0.31 + ph) +
-            0.26 * Math.sin(x * 0.79 - t * 0.23 + 1.3 + ph * 0.7)) +
-        (place[0] ?? 0) +
-        x * (place[2] ?? 0);
-      const z = waves * 0.65 * Math.sin(x * 0.33 + t * 0.19 + 0.7 + ph * 1.3) + (place[1] ?? 0);
-      return [x, y, z];
-    };
-
     const cameraFor = (s: Settings): Camera => {
       const aspect = state.width / Math.max(state.height, 1);
       const eye: [number, number, number] = [0, 0, CAMERA];
@@ -891,50 +869,26 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
       return { eye, viewProj: multiply(projection, view), orient };
     };
 
-    const screenOf = (camera: Camera, world: number[]) => {
-      const m = camera.viewProj;
-      const x =
-        (m[0] ?? 0) * (world[0] ?? 0) +
-        (m[4] ?? 0) * (world[1] ?? 0) +
-        (m[8] ?? 0) * (world[2] ?? 0) +
-        (m[12] ?? 0);
-      const y =
-        (m[1] ?? 0) * (world[0] ?? 0) +
-        (m[5] ?? 0) * (world[1] ?? 0) +
-        (m[9] ?? 0) * (world[2] ?? 0) +
-        (m[13] ?? 0);
-      const w =
-        (m[3] ?? 0) * (world[0] ?? 0) +
-        (m[7] ?? 0) * (world[1] ?? 0) +
-        (m[11] ?? 0) * (world[2] ?? 0) +
-        (m[15] ?? 0);
-      return {
-        x: ((x / w) * 0.5 + 0.5) * state.width,
-        y: (0.5 - (y / w) * 0.5) * state.height,
-        depth: w,
-      };
+    let cachedRect = {
+      left: 0,
+      top: 0,
+      width: 0,
+      height: 0,
     };
-
-    const nearestOnRibbon = (s: Settings, px: number, py: number): Nearest | null => {
-      const camera = state.camera;
-      if (!camera) return null;
-      let best: Nearest | null = null;
-      for (let ribbon = 0; ribbon < s.layers; ribbon += 1) {
-        for (let i = 0; i <= 24; i += 1) {
-          const u = i / 24 - 0.5;
-          const local = centerLocal(u, state.time, ribbon, s.waves).map(
-            (c) => c * s.scale * state.fit,
-          );
-          const world = applyMat3(camera.orient, local);
-          const screen = screenOf(camera, world);
-          const gap = Math.hypot(screen.x - px, screen.y - py);
-          if (!best || gap < best.gap) best = { gap, s: u, ribbon, depth: screen.depth };
-        }
+    const updateRect = () => {
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        cachedRect = {
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        };
       }
-      return best;
     };
 
     const resize = () => {
+      updateRect();
       const s = settingsRef.current;
       const width = Math.max(1, container.clientWidth);
       const height = Math.max(1, container.clientHeight);
@@ -1156,6 +1110,8 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
       gl.bindVertexArray(null);
     };
 
+    let pendingPulse: { x: number; y: number } | null = null;
+
     const frame = (now: number) => {
       raf = 0;
       if (!alive || !visible || document.hidden) return;
@@ -1172,6 +1128,15 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
         state.intro += Math.min(elapsed, 1);
       } else if (state.intro < INTRO_SECONDS) {
         state.intro = INTRO_SECONDS;
+      }
+      if (pendingPulse) {
+        state.pulse = {
+          s: pendingPulse.x / Math.max(state.width, 1) - 0.5,
+          age: 0,
+          strength: 1,
+          ribbon: 0,
+        };
+        pendingPulse = null;
       }
       state.pulse.age += dt;
       state.pulse.strength = Math.max(0, 1 - state.pulse.age / 1.8) ** 2;
@@ -1199,18 +1164,18 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
       const resting = CAMERA + s.focusDepth * 3;
       let focusGoal = resting;
       if (active && s.hover === 0) {
-        if (state.frame % 3 === 0 || !state.lastNear) {
-          state.lastNear = nearestOnRibbon(s, hover.x, hover.y);
-        }
-        const near = state.lastNear;
-        if (near)
-          focusGoal =
-            resting + (near.depth - resting) * hover.presence * Math.min(1, s.mouseStrength);
+        focusGoal =
+          resting +
+          (hover.y / Math.max(state.height, 1) - 0.5) *
+            2.0 *
+            hover.presence *
+            Math.min(1, s.mouseStrength);
       }
       state.focus += (focusGoal - state.focus) * (1 - Math.exp(-dt / 0.35));
 
       render();
       const settling =
+        pendingPulse !== null ||
         Math.abs(goal - hover.presence) > 0.002 ||
         Math.abs(lookX - look.x) > 0.0002 ||
         Math.abs(lookY - look.y) > 0.0002 ||
@@ -1224,14 +1189,19 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
       if (!raf && alive && visible && !document.hidden) raf = requestAnimationFrame(frame);
     };
 
+    let moveRaf = 0;
     const onPointerMove = (event: PointerEvent) => {
-      const rect = container.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      state.pointer.x = x;
-      state.pointer.y = y;
-      state.pointer.inside = x >= 0 && y >= 0 && x <= rect.width && y <= rect.height;
-      wake();
+      if (moveRaf) return;
+      moveRaf = requestAnimationFrame(() => {
+        moveRaf = 0;
+        const rect = cachedRect;
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        state.pointer.x = x;
+        state.pointer.y = y;
+        state.pointer.inside = x >= 0 && y >= 0 && x <= rect.width && y <= rect.height;
+        wake();
+      });
     };
 
     const onPointerDown = (event: PointerEvent) => {
@@ -1242,12 +1212,11 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
         event.target.closest('a, button, input, textarea, select, label, [role="button"]')
       )
         return;
-      const rect = container.getBoundingClientRect();
+      const rect = cachedRect;
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
       if (x < 0 || y < 0 || x > rect.width || y > rect.height) return;
-      const near = nearestOnRibbon(s, x, y);
-      if (near) state.pulse = { s: near.s, age: 0, strength: 1, ribbon: near.ribbon };
+      pendingPulse = { x, y };
       wake();
     };
 
@@ -1271,9 +1240,13 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
       }
     });
     intersection.observe(container);
-    window.addEventListener('pointermove', onPointerMove, { passive: true });
-    window.addEventListener('pointerdown', onPointerDown);
-    document.documentElement.addEventListener('pointerleave', onPointerLeave);
+    if (settingsRef.current.mouseInteraction) {
+      window.addEventListener('pointermove', onPointerMove, { passive: true });
+      window.addEventListener('pointerdown', onPointerDown);
+      document.documentElement.addEventListener('pointerleave', onPointerLeave);
+    }
+    window.addEventListener('resize', updateRect, { passive: true });
+    window.addEventListener('scroll', updateRect, { passive: true });
     document.addEventListener('visibilitychange', onVisibility);
     resize();
     wake();
@@ -1286,27 +1259,30 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
     return () => {
       alive = false;
       cancelAnimationFrame(raf);
+      if (moveRaf) cancelAnimationFrame(moveRaf);
       wakeRef.current = null;
       resizeObserver.disconnect();
       intersection.disconnect();
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('resize', updateRect);
+      window.removeEventListener('scroll', updateRect);
       document.documentElement.removeEventListener('pointerleave', onPointerLeave);
       document.removeEventListener('visibilitychange', onVisibility);
-      gl.deleteVertexArray(vao);
+      if (vao) gl.deleteVertexArray(vao);
       for (const target of [scene, ...chain]) {
         if (target.texture) gl.deleteTexture(target.texture);
-        gl.deleteFramebuffer(target.framebuffer);
+        if (target.framebuffer) gl.deleteFramebuffer(target.framebuffer);
       }
       for (const entry of [dots, dust, bright, down, up, composite]) {
-        gl.deleteProgram(entry.program);
+        if (entry?.program) gl.deleteProgram(entry.program);
       }
     };
   }, []);
 
   useEffect(() => {
     wakeRef.current?.();
-  });
+  }, []);
 
   return (
     <div
@@ -1320,43 +1296,6 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
       style={style}
       {...rest}
     >
-      {/* Universal Luminous Plasma Wave & Fiber Stream (Runs smoothly on all GPUs, mobile devices, and displays) */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden select-none will-change-transform">
-        {/* Floating Cybernetic Plasma Aurora Beams */}
-        <div
-          className="absolute -top-[15%] left-[5%] w-[65vw] h-[550px] rounded-full animate-aurora-drift opacity-80"
-          style={{
-            background:
-              'radial-gradient(ellipse at center, rgba(124, 58, 237, 0.55) 0%, rgba(56, 189, 248, 0.3) 40%, transparent 72%)',
-            filter: 'blur(60px)',
-          }}
-        />
-        <div
-          className="absolute -top-[8%] right-[2%] w-[60vw] h-[500px] rounded-full animate-aurora-pulse opacity-75"
-          style={{
-            background:
-              'radial-gradient(ellipse at center, rgba(56, 189, 248, 0.5) 0%, rgba(129, 140, 248, 0.35) 45%, transparent 70%)',
-            filter: 'blur(65px)',
-          }}
-        />
-        <div
-          className="absolute top-[25%] left-[20%] w-[70vw] h-[480px] rounded-full animate-aurora-reverse opacity-70"
-          style={{
-            background:
-              'radial-gradient(ellipse at center, rgba(20, 184, 166, 0.45) 0%, rgba(124, 58, 237, 0.3) 50%, transparent 75%)',
-            filter: 'blur(70px)',
-          }}
-        />
-        <div
-          className="absolute bottom-[5%] right-[10%] w-[55vw] h-[450px] rounded-full animate-aurora-drift opacity-65"
-          style={{
-            background:
-              'radial-gradient(ellipse at center, rgba(168, 85, 247, 0.45) 0%, rgba(6, 182, 212, 0.25) 45%, transparent 70%)',
-            filter: 'blur(60px)',
-          }}
-        />
-      </div>
-
       {/* WebGL2 Particle & Fiber Stream Canvas */}
       <canvas
         ref={canvasRef}
@@ -1367,5 +1306,8 @@ export const GhostFibers: React.FC<GhostFibersProps> = ({
     </div>
   );
 };
+
+export const GhostFibers = memo(GhostFibersComponent);
+GhostFibers.displayName = 'GhostFibers';
 
 export default GhostFibers;

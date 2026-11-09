@@ -194,34 +194,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             <OmbrixLogo tagline={true} />
           </button>
 
-          {/* Primary Action Tabs (Center) */}
-          <nav className="hidden md:flex items-center p-1 bg-[#131B2E] border border-[#1E293B] rounded-xl shadow-inner">
-            <button
-              type="button"
-              onClick={() => handleSelectCoreTab('hide')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all ${
-                activeModule === 'core' && activeCoreTab === 'hide'
-                  ? 'bg-gradient-to-r from-[#7C3AED] to-[#A855F7] text-white shadow-[0_0_15px_rgba(124,58,237,0.4)]'
-                  : 'text-[#94A3B8] hover:text-[#E2E8F0] hover:bg-[#1E293B]/50'
-              }`}
-            >
-              <EyeOff className="w-4 h-4 text-[#C084FC]" />
-              <span>Hide Secret (Encode)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSelectCoreTab('reveal')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all ${
-                activeModule === 'core' && activeCoreTab === 'reveal'
-                  ? 'bg-gradient-to-r from-[#3B82F6] to-[#14B8A6] text-white shadow-[0_0_15px_rgba(59,130,246,0.4)]'
-                  : 'text-[#94A3B8] hover:text-[#E2E8F0] hover:bg-[#1E293B]/50'
-              }`}
-            >
-              <Eye className="w-4 h-4 text-[#38BDF8]" />
-              <span>Reveal Secret (Decode)</span>
-            </button>
-          </nav>
+          {/* Active Studio Indicator (Center) */}
+          <div className="hidden md:flex items-center gap-2 text-xs font-mono bg-[#111827]/80 px-3.5 py-1.5 rounded-xl border border-white/[0.08]">
+            <span className="text-slate-400 font-sans font-medium">Studio /</span>
+            <span className="text-white font-semibold">
+              {activeSecondaryTool ? activeSecondaryTool.label : 'Core Steganography'}
+            </span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono ml-1">
+              Active
+            </span>
+          </div>
 
           {/* Right Controls & Secondary Tools Dropdown */}
           <div className="hidden lg:flex items-center gap-3">
@@ -232,11 +214,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={() => setIsToolsOpen((prev) => !prev)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                   activeSecondaryTool
-                    ? 'bg-[#7C3AED]/20 border-[#7C3AED]/50 text-white shadow-[0_0_10px_rgba(124,58,237,0.25)]'
-                    : 'bg-[#1E293B]/70 hover:bg-[#1E293B] border-[#334155] text-[#94A3B8] hover:text-[#E2E8F0]'
+                    ? 'bg-violet-600/20 border-violet-500/50 text-white'
+                    : 'bg-[#1E293B]/80 hover:bg-[#2A374F] border-white/[0.08] text-slate-300 hover:text-white'
                 }`}
               >
-                <Wrench className="w-3.5 h-3.5 text-[#A855F7]" />
+                <Wrench className="w-3.5 h-3.5 text-violet-400" />
                 <span>{activeSecondaryTool ? activeSecondaryTool.label : 'Advanced Tools'}</span>
                 <ChevronDown
                   className={`w-3.5 h-3.5 transition-transform duration-200 ${isToolsOpen ? 'rotate-180' : ''}`}

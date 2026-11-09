@@ -14,15 +14,26 @@ import {
 } from '../src/index.js';
 
 function createMockChannel() {
-  const listeners: ((event: MessageEvent<StegoWorkerResponse>) => void)[] = [];
+  const eventListeners = new Map<
+    string,
+    ((event: Event | MessageEvent<StegoWorkerResponse> | ErrorEvent) => void)[]
+  >();
+
+  const dispatchEvent = (
+    type: string,
+    event: Event | MessageEvent<StegoWorkerResponse> | ErrorEvent,
+  ) => {
+    const list = eventListeners.get(type) ?? [];
+    for (const listener of list) {
+      listener(event);
+    }
+  };
 
   const port: WorkerPostMessagePort = {
     postMessage(message: StegoWorkerResponse) {
       queueMicrotask(() => {
         const event = new MessageEvent('message', { data: message });
-        for (const listener of listeners) {
-          listener(event);
-        }
+        dispatchEvent('message', event);
       });
     },
   };
@@ -35,18 +46,21 @@ function createMockChannel() {
         handler.handleMessage(message);
       });
     },
-    addEventListener(_type, listener) {
-      listeners.push(listener);
+    addEventListener(type, listener) {
+      const list = eventListeners.get(type) ?? [];
+      list.push(listener);
+      eventListeners.set(type, list);
     },
-    removeEventListener(_type, listener) {
-      const idx = listeners.indexOf(listener);
-      if (idx !== -1) listeners.splice(idx, 1);
+    removeEventListener(type, listener) {
+      const list = eventListeners.get(type) ?? [];
+      const idx = list.indexOf(listener);
+      if (idx !== -1) list.splice(idx, 1);
     },
   };
 
   const client = new StegoWorkerClient(clientChannel);
 
-  return { client, handler };
+  return { client, handler, dispatchEvent, clientChannel };
 }
 
 function createCarrier(width: number, height: number): CarrierImage {
@@ -115,5 +129,38 @@ describe('stego-worker package', () => {
     await expect(client.embed(carrier, payload, undefined, controller.signal)).rejects.toThrow(
       StegoAbortError,
     );
+  });
+
+  it('rejects pending jobs when worker terminates with an unhandled error event', async () => {
+    const { client, dispatchEvent } = createMockChannel();
+    const carrier = createCarrier(100, 100);
+    const payload = new Uint8Array(2000);
+
+    const embedPromise = client.embed(carrier, payload);
+    dispatchEvent('error', new ErrorEvent('error', { message: 'Worker crashed unexpectedly' }));
+
+    await expect(embedPromise).rejects.toThrow('Worker crashed unexpectedly');
+  });
+
+  it('rejects pending jobs when messageerror event is fired', async () => {
+    const { client, dispatchEvent } = createMockChannel();
+    const carrier = createCarrier(100, 100);
+    const payload = new Uint8Array(2000);
+
+    const embedPromise = client.embed(carrier, payload);
+    dispatchEvent('messageerror', new MessageEvent('messageerror'));
+
+    await expect(embedPromise).rejects.toThrow('Failed to deserialize worker message');
+  });
+
+  it('rejects pending jobs when client is destroyed', async () => {
+    const { client } = createMockChannel();
+    const carrier = createCarrier(100, 100);
+    const payload = new Uint8Array(2000);
+
+    const embedPromise = client.embed(carrier, payload);
+    client.destroy();
+
+    await expect(embedPromise).rejects.toThrow('Stego worker client was destroyed');
   });
 });

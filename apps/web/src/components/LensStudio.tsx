@@ -24,6 +24,29 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { studioDataBus } from '../services/studioDataBus.js';
 
+// Helper to parse carrier payload into a File without network fetch (CSP connect-src 'none' compliant)
+function parsePayloadToFile(payload: {
+  dataUrl?: string;
+  bytes?: Uint8Array;
+  name?: string;
+}): File | null {
+  const filename = payload.name || 'carrier.png';
+  if (payload.bytes && payload.bytes.length > 0) {
+    return new File([payload.bytes as unknown as BlobPart], filename, { type: 'image/png' });
+  }
+  if (payload.dataUrl) {
+    const commaIdx = payload.dataUrl.indexOf(',');
+    const base64 = commaIdx >= 0 ? payload.dataUrl.slice(commaIdx + 1) : payload.dataUrl;
+    const binaryStr = atob(base64);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    return new File([bytes as unknown as BlobPart], filename, { type: 'image/png' });
+  }
+  return null;
+}
+
 export const LensStudio: React.FC = () => {
   const [_carrierFile, setCarrierFile] = useState<File | null>(null);
   const [carrierPreview, setCarrierPreview] = useState<string | null>(null);
@@ -57,21 +80,21 @@ export const LensStudio: React.FC = () => {
   const diffCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Clean up object URLs when previews change or unmount
-  useEffect(() => {
-    return () => {
-      if (carrierPreview?.startsWith('blob:')) {
-        URL.revokeObjectURL(carrierPreview);
-      }
-    };
-  }, [carrierPreview]);
+  const carrierPreviewRef = useRef<string | null>(null);
+  carrierPreviewRef.current = carrierPreview;
+  const comparePreviewRef = useRef<string | null>(null);
+  comparePreviewRef.current = comparePreview;
 
   useEffect(() => {
     return () => {
-      if (comparePreview?.startsWith('blob:')) {
-        URL.revokeObjectURL(comparePreview);
+      if (carrierPreviewRef.current?.startsWith('blob:')) {
+        URL.revokeObjectURL(carrierPreviewRef.current);
+      }
+      if (comparePreviewRef.current?.startsWith('blob:')) {
+        URL.revokeObjectURL(comparePreviewRef.current);
       }
     };
-  }, [comparePreview]);
+  }, []);
 
   // Handle Primary Carrier Load
   const handleCarrierSelect = useCallback(async (file: File) => {
@@ -82,7 +105,12 @@ export const LensStudio: React.FC = () => {
     setHistogramData(null);
 
     const url = URL.createObjectURL(file);
-    setCarrierPreview(url);
+    setCarrierPreview((prev) => {
+      if (prev?.startsWith('blob:')) {
+        URL.revokeObjectURL(prev);
+      }
+      return url;
+    });
 
     try {
       const buffer = new Uint8Array(await file.arrayBuffer());
@@ -121,12 +149,12 @@ export const LensStudio: React.FC = () => {
   // Listen for incoming carriers from Studio Data Bus
   useEffect(() => {
     const unsubscribe = studioDataBus.subscribeCarrier(async (payload) => {
-      if (!payload?.dataUrl) return;
+      if (!payload?.dataUrl && !payload?.bytes) return;
       try {
-        const res = await fetch(payload.dataUrl);
-        const blob = await res.blob();
-        const file = new File([blob], payload.name || 'carrier.png', { type: 'image/png' });
-        await handleCarrierSelect(file);
+        const file = parsePayloadToFile(payload);
+        if (file) {
+          await handleCarrierSelect(file);
+        }
       } catch (_err) {
         // Ignore fallback
       }
@@ -138,7 +166,12 @@ export const LensStudio: React.FC = () => {
   const handleCompareSelect = useCallback(async (file: File) => {
     setCompareFile(file);
     const url = URL.createObjectURL(file);
-    setComparePreview(url);
+    setComparePreview((prev) => {
+      if (prev?.startsWith('blob:')) {
+        URL.revokeObjectURL(prev);
+      }
+      return url;
+    });
 
     try {
       const buffer = new Uint8Array(await file.arrayBuffer());

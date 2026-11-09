@@ -16,7 +16,6 @@ import {
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
-  Sparkles,
 } from 'lucide-react';
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
@@ -182,12 +181,12 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
             onClick={handleGenerateDiceware}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
               activeTab === 'diceware'
-                ? 'bg-[#7C3AED] text-white shadow-[0_0_10px_rgba(124,58,237,0.4)]'
-                : 'bg-[#1E293B] text-[#94A3B8] hover:text-[#E2E8F0] hover:bg-[#334155]'
+                ? 'bg-violet-600 text-white shadow-sm'
+                : 'bg-[#111827] text-slate-400 hover:text-slate-200 hover:bg-[#1E293B] border border-white/[0.08]'
             }`}
             title="Generate an easy-to-remember 4-word phrase (e.g. velvet-matrix-falcon-orbit)"
           >
-            <Dices className="w-3 h-3 text-[#A855F7]" />
+            <Dices className="w-3 h-3 text-violet-400" />
             <span>Memorable Words</span>
           </button>
 
@@ -196,12 +195,12 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
             onClick={() => fileInputRef.current?.click()}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
               activeTab === 'image'
-                ? 'bg-[#14B8A6] text-white shadow-[0_0_10px_rgba(20,184,166,0.4)]'
-                : 'bg-[#1E293B] text-[#94A3B8] hover:text-[#E2E8F0] hover:bg-[#334155]'
+                ? 'bg-violet-600 text-white shadow-sm'
+                : 'bg-[#111827] text-slate-400 hover:text-slate-200 hover:bg-[#1E293B] border border-white/[0.08]'
             }`}
             title="Select any photo as the 32-byte cryptographic key (Zero typing required!)"
           >
-            <ImageIcon className="w-3 h-3 text-[#14B8A6]" />
+            <ImageIcon className="w-3 h-3 text-emerald-400" />
             <span>Photo as Key</span>
           </button>
 
@@ -210,12 +209,12 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
             onClick={handleGenerateCrypto32}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
               activeTab === 'crypto32'
-                ? 'bg-[#3B82F6] text-white shadow-[0_0_10px_rgba(59,130,246,0.4)]'
-                : 'bg-[#1E293B] text-[#94A3B8] hover:text-[#E2E8F0] hover:bg-[#334155]'
+                ? 'bg-violet-600 text-white shadow-sm'
+                : 'bg-[#111827] text-slate-400 hover:text-slate-200 hover:bg-[#1E293B] border border-white/[0.08]'
             }`}
             title="Generate a high-entropy 256-bit (32-byte) cryptographic key token"
           >
-            <Sparkles className="w-3 h-3 text-[#3B82F6]" />
+            <Key className="w-3 h-3 text-sky-400" />
             <span>32-Byte Token</span>
           </button>
 
@@ -225,12 +224,12 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
             disabled={isBioEnrolling}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
               activeTab === 'biometric'
-                ? 'bg-[#EC4899] text-white shadow-[0_0_10px_rgba(236,72,153,0.4)]'
-                : 'bg-[#1E293B] text-[#94A3B8] hover:text-[#E2E8F0] hover:bg-[#334155]'
+                ? 'bg-violet-600 text-white shadow-sm'
+                : 'bg-[#111827] text-slate-400 hover:text-slate-200 hover:bg-[#1E293B] border border-white/[0.08]'
             }`}
             title="Authenticate with Touch ID, Face ID, or Windows Hello for instant hardware-backed key"
           >
-            <Fingerprint className="w-3 h-3 text-[#EC4899]" />
+            <Fingerprint className="w-3 h-3 text-pink-400" />
             <span>{isBioEnrolling ? 'Scanning...' : 'Device Biometrics'}</span>
           </button>
         </div>

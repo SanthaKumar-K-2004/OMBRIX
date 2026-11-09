@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface SplitComparisonSliderProps {
   originalUrl: string;
@@ -16,23 +16,63 @@ export const SplitComparisonSlider: React.FC<SplitComparisonSliderProps> = ({
 }) => {
   const [sliderPos, setSliderPos] = useState(50);
   const containerRef = useRef<HTMLDivElement>(null);
+  const rectRef = useRef<DOMRect | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const latestXRef = useRef<number>(0);
+
+  // Clean cleanup of animation frame on component unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, []);
 
   const updatePosition = (clientX: number) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
+    const rect = rectRef.current || containerRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0) return;
     const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
     setSliderPos((x / rect.width) * 100);
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.buttons === 1) {
-      updatePosition(e.clientX);
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (containerRef.current) {
+      rectRef.current = containerRef.current.getBoundingClientRect();
+    }
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (_err) {
+      // Fallback for browsers not supporting pointer capture
+    }
+    latestXRef.current = e.clientX;
+    updatePosition(e.clientX);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.buttons === 1 || e.currentTarget.hasPointerCapture(e.pointerId)) {
+      latestXRef.current = e.clientX;
+      if (rafRef.current !== null) return;
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        updatePosition(latestXRef.current);
+      });
     }
   };
 
-  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches[0]) {
-      updatePosition(e.touches[0].clientX);
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch (_err) {
+      // Ignore
+    }
+    rectRef.current = null;
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     }
   };
 
@@ -73,10 +113,11 @@ export const SplitComparisonSlider: React.FC<SplitComparisonSliderProps> = ({
             setSliderPos((p) => Math.min(100, p + 5));
           }
         }}
-        onMouseMove={handleMouseMove}
-        onTouchMove={handleTouchMove}
-        onClick={(e) => updatePosition(e.clientX)}
-        className="relative w-full h-64 overflow-hidden rounded-xl border border-[#1E293B] select-none cursor-ew-resize bg-[#0B0F19] focus:outline-none focus:ring-1 focus:ring-[#7C3AED]"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="relative w-full h-64 overflow-hidden rounded-xl border border-[#1E293B] select-none cursor-ew-resize bg-[#0B0F19] focus:outline-none focus:ring-1 focus:ring-[#7C3AED] touch-none"
       >
         {/* Original Base Image */}
         <img

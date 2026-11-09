@@ -16,16 +16,16 @@ import type {
   StegoWorkerSuccessResponse,
 } from './protocol.js';
 
+export type WorkerChannelEvent = Event | MessageEvent<StegoWorkerResponse> | ErrorEvent;
+
 export interface WorkerChannel {
   postMessage(message: StegoWorkerIncomingMessage, transfer?: Transferable[]): void;
-  addEventListener(
-    type: 'message',
-    listener: (event: MessageEvent<StegoWorkerResponse>) => void,
-  ): void;
-  removeEventListener(
-    type: 'message',
-    listener: (event: MessageEvent<StegoWorkerResponse>) => void,
-  ): void;
+  addEventListener(type: string, listener: (event: WorkerChannelEvent) => void): void;
+  removeEventListener(type: string, listener: (event: WorkerChannelEvent) => void): void;
+}
+
+export interface StegoEmbedResult extends CarrierImage {
+  metrics?: { mse: number; psnr: number; elapsedMs: number };
 }
 
 export class StegoWorkerClient {
@@ -41,11 +41,18 @@ export class StegoWorkerClient {
 
   constructor(private channel: WorkerChannel) {
     this.handleMessage = this.handleMessage.bind(this);
+    this.handleError = this.handleError.bind(this);
+    this.handleMessageError = this.handleMessageError.bind(this);
     this.channel.addEventListener('message', this.handleMessage);
+    this.channel.addEventListener('error', this.handleError);
+    this.channel.addEventListener('messageerror', this.handleMessageError);
   }
 
-  private handleMessage(event: MessageEvent<StegoWorkerResponse>): void {
-    const data = event.data;
+  private handleMessage(event: WorkerChannelEvent): void {
+    if (!('data' in event) || event.type !== 'message') {
+      return;
+    }
+    const data = event.data as StegoWorkerResponse;
     if (!data?.id) return;
 
     const job = this.pendingJobs.get(data.id);
@@ -63,13 +70,42 @@ export class StegoWorkerClient {
     }
   }
 
+  private handleError(event: WorkerChannelEvent): void {
+    if (event.type !== 'error') {
+      return;
+    }
+    const message =
+      ('message' in event && typeof event.message === 'string' && event.message) ||
+      ('error' in event && event.error instanceof Error ? event.error.message : undefined) ||
+      'Stego worker terminated with an unhandled error';
+    const err = new StegoError(message, 'WORKER_TERMINATED_ERROR');
+    for (const [_id, job] of this.pendingJobs) {
+      job.reject(err);
+    }
+    this.pendingJobs.clear();
+  }
+
+  private handleMessageError(event: WorkerChannelEvent): void {
+    if (event.type !== 'messageerror') {
+      return;
+    }
+    const err = new StegoError(
+      'Failed to deserialize worker message',
+      'WORKER_MESSAGE_DESERIALIZE_ERROR',
+    );
+    for (const [_id, job] of this.pendingJobs) {
+      job.reject(err);
+    }
+    this.pendingJobs.clear();
+  }
+
   public async embed(
     carrier: CarrierImage,
     payload: Uint8Array,
     options?: StegoOptions,
     signal?: AbortSignal,
     onProgress?: StegoProgressCallback,
-  ): Promise<CarrierImage> {
+  ): Promise<StegoEmbedResult> {
     const id = `job_${this.nextId++}`;
 
     // Create transferable copies
@@ -86,7 +122,7 @@ export class StegoWorkerClient {
       options,
     };
 
-    return this.executeJob<CarrierImage>(
+    return this.executeJob<StegoEmbedResult>(
       id,
       request,
       [carrierCopy.buffer, payloadCopy.buffer],
@@ -96,6 +132,7 @@ export class StegoWorkerClient {
         width: carrier.width,
         height: carrier.height,
         data: new Uint8ClampedArray(res.carrierBuffer!),
+        metrics: res.metrics,
       }),
     );
   }
@@ -197,6 +234,11 @@ export class StegoWorkerClient {
 
   public destroy(): void {
     this.channel.removeEventListener('message', this.handleMessage);
+    this.channel.removeEventListener('error', this.handleError);
+    this.channel.removeEventListener('messageerror', this.handleMessageError);
+    for (const [_id, job] of this.pendingJobs) {
+      job.reject(new StegoAbortError('Stego worker client was destroyed'));
+    }
     this.pendingJobs.clear();
   }
 }

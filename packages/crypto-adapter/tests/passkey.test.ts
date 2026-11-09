@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
+  constantTimeEqual,
   decryptWithPasskey,
   deriveBiometricKey,
   deriveKeyFromImage,
@@ -11,6 +12,8 @@ import {
   initCrypto,
   isPasskeyEncrypted,
   normalizeFormattedKey,
+  wipeBuffers,
+  zeroMemory,
 } from '../src/index.js';
 
 describe('Smart Passkey Generator & Derivation Engine', () => {
@@ -185,6 +188,54 @@ describe('Smart Passkey Generator & Derivation Engine', () => {
       expect(() => decryptWithPasskey(encrypted, token)).toThrow(
         /Decryption failed: incorrect passkey, token mismatch/,
       );
+    });
+
+    it('guarantees V1 and V2 container interoperability and backward compatibility', () => {
+      const passphrase = 'quantum-falcon-cipher-node';
+      const encV1 = encryptWithPasskey(secretMessage, passphrase, 1);
+      const encV2 = encryptWithPasskey(secretMessage, passphrase, 2);
+
+      expect(encV1[7]).toBe(0x01);
+      expect(encV2[7]).toBe(0x02);
+      expect(isPasskeyEncrypted(encV1)).toBe(true);
+      expect(isPasskeyEncrypted(encV2)).toBe(true);
+
+      const decV1 = decryptWithPasskey(encV1, passphrase);
+      const decV2 = decryptWithPasskey(encV2, passphrase);
+
+      expect(decV1).toEqual(secretMessage);
+      expect(decV2).toEqual(secretMessage);
+    });
+
+    it('guarantees unique salts across successive V2 encryptions (anti-rainbow-table)', () => {
+      const phrase = 'static-shared-passphrase';
+      const enc1 = encryptWithPasskey(secretMessage, phrase);
+      const enc2 = encryptWithPasskey(secretMessage, phrase);
+
+      // Extract 16-byte salts
+      const salt1 = enc1.subarray(8, 24);
+      const salt2 = enc2.subarray(8, 24);
+      expect(salt1).not.toEqual(salt2);
+      expect(enc1).not.toEqual(enc2);
+    });
+
+    it('safely zeroizes memory buffers and performs constant-time comparison', () => {
+      const keyBuffer = new Uint8Array([1, 2, 3, 4, 5]);
+      zeroMemory(keyBuffer);
+      expect(keyBuffer).toEqual(new Uint8Array(5));
+
+      const bufA = new Uint8Array([10, 20, 30]);
+      const bufB = new Uint8Array([10, 20, 30]);
+      const bufC = new Uint8Array([10, 20, 31]);
+      const bufD = new Uint8Array([10, 20]);
+
+      expect(constantTimeEqual(bufA, bufB)).toBe(true);
+      expect(constantTimeEqual(bufA, bufC)).toBe(false);
+      expect(constantTimeEqual(bufA, bufD)).toBe(false);
+
+      wipeBuffers(bufA, bufB, null, undefined);
+      expect(bufA).toEqual(new Uint8Array(3));
+      expect(bufB).toEqual(new Uint8Array(3));
     });
   });
 });
