@@ -5,7 +5,7 @@
 
 **Carrier-grade steganographic concealment, cryptographic scattering, edge-adaptive masking, and ±1 LSB matching.**
 
-[![Tests](https://img.shields.io/badge/tests-451%20passed%20%2F%20100%25-emerald?style=for-the-badge&logo=vitest&logoColor=white)](https://github.com/SanthaKumar-K-2004/OMBRIX)
+[![Tests](https://img.shields.io/badge/tests-455%20passed%20%2F%20100%25-emerald?style=for-the-badge&logo=vitest&logoColor=white)](https://github.com/SanthaKumar-K-2004/OMBRIX)
 [![Architecture](https://img.shields.io/badge/architecture-100%25%20Client--Side-violet?style=for-the-badge&logo=webassembly&logoColor=white)](https://github.com/SanthaKumar-K-2004/OMBRIX)
 [![Security](https://img.shields.io/badge/cryptography-Argon2id%20%2B%20Libsodium-blue?style=for-the-badge&logo=shield&logoColor=white)](https://github.com/SanthaKumar-K-2004/OMBRIX)
 [![Linter](https://img.shields.io/badge/code%20style-biome%20clean-cyan?style=for-the-badge&logo=biome&logoColor=white)](https://biomejs.dev/)
@@ -221,13 +221,13 @@ pnpm run dev
 
 ### Test Suite Execution
 ```bash
-# Run all 446 unit & integration tests across 65 test suites
+# Run all 455 unit & integration tests across 69 test suites
 pnpm test
 ```
 
 ### Static Analysis & Linter Check
 ```bash
-# Run Biome code quality audit (0 warnings, 0 errors across 245 files)
+# Run Biome code quality audit (0 warnings, 0 errors across 253 files)
 pnpm run lint
 ```
 
@@ -236,6 +236,13 @@ pnpm run lint
 # Compile all workspace packages in dependency order
 pnpm run build
 ```
+
+### Cloud Deployment (Vercel, Netlify, Cloudflare)
+OMBRIX includes automated multi-target output mirroring (`scripts/ensure-dist.mjs`). Whether your Vercel project is imported with **Root Directory** as `./` (repo root) or `apps/web`, the build pipeline automatically mirrors production assets to both `dist` and `apps/web/dist`:
+- **Framework Preset**: Vite
+- **Build Command**: `pnpm run build`
+- **Output Directory**: `dist` (or `apps/web/dist` if deploying from repo root)
+- **Zero Config Needed**: `vercel.json` headers ensure strict CSP, HSTS, and frame protections out of the box.
 
 ---
 

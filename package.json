@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "pnpm --filter @ombrix/web run dev",
     "preview": "pnpm --filter @ombrix/web run preview",
-    "build": "pnpm -r run build",
+    "build": "pnpm -r run build && node scripts/ensure-dist.mjs",
     "test": "vitest run",
     "test:unit": "vitest run",
     "typecheck": "pnpm -r run typecheck",
