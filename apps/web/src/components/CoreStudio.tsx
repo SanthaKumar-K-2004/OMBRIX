@@ -2141,6 +2141,41 @@ export const CoreStudio: React.FC = () => {
                       <span>Download Social JPEG</span>
                     </button>
                   )}
+                  {selectedMethod === 'stego-robust-resilient' && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!carrierImageData || !embeddedBlobRef.current) return;
+                        const canvas = document.createElement('canvas');
+                        canvas.width = carrierImageData.width;
+                        canvas.height = carrierImageData.height;
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) return;
+                        const img = new Image();
+                        img.src = embeddedImageUrl;
+                        await img.decode();
+                        ctx.drawImage(img, 0, 0);
+                        canvas.toBlob(
+                          (blob) => {
+                            if (!blob) return;
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `ombrix-social-carrier-${Date.now()}.jpg`;
+                            a.click();
+                            setTimeout(() => URL.revokeObjectURL(url), 2000);
+                          },
+                          'image/jpeg',
+                          0.85,
+                        );
+                      }}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs transition-colors cursor-pointer"
+                      title="Download as JPEG ready for normal WhatsApp / social media photo sending"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download Social JPEG</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={async () => {
