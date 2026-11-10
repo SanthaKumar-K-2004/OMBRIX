@@ -2,52 +2,50 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /**
- * Ensures build output `dist` is mirrored across both repository root and `apps/web`,
- * guaranteeing that Vercel, Netlify, Cloudflare Pages, or Docker static file servers
- * find the output directory regardless of whether Root Directory is configured as
- * `./` or `apps/web`.
+ * Finds the monorepo root by locating pnpm-workspace.yaml.
+ */
+function findMonorepoRoot(startDir = process.cwd()) {
+  let curr = path.resolve(startDir);
+  while (curr !== path.dirname(curr)) {
+    if (fs.existsSync(path.join(curr, 'pnpm-workspace.yaml'))) {
+      return curr;
+    }
+    curr = path.dirname(curr);
+  }
+  return path.resolve(startDir);
+}
+
+/**
+ * Ensures build output from `apps/web/dist` is mirrored to repository root `dist`,
+ * guaranteeing that static deployments find the latest build output.
  */
 function ensureDist() {
-  const cwd = process.cwd();
+  const root = findMonorepoRoot();
+  const sourceDist = path.join(root, 'apps', 'web', 'dist');
 
-  // Find where the built assets actually are
-  const candidateSources = [
-    path.resolve(cwd, 'apps/web/dist'),
-    path.resolve(cwd, 'dist'),
-    path.resolve(cwd, '../web/dist'),
-    path.resolve(cwd, '../../apps/web/dist'),
-  ];
+  // Purge any accidental nested dirs
+  const staleNested = path.join(root, 'apps', 'web', 'apps');
+  if (fs.existsSync(staleNested)) {
+    try {
+      fs.rmSync(staleNested, { recursive: true, force: true });
+    } catch {
+      // ignore
+    }
+  }
 
-  const sourceDist = candidateSources.find(
-    (dir) => fs.existsSync(dir) && fs.existsSync(path.join(dir, 'index.html')),
-  );
-
-  if (!sourceDist) {
-    console.warn('[ensure-dist] Warning: No built dist/index.html found to mirror.');
+  if (!fs.existsSync(sourceDist) || !fs.existsSync(path.join(sourceDist, 'index.html'))) {
+    console.warn('[ensure-dist] Warning: No built apps/web/dist/index.html found to mirror.');
     return;
   }
 
-  // Target locations to mirror to
-  const targets = [
-    path.resolve(cwd, 'dist'),
-    path.resolve(cwd, 'apps/web/dist'),
-    path.resolve(cwd, 'apps/web/apps/web/dist'),
-  ];
-
-  // If cwd is apps/web, also mirror up to root
-  if (cwd.endsWith('apps/web')) {
-    targets.push(path.resolve(cwd, '../../dist'));
-  }
-
-  for (const target of targets) {
-    if (path.resolve(target) === path.resolve(sourceDist)) continue;
-    try {
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-      fs.cpSync(sourceDist, target, { recursive: true });
-      console.log(`[ensure-dist] Mirrored build output to: ${target}`);
-    } catch (err) {
-      console.warn(`[ensure-dist] Non-fatal mirror warning for ${target}:`, err);
-    }
+  // Mirror to root dist
+  const rootDist = path.join(root, 'dist');
+  try {
+    fs.mkdirSync(rootDist, { recursive: true });
+    fs.cpSync(sourceDist, rootDist, { recursive: true });
+    console.log(`[ensure-dist] Successfully mirrored fresh build to: ${rootDist}`);
+  } catch (err) {
+    console.warn(`[ensure-dist] Non-fatal mirror warning for ${rootDist}:`, err);
   }
 }
 
