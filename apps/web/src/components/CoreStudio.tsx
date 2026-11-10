@@ -152,7 +152,7 @@ export const CoreStudio: React.FC = () => {
   const [carrierImageData, setCarrierImageData] = useState<ImageData | null>(null);
   const [isGeneratingGhost, setIsGeneratingGhost] = useState(false);
   const [ghostTheme, setGhostTheme] = useState<GhostCarrierTheme>('nebula');
-  const [ghostResolution, setGhostResolution] = useState<GhostCarrierResolution>('whatsapp');
+  const [ghostResolution, setGhostResolution] = useState<GhostCarrierResolution>('resilient');
 
   // Hide (Embed) State
   const [payloadMode, setPayloadMode] = useState<'text' | 'image'>('text');
@@ -439,7 +439,7 @@ export const CoreStudio: React.FC = () => {
     [ghostTheme, ghostResolution, handleCarrierSelect],
   );
 
-  // Handle 1-Click Carrier Auto-Fit for WhatsApp / Social Media (Downscale to <=1280px to prevent WhatsApp downscaling)
+  // Handle 1-Click Carrier Auto-Fit for Social & Messaging Channels (Downscale to <=1280px to prevent downscaling)
   const handleAutoFitCarrierForSocial = useCallback(async () => {
     if (!carrierImageData) return;
     const maxDim = Math.max(carrierImageData.width, carrierImageData.height);
@@ -1057,7 +1057,7 @@ export const CoreStudio: React.FC = () => {
           revealMethod === 'stego-robust-resilient' ||
           (revealFile && !revealFile.type.includes('png') && !revealFile.name.endsWith('.png'))
         ) {
-          setDetectedMethodName('OMBRIX Hyper-Matrix (Dual-Layer: WhatsApp Resilient Recovery)');
+          setDetectedMethodName('OMBRIX Hyper-Matrix (Dual-Layer: Universal Resilient Recovery)');
         } else {
           setDetectedMethodName('OMBRIX Hyper-Matrix (Dual-Layer: Wavelet High-Capacity Recovery)');
         }
@@ -1302,7 +1302,7 @@ export const CoreStudio: React.FC = () => {
                             Synthesize Zero-Provenance Carrier:
                           </div>
                           <div className="flex items-center gap-1">
-                            {(['whatsapp', 'desktop', 'compact'] as const).map((r) => (
+                            {(['resilient', 'desktop', 'compact'] as const).map((r) => (
                               <button
                                 key={r}
                                 type="button"
@@ -1317,8 +1317,8 @@ export const CoreStudio: React.FC = () => {
                                     : 'bg-[#131B2E] text-slate-400 hover:text-slate-200 border border-white/[0.04]'
                                 }`}
                               >
-                                {r === 'whatsapp'
-                                  ? '720p (Chat)'
+                                {r === 'resilient'
+                                  ? '720p (Resilient)'
                                   : r === 'desktop'
                                     ? '1080p'
                                     : '540p'}
@@ -1375,10 +1375,12 @@ export const CoreStudio: React.FC = () => {
                       <div className="flex items-start gap-2.5 text-amber-300">
                         <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-400" />
                         <div>
-                          <span className="font-semibold text-amber-200">Social Media Alert:</span>{' '}
+                          <span className="font-semibold text-amber-200">
+                            Channel Optimization:
+                          </span>{' '}
                           Carrier exceeds 1280px ({carrierImageData.width} ×{' '}
-                          {carrierImageData.height}). Messaging apps (WhatsApp, Telegram) will
-                          automatically recompress and downscale this image if sent as a standard
+                          {carrierImageData.height}). Standard messaging networks automatically
+                          recompress and downscale images exceeding 1280px if sent as a standard
                           photo.
                         </div>
                       </div>
@@ -1675,7 +1677,7 @@ export const CoreStudio: React.FC = () => {
                     }`}
                   >
                     <Shield className="w-3.5 h-3.5 text-violet-300" />
-                    <span>Hyper-Matrix (Dual-Layer: WhatsApp + Vault)</span>
+                    <span>Hyper-Matrix (Dual-Layer: Resilient + Vault)</span>
                   </button>
                   <button
                     type="button"
@@ -1715,12 +1717,12 @@ export const CoreStudio: React.FC = () => {
                     </span>
                   </div>
                   <div className="text-[11px] text-slate-400 mt-1">
-                    Dual-Layer: Survives normal WhatsApp/social photo sending + High-capacity
-                    wavelet vault
+                    Dual-Layer: Survives normal social/chat photo sending + High-capacity wavelet
+                    vault
                   </div>
                 </button>
 
-                {/* Flagship WhatsApp-Safe Option: Robust Messaging */}
+                {/* Flagship Lossy-Safe Option: Robust Messaging */}
                 <button
                   type="button"
                   onClick={() => setSelectedMethod('stego-robust-resilient')}
@@ -1734,7 +1736,7 @@ export const CoreStudio: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-white">Robust Messaging</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
-                        WhatsApp &amp; Social Safe
+                        Lossy Channel Safe
                       </span>
                     </div>
                     <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium">
@@ -1742,7 +1744,7 @@ export const CoreStudio: React.FC = () => {
                     </span>
                   </div>
                   <div className="text-[11px] text-slate-400 mt-1">
-                    Block differential modulation + 5x FEC (Survives WhatsApp compression &amp;
+                    Block differential modulation + 5x FEC (Survives lossy compression &amp; channel
                     noise)
                   </div>
                 </button>
@@ -1835,9 +1837,9 @@ export const CoreStudio: React.FC = () => {
                     <span>Defense:</span>
                     <span className="text-slate-200 font-medium">
                       {selectedMethod === 'stego-hyper-matrix'
-                        ? 'Dual-Layer: WhatsApp Resilient + Wavelet LSB Hybrid'
+                        ? 'Dual-Layer: Universal Resilient + Wavelet LSB Hybrid'
                         : selectedMethod === 'stego-robust-resilient'
-                          ? 'Block Luminance Differential + 5x FEC (WhatsApp Safe)'
+                          ? 'Block Luminance Differential + 5x FEC (Resilient Mode)'
                           : selectedMethod === 'stego-stealth-matrix'
                             ? 'ChaCha20 Coordinate Scatter + ±1 Matching'
                             : selectedMethod === 'stego-dwt'
@@ -1849,9 +1851,9 @@ export const CoreStudio: React.FC = () => {
                   </div>
                   <span className="font-mono text-[10px] text-sky-400">
                     {selectedMethod === 'stego-hyper-matrix'
-                      ? 'Universal (WhatsApp + Vault)'
+                      ? 'Universal Resilient'
                       : selectedMethod === 'stego-robust-resilient'
-                        ? 'WhatsApp Safe'
+                        ? 'Channel Safe'
                         : selectedMethod === 'stego-stealth-matrix'
                           ? 'PSNR >50 dB'
                           : selectedMethod === 'stego-dwt'
@@ -2160,7 +2162,7 @@ export const CoreStudio: React.FC = () => {
                     {selectedMethod === 'stego-hyper-matrix'
                       ? 'Hyper-Matrix (Quad-Hybrid)'
                       : selectedMethod === 'stego-robust-resilient'
-                        ? 'Robust Messaging (WhatsApp Safe)'
+                        ? 'Robust Messaging (Resilient Mode)'
                         : selectedMethod === 'stego-stealth-matrix'
                           ? 'Stealth Matrix (±1)'
                           : selectedMethod === 'stego-dwt'
@@ -2234,7 +2236,7 @@ export const CoreStudio: React.FC = () => {
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = `ombrix-whatsapp-photo-${Date.now()}.jpg`;
+                            a.download = `ombrix-resilient-carrier-${Date.now()}.jpg`;
                             a.click();
                             setTimeout(() => URL.revokeObjectURL(url), 2000);
                           },
@@ -2243,10 +2245,10 @@ export const CoreStudio: React.FC = () => {
                         );
                       }}
                       className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs transition-colors cursor-pointer"
-                      title="Download pre-formatted JPEG ready for normal WhatsApp / social media photo sending"
+                      title="Download pre-formatted JPEG ready for transmission over lossy messaging channels"
                     >
                       <Smartphone className="w-4 h-4" />
-                      <span>Download WhatsApp Photo (JPEG)</span>
+                      <span>Export Resilient Carrier (JPEG)</span>
                     </button>
                   )}
                   <button
@@ -2262,7 +2264,7 @@ export const CoreStudio: React.FC = () => {
                           if (navigator.canShare?.({ files: [file] })) {
                             await navigator.share({
                               title: 'OMBRIX Steganographic Carrier',
-                              text: 'OMBRIX secure carrier. Send as Document in WhatsApp to preserve lossless steganography.',
+                              text: 'OMBRIX secure steganographic carrier. Transmit as Document / File for lossless extraction.',
                               files: [file],
                             });
                             return;
@@ -2280,7 +2282,7 @@ export const CoreStudio: React.FC = () => {
                     className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-xs transition-colors cursor-pointer"
                   >
                     <Share2 className="w-4 h-4" />
-                    <span>Share to WhatsApp / Mobile</span>
+                    <span>Transmit / Share Carrier</span>
                   </button>
                 </div>
 
@@ -2346,27 +2348,26 @@ export const CoreStudio: React.FC = () => {
                 </div>
               </div>
 
-              {/* WhatsApp & Social Media Transmission Guidance Callout */}
+              {/* Transmission Channel Protocol Callout */}
               <div className="p-3.5 rounded-xl bg-violet-950/20 border border-violet-500/20 text-xs flex items-start gap-3">
                 <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 shrink-0 mt-0.5">
                   <Share2 className="w-4 h-4" />
                 </div>
                 <div className="space-y-1">
                   <div className="font-semibold text-white flex items-center gap-2">
-                    <span>Sending to Phone via WhatsApp or Telegram?</span>
+                    <span>Channel Transmission Protocol</span>
                     <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono">
-                      Safe Transfer Tip
+                      Security Practice
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-300 leading-relaxed">
-                    WhatsApp automatically recompresses standard photos and strips steganographic
-                    bits. To preserve 100% lossless quality, attach as a{' '}
-                    <strong className="text-emerald-300">Document</strong> (tap{' '}
-                    <span className="font-mono bg-white/10 px-1 py-0.5 rounded text-white">
-                      📎 ➔ Document
-                    </span>{' '}
-                    instead of Gallery/Photo). If sending as a normal photo, choose{' '}
-                    <strong className="text-violet-300">Robust Messaging Mode</strong> above.
+                    Standard messaging networks automatically recompress photos and alter discrete
+                    least-significant bits. For bit-exact megabyte transfers (files, photos),
+                    transmit carriers as uncompressed{' '}
+                    <strong className="text-emerald-300">Files / Documents</strong>. For standard
+                    photo sharing over lossy networks, use{' '}
+                    <strong className="text-violet-300">Universal Resilient Mode</strong> (Luminance
+                    Differential + 5x FEC).
                   </p>
                 </div>
               </div>
@@ -2456,7 +2457,7 @@ export const CoreStudio: React.FC = () => {
                     Hyper-Matrix (Quad-Hybrid Omni-Stealth)
                   </option>
                   <option value="stego-robust-resilient">
-                    Robust Messaging (WhatsApp &amp; Social Safe)
+                    Robust Messaging (Universal Lossy Safe)
                   </option>
                   <option value="stego-stealth-matrix">Stealth Matrix (CSPRNG Permutation)</option>
                   <option value="png-lsb-sequential">Sequential RGB LSB</option>
@@ -2541,8 +2542,7 @@ export const CoreStudio: React.FC = () => {
                     </div>
                   </div>
 
-                  {(revealFile?.name.toLowerCase().includes('whatsapp') ||
-                    revealFile?.name.toLowerCase().endsWith('.jpg') ||
+                  {(revealFile?.name.toLowerCase().endsWith('.jpg') ||
                     revealFile?.name.toLowerCase().endsWith('.jpeg') ||
                     revealFile?.name.toLowerCase().endsWith('.webp') ||
                     revealFile?.type === 'image/jpeg' ||
@@ -2550,32 +2550,28 @@ export const CoreStudio: React.FC = () => {
                     <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs space-y-2">
                       <div className="flex items-center gap-2 font-semibold text-amber-300">
                         <AlertTriangle className="w-4 h-4 text-amber-400" />
-                        <span>WhatsApp / Social Media Compression Detected</span>
+                        <span>Lossy Channel Recompression Detected</span>
                       </div>
                       <p className="text-[11px] text-amber-200/90 leading-relaxed">
-                        This image appears to have been saved from WhatsApp as a standard photo.
-                        WhatsApp's lossy compression alters pixel values and discards standard
-                        steganographic least-significant bits.
+                        This carrier underwent lossy discrete cosine transform (DCT) or quantization
+                        recompression typical of standard messaging networks, altering discrete
+                        pixel least-significant bits.
                       </p>
                       <div className="p-2.5 rounded-lg bg-black/40 border border-amber-500/20 text-[11px] space-y-1.5">
                         <div className="font-medium text-white flex items-center gap-1.5">
-                          <span>💡 2 Ways to Transmit Without Issue:</span>
+                          <span>Channel Transmission Protocols:</span>
                         </div>
                         <ul className="list-disc list-inside space-y-1 text-slate-300 text-[11px]">
                           <li>
-                            <strong>Lossless Transfer (Best for photos &amp; files):</strong> Ask
-                            the sender on WhatsApp to attach the carrier as a{' '}
-                            <strong>Document</strong> (tap{' '}
-                            <span className="font-mono bg-white/10 px-1 py-0.5 rounded text-white">
-                              📎 ➔ Document
-                            </span>{' '}
-                            instead of Gallery/Photo). WhatsApp transfers documents with 100%
-                            bit-exact quality.
+                            <strong>Lossless Transfer (Recommended for files &amp; photos):</strong>{' '}
+                            Transmit carriers as an uncompressed <strong>Document / File</strong> to
+                            preserve bit-exact pixel integrity.
                           </li>
                           <li>
-                            <strong>Lossy-Resilient Mode:</strong> If sending as a normal photo,
-                            have the sender select <strong>Robust Messaging Mode</strong> during
-                            encoding, which survives WhatsApp lossy compression!
+                            <strong>Universal Resilient Mode:</strong> When transmitting through
+                            lossy channels as standard photos, ensure the sender encoded using{' '}
+                            <strong>Universal Resilient Mode</strong> (Luminance Differential + 5x
+                            FEC).
                           </li>
                         </ul>
                       </div>

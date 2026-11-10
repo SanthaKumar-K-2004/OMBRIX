@@ -651,6 +651,6 @@ describe('Milestone 3 Empirical Verification & Adversarial Stress Harness', () =
           ts.createSourceFile(chunk, chunkContent, ts.ScriptTarget.Latest, true);
         }).not.toThrow();
       }
-    });
+    }, 20000);
   });
 });

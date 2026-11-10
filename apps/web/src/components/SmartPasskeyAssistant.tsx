@@ -85,7 +85,7 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
     setActiveTab('crypto32');
   }, [onChange]);
 
-  // Method 3: Photo as Passkey (Dual-Carrier Key with Perceptual WhatsApp Resilience)
+  // Method 3: Photo as Passkey (Dual-Carrier Key with Perceptual Lossy-Channel Resilience)
   const handleKeyImageUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -106,7 +106,7 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
         const rawHex = toHex(rawKeyBytes).toUpperCase();
         setRawHexKey(rawHex);
 
-        // 2. Perceptual Visual Key (WhatsApp/Telegram/Cloud-safe)
+        // 2. Perceptual Visual Key (Lossy Channel / Cloud Safe)
         try {
           const img = new Image();
           img.src = thumbUrl;
@@ -132,7 +132,7 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
             if (photoHashMode === 'perceptual') {
               onChange(percHex, {
                 type: 'image',
-                label: `Perceptual Photo Key (WhatsApp Safe): ${file.name}`,
+                label: `Perceptual Photo Key (Resilient Mode): ${file.name}`,
               });
             } else {
               onChange(rawHex, {
@@ -162,7 +162,7 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
       if (mode === 'perceptual' && perceptualHexKey) {
         onChange(perceptualHexKey, {
           type: 'image',
-          label: `Perceptual Photo Key (WhatsApp Safe): ${keyImageName ?? 'Photo'}`,
+          label: `Perceptual Photo Key (Resilient Mode): ${keyImageName ?? 'Photo'}`,
         });
       } else if (mode === 'raw' && rawHexKey) {
         onChange(rawHexKey, {
@@ -328,7 +328,7 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
                 ? 'bg-violet-600 text-white shadow-sm'
                 : 'bg-[#111827] text-slate-400 hover:text-slate-200 hover:bg-[#1E293B] border border-white/[0.08]'
             }`}
-            title="Select any photo as the 32-byte cryptographic key with WhatsApp perceptual resilience"
+            title="Select any photo as the 32-byte cryptographic key with lossy-channel perceptual resilience"
           >
             <ImageIcon className="w-3 h-3 text-emerald-400" />
             <span>Photo as Key</span>
@@ -428,7 +428,7 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
         </div>
       </div>
 
-      {/* Photo Key Active Card with WhatsApp Resilience Toggle */}
+      {/* Photo Key Active Card with Channel Resilience Toggle */}
       {keyImageThumb && (
         <div className="p-3 rounded-xl bg-[#14B8A6]/10 border border-[#14B8A6]/30 space-y-2">
           <div className="flex items-center gap-3">
@@ -444,7 +444,7 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
               </div>
               <div className="text-[11px] text-[#94A3B8] truncate">
                 {photoHashMode === 'perceptual'
-                  ? 'Perceptual visual hashing (Survives WhatsApp & social media recompression)'
+                  ? 'Perceptual visual hashing (Survives lossy channel & social media recompression)'
                   : 'Bit-exact file byte entropy (Requires lossless file transfer)'}
               </div>
             </div>
@@ -475,7 +475,7 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
                   : 'bg-[#111827] text-slate-400 hover:text-white border border-white/[0.08]'
               }`}
             >
-              WhatsApp / Cloud Safe (Perceptual)
+              Lossy-Channel Resilient (Perceptual)
             </button>
             <button
               type="button"
@@ -635,9 +635,9 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
                     phone.
                   </li>
                   <li>
-                    <strong>Photo as Key:</strong> Send the key photo via WhatsApp or Cloud.
-                    Perceptual hashing ensures it matches 100% across devices even after
-                    compression.
+                    <strong>Photo as Key:</strong> Transmit the key photo via messaging or cloud
+                    channels. Perceptual hashing ensures it matches 100% across devices even after
+                    lossy recompression.
                   </li>
                   <li>
                     <strong>Device Biometrics:</strong> Hardware chips differ per device. Use this

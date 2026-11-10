@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'none'; base-uri 'self';"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'none'; base-uri 'self';"
     />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta name="referrer" content="no-referrer" />
@@ -13,6 +13,12 @@
     
     <title>OMBRIX — Beyond what the eye can see.</title>
     <meta name="description" content="Carrier-grade steganography, cryptographic scattering, and undetectable client-side concealment." />
+    <meta name="keywords" content="steganography, forensic steganography, visual cryptanalysis, zero-telemetry, client-side encryption, chacha20-poly1305, argon2id, lossless image security, carrier analysis, robust stego" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <link rel="canonical" href="https://ombrix.vercel.app/" />
+
+    <!-- Google Search Console Site Verification -->
+    <meta name="google-site-verification" content="GSC_VERIFICATION_TOKEN" />
 
     <!-- Favicon & Icon Branding in URL Bar / Browser Tab -->
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
@@ -26,12 +32,44 @@
     <!-- OpenGraph & Social Preview Sharing -->
     <meta property="og:title" content="OMBRIX — Beyond what the eye can see." />
     <meta property="og:description" content="Carrier-grade steganography, cryptographic scattering, and undetectable client-side concealment." />
-    <meta property="og:image" content="/icon-512.png" />
+    <meta property="og:url" content="https://ombrix.vercel.app/" />
+    <meta property="og:image" content="https://ombrix.vercel.app/icon-512.png" />
     <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="OMBRIX — Beyond what the eye can see." />
     <meta name="twitter:description" content="Carrier-grade steganography, cryptographic scattering, and undetectable client-side concealment." />
-    <meta name="twitter:image" content="/icon-512.png" />
+    <meta name="twitter:image" content="https://ombrix.vercel.app/icon-512.png" />
+
+    <!-- JSON-LD Structured Data for Google Search Engine Optimization & Rich Snippets -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "OMBRIX",
+        "url": "https://ombrix.vercel.app/",
+        "operatingSystem": "All",
+        "applicationCategory": "SecurityApplication",
+        "applicationSubCategory": "Steganography & Cryptanalysis Suite",
+        "description": "Carrier-grade steganography, cryptographic scattering, and undetectable client-side concealment.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "featureList": [
+          "Zero-Server 100% Client-Side Cryptography",
+          "Universal Dual-Layer Hyper-Matrix Steganography",
+          "Lossy Channel & Social Messaging Resilience",
+          "Argon2id Memory-Hard Key Derivation",
+          "ChaCha20-Poly1305 Authenticated Encryption",
+          "Stego Forensic Analysis & Carrier Inspection"
+        ],
+        "author": {
+          "@type": "Organization",
+          "name": "OMBRIX Security Research"
+        }
+      }
+    </script>
 
     <!-- Typography Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

@@ -36,7 +36,7 @@ const STEGO_METHODS: Array<{ id: string; name: string; badge: string; method: St
   {
     id: 'stego-hyper-matrix',
     name: 'OMBRIX Hyper-Matrix (Dual-Layer)',
-    badge: 'WhatsApp Resilient',
+    badge: 'Lossy-Channel Resilient',
     method: hyperMatrixMethod,
   },
   {

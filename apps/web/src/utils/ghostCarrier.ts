@@ -9,17 +9,23 @@
  */
 
 export type GhostCarrierTheme = 'nebula' | 'cyber' | 'quantum' | 'aurora';
-export type GhostCarrierResolution = 'whatsapp' | 'desktop' | 'compact';
+export type GhostCarrierResolution = 'resilient' | 'desktop' | 'compact' | 'whatsapp';
 
 export const GHOST_RESOLUTIONS: Record<
   GhostCarrierResolution,
   { width: number; height: number; label: string; badge: string }
 > = {
+  resilient: {
+    width: 1280,
+    height: 720,
+    label: 'Standard Resilient HD (1280×720)',
+    badge: 'Channel Safe',
+  },
   whatsapp: {
     width: 1280,
     height: 720,
-    label: 'WhatsApp Native (1280×720)',
-    badge: 'Social Safe',
+    label: 'Standard Resilient HD (1280×720)',
+    badge: 'Channel Safe',
   },
   desktop: {
     width: 1920,
@@ -45,7 +51,7 @@ export interface GeneratedGhostCarrier {
 
 export function generateGhostCarrier(
   theme: GhostCarrierTheme = 'nebula',
-  targetResolution: GhostCarrierResolution | number = 'whatsapp',
+  targetResolution: GhostCarrierResolution | number = 'resilient',
   customHeight?: number,
 ): Promise<GeneratedGhostCarrier> {
   let width = 1280;

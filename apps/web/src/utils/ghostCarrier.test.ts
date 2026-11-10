@@ -15,9 +15,9 @@ describe('Ghost-Gen: Zero-Provenance Procedural Carrier Synthesizer', () => {
     }
   });
 
-  it('synthesizes WhatsApp-safe native resolution (1280x720) by default', async () => {
+  it('synthesizes resilient native resolution (1280x720) by default', async () => {
     try {
-      const carrier = await generateGhostCarrier('cyber', 'whatsapp');
+      const carrier = await generateGhostCarrier('cyber', 'resilient');
       expect(carrier.width).toBe(1280);
       expect(carrier.height).toBe(720);
     } catch (_err) {

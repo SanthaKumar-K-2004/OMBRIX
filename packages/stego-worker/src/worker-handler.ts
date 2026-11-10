@@ -130,7 +130,7 @@ export class StegoWorkerHandler {
             },
           );
         } else {
-          // Auto-probe: Hyper-Matrix -> Stealth Matrix -> Robust Messaging (WhatsApp safe) -> LSB -> PVD -> DWT -> DCT
+          // Auto-probe: Hyper-Matrix -> Stealth Matrix -> Robust Messaging (Resilient Mode) -> LSB -> PVD -> DWT -> DCT
           const probeMethods: StegoMethod[] = [
             hyperMatrixMethod,
             stealthMatrixMethod,

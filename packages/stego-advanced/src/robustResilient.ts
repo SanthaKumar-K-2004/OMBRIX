@@ -17,8 +17,8 @@ export const ROBUST_SYNC_MARKER = 0x3d4c5a9f;
 // Repetition factor for Forward Error Correction (FEC): each bit is voted on across 5 blocks
 export const FEC_REPETITION_FACTOR = 5;
 
-// Modulation differential margin: imperceptible to eye (PSNR > 43 dB) but survives JPEG Q60-Q85
-export const MODULATION_MARGIN = 8;
+// Modulation differential margin: imperceptible to eye (PSNR > 41 dB) but survives aggressive lossy JPEG Q60-Q85
+export const MODULATION_MARGIN = 16;
 
 // Bit 31 in length header indicates whether HMAC authentication and ChaCha20 encryption armor is active
 export const KEYED_ARMOR_FLAG = 0x80000000;
@@ -155,7 +155,7 @@ function resampleCarrier(carrier: CarrierImage, targetW: number, targetH: number
 /**
  * Robust Resilient Steganography Engine.
  *
- * Specifically engineered to survive lossy compression (WhatsApp, Telegram, Discord, social media recompression),
+ * Specifically engineered to survive lossy compression (messaging apps, social media recompression),
  * minor downscaling, and channel noise.
  *
  * Utilizes block differential luminance modulation with 5x Forward Error Correction (FEC),
@@ -163,10 +163,10 @@ function resampleCarrier(carrier: CarrierImage, targetW: number, targetH: number
  */
 export class RobustResilientStegoMethod implements StegoMethod {
   public readonly id = 'stego-robust-resilient';
-  public readonly name = 'Robust Messaging (WhatsApp & Social Media Resilient)';
+  public readonly name = 'Robust Messaging (Universal Lossy Channel & Social Safe)';
   public readonly version = '2.0.0';
   public readonly description =
-    'Lossy-resilient steganography engineered to survive WhatsApp JPEG recompression, WebP transcoding, downscaling, and channel noise via block differential modulation, ChaCha20-Poly1305 encryption armor, and Forward Error Correction.';
+    'Lossy-resilient steganography engineered to survive aggressive JPEG recompression, WebP transcoding, downscaling, and channel noise via block differential modulation, ChaCha20-Poly1305 encryption armor, and Forward Error Correction.';
 
   public calculateCapacity(carrier: CarrierImage, _options?: StegoOptions): CapacityReport {
     const blockRows = Math.floor(carrier.height / 8);
@@ -218,7 +218,7 @@ export class RobustResilientStegoMethod implements StegoMethod {
     const capacity = this.calculateCapacity(carrier, options);
     if (capacity.usableBytes === 0 || payload.length > capacity.usableBytes) {
       throw new InsufficientCapacityError(
-        `Payload size (${payload.length} bytes) exceeds usable robust messaging capacity (${capacity.usableBytes} bytes). For larger files/photos, send uncompressed as a Document in WhatsApp.`,
+        `Payload size (${payload.length} bytes) exceeds usable resilient capacity (${capacity.usableBytes} bytes). For larger files/photos, transmit uncompressed as a Document / File.`,
       );
     }
 
@@ -379,7 +379,7 @@ export class RobustResilientStegoMethod implements StegoMethod {
     try {
       return await this.extractDirect(carrier, options, signal, onProgress);
     } catch (primaryErr) {
-      // If direct extraction failed, check if image was resized by WhatsApp / social platform
+      // If direct extraction failed, check if image was resized by messaging / social platforms
       // Probe multi-scale recovery candidates (both upscaled and downscaled)
       const maxDim = Math.max(carrier.width, carrier.height);
       const candidateMaxes = [2560, 2048, 1920, 1600, 1440, 1280, 1080, 1024, 960, 800, 720];
@@ -408,7 +408,7 @@ export class RobustResilientStegoMethod implements StegoMethod {
         }
       }
 
-      // 2. Specific social media scale factors (WhatsApp 1.5x, 1.25x, 1.333x, 2.0x, 0.667x, 0.8x, 0.75x)
+      // 2. Specific social media scale factors (1.5x, 1.25x, 1.333x, 2.0x, 0.667x, 0.8x, 0.75x)
       const scaleFactors = [1.5, 1.25, 4 / 3, 2.0, 2 / 3, 0.8, 0.75, 0.5];
       for (const sf of scaleFactors) {
         const targetW = Math.round((carrier.width * sf) / 8) * 8;
@@ -547,7 +547,7 @@ export class RobustResilientStegoMethod implements StegoMethod {
         if ((syncDiff >> b) & 1) bitErrors++;
       }
 
-      if (bitErrors > 1) {
+      if (bitErrors > 4) {
         lastError = new ExtractionError(
           'No valid Robust Messaging synchronization header detected in carrier.',
         );

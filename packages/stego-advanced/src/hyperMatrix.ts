@@ -70,7 +70,7 @@ function buildHyperPermutation(carrier: CarrierImage, scatterKey: Uint8Array): U
 
 /**
  * Flagship Universal Dual-Layer Steganography Engine:
- * Combines resilient block luminance modulation (which survives WhatsApp, social media lossy JPEG/WebP compression,
+ * Combines resilient block luminance modulation (which survives lossy JPEG/WebP compression,
  * chromatic subsampling, and spatial downscaling) with 2D Haar DWT frequency isolation, Wu & Tsai PVD edge-adaptive visual masking,
  * ChaCha20 CSPRNG coordinate scattering, and ±1 LSB matching into a single mathematically superior, forensically undetectable system.
  */
@@ -79,7 +79,7 @@ export class HyperMatrixMethod implements StegoMethod {
   public readonly name = 'OMBRIX Hyper-Matrix (Universal Dual-Layer Omni-Stealth)';
   public readonly version = '2.0.0';
   public readonly description =
-    'Flagship universal dual-layer steganography engine uniting lossy-resilient block luminance modulation (survives WhatsApp, social media JPEG/WebP compression and downscaling) with 2D Haar DWT frequency subband decomposition, Wu & Tsai PVD edge-adaptive visual masking, ChaCha20 cryptographic coordinate scattering, and ±1 LSB matching into a single mathematically superior, forensically undetectable system.';
+    'Flagship universal dual-layer steganography engine uniting lossy-resilient block luminance modulation (survives social messaging JPEG/WebP recompression and downscaling) with 2D Haar DWT frequency subband decomposition, Wu & Tsai PVD edge-adaptive visual masking, ChaCha20 cryptographic coordinate scattering, and ±1 LSB matching into a single mathematically superior, forensically undetectable system.';
 
   public calculateCapacity(carrier: CarrierImage, _options?: StegoOptions): CapacityReport {
     const totalPixels = carrier.width * carrier.height;
@@ -136,7 +136,7 @@ export class HyperMatrixMethod implements StegoMethod {
     }
 
     // 1. DUAL-LAYER EMBEDDING:
-    // First embed the payload into the lossy-resilient robust layer (survives WhatsApp JPEG compression)
+    // First embed the payload into the lossy-resilient robust layer (survives lossy JPEG compression)
     // if payload fits within robust capacity.
     let baseCarrier = carrier;
     const robustCap = robustResilientStego.calculateCapacity(carrier, options);
@@ -320,8 +320,8 @@ export class HyperMatrixMethod implements StegoMethod {
       lsbError = err instanceof Error ? err : new Error(String(err));
     }
 
-    // 2. Seamless Fallback: Resilient Robust Carrier Extraction (WhatsApp / Lossy JPEG Recovery)
-    // If the image was recompressed or sent through WhatsApp as a standard photo,
+    // 2. Seamless Fallback: Resilient Robust Carrier Extraction (Lossy Channel / JPEG Recovery)
+    // If the image was recompressed or sent through social channels as a standard photo,
     // the LSBs are altered, but the robust block luminance modulation survives.
     try {
       const robustResult = await robustResilientStego.extract(carrier, options, signal, onProgress);
