@@ -50,37 +50,63 @@ OMBRIX/
 
 ## 3. Data Flow Pipelines
 
-### 3.1 Concealment Pipeline (Embed)
+### 3.1 Concealment Pipeline (Universal Dual-Layer Embed)
 
 ```
-[User Text / File]
+[User Text / Secret File / Passkey]
         │
         ▼
-[Payload Protocol: Serialize OMB1 Envelope]
+[Payload Protocol: Passkey Armor / OMB1 Envelope]
         │
         ▼
-[Carrier PNG File] ──► [Image Validation: Static PNG & Bomb Defense]
-                               │
-                               ▼
-        [Web Worker Sandbox: Sequential RGB LSB Embedding]
-                               │
-                               ▼
-                    [Output Stego PNG File]
+[Carrier Image] ──► [Image Validation: Dimensions & Bomb Defense]
+                            │
+                            ▼
+    ┌────────────────────────────────────────────────────────┐
+    │  Web Worker Sandbox: Dual-Layer Hyper-Matrix Embedding │
+    │                                                        │
+    │  1. Layer 1 (Robust Carrier):                          │
+    │     4x4 sub-quadrant block luminance differential      │
+    │     survives WhatsApp JPEG 75 & downscaling            │
+    │                                                        │
+    │  2. Layer 2 (High-Capacity Wavelet Vault):             │
+    │     2D Haar DWT + PVD ±1 LSB matching on top           │
+    │     carries multi-megabyte secret files losslessly     │
+    └────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+    ┌────────────────────────────────────────────────────────┐
+    │                Dual-Format Output Exporter             │
+    │  • Lossless Stego PNG (for Document sharing & cloud)   │
+    │  • WhatsApp Safe JPEG (1280px native photo sending)    │
+    └────────────────────────────────────────────────────────┘
 ```
 
-### 3.2 Reveal Pipeline (Extract)
+### 3.2 Reveal Pipeline (Fallback Extract)
 
 ```
-[Uploaded Stego PNG File]
+[Uploaded Stego Carrier (PNG or WhatsApp JPEG)]
         │
         ▼
 [Image Validation: Verify Header & Chunk Integrity]
         │
         ▼
-[Web Worker Sandbox: Sequential RGB LSB Extraction]
+┌────────────────────────────────────────────────────────┐
+│  Web Worker Sandbox: Universal Hyper-Matrix Extraction │
+│                                                        │
+│  Attempt 1: High-Capacity Wavelet LSB Extraction       │
+│  • Checks HYPR magic + 8-byte HMAC-SHA256              │
+│  • Succeeded? ──► Decrypt & Return Payload             │
+│                                                        │
+│  Attempt 2: Lossy-Resilient Fallback (WhatsApp JPEG)   │
+│  • Probes native & candidate scale resolutions         │
+│  • Barker Sync Marker detection (0x3D4C5A9F)           │
+│  • Majority-vote FEC + ChaCha20 decryption             │
+│  • HMAC tag verification ──► Return Payload            │
+└────────────────────────────────────────────────────────┘
         │
         ▼
-[Payload Protocol: Parse & Verify OMB1 Envelope Checksum]
+[Payload Protocol: Unlock Passkey / 32-Byte Token / Chameleon]
         │
         ▼
 [Recovered Payload Metadata & Plaintext / File]

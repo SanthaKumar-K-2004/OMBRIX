@@ -1,5 +1,5 @@
 import { DecryptionFailedError, InvalidKeyError } from './errors.js';
-import { parseAnyKey32, toBase64 } from './fingerprint.js';
+import { normalizePasskeyInput, parseAnyKey32, toBase64 } from './fingerprint.js';
 import { zeroMemory } from './memory.js';
 import { getSodium } from './sodium.js';
 
@@ -888,7 +888,7 @@ export const PASSKEY_SALT_BYTES = 16;
  * This makes offline dictionary and GPU farm brute-force attacks mathematically and computationally infeasible.
  */
 export function derivePasskeyKey(passkey: string, salt: Uint8Array): Uint8Array {
-  const clean = passkey.trim();
+  const clean = normalizePasskeyInput(passkey);
   const sodium = getSodium();
   try {
     return sodium.crypto_pwhash(

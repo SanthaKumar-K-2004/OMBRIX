@@ -73,6 +73,38 @@
 
 ---
 
+### 1.6 Universal Dual-Layer Hyper-Matrix (`@ombrix/stego-advanced`)
+- **Principle:** Unites lossy-channel survival with high-capacity wavelet steganography into a single mathematically complementary system.
+- **Layer 1: Resilient Robust Carrier Layer:**
+  Encodes payload into $8 \times 8$ block luminance differences using low-frequency $4 \times 4$ sub-quadrants with ChaCha20 stream encryption, HMAC-SHA256 authentication, and 5-fold Forward Error Correction (FEC).
+- **Layer 2: Wavelet High-Capacity LSB Layer:**
+  Encodes payload on top into 2D Haar DWT wavelet coefficients with Wu & Tsai PVD edge-adaptive masking and ChaCha20 PRNG coordinate scattering.
+- **Mathematical Non-Interference Proof:**
+  - Layer 1 differential margin: $\Delta_{\text{block}} = \pm 8$.
+  - Layer 2 zero-mean $\pm 1$ LSB matching: $E[\Delta p] = 0$.
+  - The expected cumulative luminance shift across a 64-pixel block is:
+    $$\sigma_{\text{shift}} = \sqrt{32 \cdot 1^2} / 32 \approx \pm 0.17$$
+  - Since $0.17 \ll 8.0$ (less than $2.5\%$ of the robust detection margin), Layer 2 perturbations do not flip or corrupt Layer 1 votes.
+- **Fallback Extraction Hierarchy:**
+  Attempts Layer 2 high-capacity extraction first. If the carrier was transcoded into a JPEG or downscaled by social platforms, it automatically falls back to Layer 1 robust multi-scale extraction.
+
+---
+
+### 1.7 Robust Resilient Steganography Engine (`@ombrix/stego-advanced`)
+- **$4 \times 4$ Sub-Quadrant Spatial Dipole Modulation:**
+  Each $8 \times 8$ block is partitioned into diagonal Set $A$ and anti-diagonal Set $B$:
+  $$\text{Set } A = \{(r, c) \mid (r < 4) \equiv (c < 4)\}, \quad \text{Set } B = \{(r, c) \mid (r < 4) \not\equiv (c < 4)\}$$
+  $$\text{Differential: } D = \frac{1}{32} \sum_{(r,c) \in A} p(r,c) - \frac{1}{32} \sum_{(r,c) \in B} p(r,c)$$
+- **Natural Gradient Invariance:**
+  Because the centroid of Set $A$ is $(3.5, 3.5)$ and Set $B$ is $(3.5, 3.5)$, both linear horizontal gradients ($g_x \cdot x$) and vertical gradients ($g_y \cdot y$) cancel identically ($D_{\text{gradient}} = 0$).
+- **DCT Quantization Robustness:**
+  The $4 \times 4$ quadrant structure aligns with the low-frequency AC bin $(1, 1)$, which experiences minimal attenuation in standard JPEG quantization tables.
+- **Multi-Scale Resampling Probe:**
+  If spatial dimensions were downscaled by messaging platforms, the extractor probes candidate standard resolutions ($1920$, $1600$, $1440$, $1280$, $1080$, $1024$, $960$, $720$) and standard social scaling factors ($1.5\times$, $1.25\times$, $1.33\times$, $2.0\times$) using 32-bit Barker frame synchronization:
+  $$\text{SyncMarker} = \text{0x3D4C5A9F} \oplus \text{syncMask}$$
+
+---
+
 ## 2. Forensic Steganalysis Detectors
 
 ### 2.1 RS Steganalysis (Fridrich, Goljan, Du 2001)

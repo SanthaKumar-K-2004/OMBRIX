@@ -9,6 +9,31 @@
  */
 
 export type GhostCarrierTheme = 'nebula' | 'cyber' | 'quantum' | 'aurora';
+export type GhostCarrierResolution = 'whatsapp' | 'desktop' | 'compact';
+
+export const GHOST_RESOLUTIONS: Record<
+  GhostCarrierResolution,
+  { width: number; height: number; label: string; badge: string }
+> = {
+  whatsapp: {
+    width: 1280,
+    height: 720,
+    label: 'WhatsApp Native (1280×720)',
+    badge: 'Social Safe',
+  },
+  desktop: {
+    width: 1920,
+    height: 1080,
+    label: 'Full HD Master (1920×1080)',
+    badge: 'Max Capacity',
+  },
+  compact: {
+    width: 960,
+    height: 540,
+    label: 'Compact Covert (960×540)',
+    badge: 'Lightweight',
+  },
+};
 
 export interface GeneratedGhostCarrier {
   width: number;
@@ -20,9 +45,20 @@ export interface GeneratedGhostCarrier {
 
 export function generateGhostCarrier(
   theme: GhostCarrierTheme = 'nebula',
-  width = 1600,
-  height = 900,
+  targetResolution: GhostCarrierResolution | number = 'whatsapp',
+  customHeight?: number,
 ): Promise<GeneratedGhostCarrier> {
+  let width = 1280;
+  let height = 720;
+
+  if (typeof targetResolution === 'string' && GHOST_RESOLUTIONS[targetResolution]) {
+    width = GHOST_RESOLUTIONS[targetResolution].width;
+    height = GHOST_RESOLUTIONS[targetResolution].height;
+  } else if (typeof targetResolution === 'number') {
+    width = targetResolution;
+    height = customHeight ?? Math.round((targetResolution * 9) / 16);
+  }
+
   return new Promise((resolve, reject) => {
     try {
       const canvas = document.createElement('canvas');

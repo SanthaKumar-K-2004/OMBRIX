@@ -9,7 +9,7 @@ import {
   type StegoOptions,
   type StegoProgressCallback,
 } from '@ombrix/stego-interface';
-import { ChaCha20Prng, hmacSha256, sha256 } from './stealthCrypto.js';
+import { ChaCha20Prng, hmacSha256, normalizePasskeyInput, sha256 } from './stealthCrypto.js';
 
 // 32-bit Barker / Frame Synchronization Header: 0x3D4C5A9F
 export const ROBUST_SYNC_MARKER = 0x3d4c5a9f;
@@ -65,7 +65,8 @@ function deriveRobustKeys(passphrase?: string): {
     };
   }
 
-  const base = new TextEncoder().encode(passphrase.trim());
+  const normalized = normalizePasskeyInput(passphrase);
+  const base = new TextEncoder().encode(normalized);
   const scatterSeed = sha256(new Uint8Array([...base, 0x52, 0x4f, 0x42, 0x53])); // "ROBS"
   const cipherKey = sha256(new Uint8Array([...base, 0x52, 0x4f, 0x42, 0x43])); // "ROBC"
   const authKey = sha256(new Uint8Array([...base, 0x52, 0x4f, 0x42, 0x41])); // "ROBA"

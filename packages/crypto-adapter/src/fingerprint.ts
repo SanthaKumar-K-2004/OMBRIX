@@ -46,6 +46,28 @@ export function fromHex(hex: string): Uint8Array {
 }
 
 /**
+ * Normalizes any passkey or token input string.
+ * If the input represents a 32-byte hexadecimal key (whether raw 64 hex characters,
+ * hyphen-delimited, colon-delimited, space-delimited, or lowercase/uppercase),
+ * it is normalized to canonical uppercase 8-group format: "XXXX-XXXX-XXXX-...".
+ * Standard passphrases and natural words are trimmed without case alteration.
+ */
+export function normalizePasskeyInput(input: string): string {
+  const cleaned = input.trim();
+  if (!cleaned) return '';
+  const stripped = cleaned.replace(/[\s\-_:\n\r]/g, '');
+  if (/^[0-9a-fA-F]{64}$/.test(stripped)) {
+    const upper = stripped.toUpperCase();
+    const groups: string[] = [];
+    for (let i = 0; i < 64; i += 4) {
+      groups.push(upper.slice(i, i + 4));
+    }
+    return groups.join('-');
+  }
+  return cleaned;
+}
+
+/**
  * Robustly parses any 32-byte key representation:
  * - Hyphenated hex (e.g. "ACD7-AE04-1234-5678-...")
  * - 64-character raw hex

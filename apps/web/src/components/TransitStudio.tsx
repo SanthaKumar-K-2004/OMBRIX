@@ -1,5 +1,14 @@
 import { validatePngOrThrow } from '@ombrix/image-validation';
-import type { CarrierImage } from '@ombrix/stego-interface';
+import {
+  haarDwtStego,
+  hyperMatrixMethod,
+  jpegDctStego,
+  pvdStego,
+  robustResilientStego,
+  stealthMatrixMethod,
+} from '@ombrix/stego-advanced';
+import type { CarrierImage, StegoMethod } from '@ombrix/stego-interface';
+import { pngLsbMatching } from '@ombrix/stego-lab';
 import { pngLsbSequential } from '@ombrix/stego-png-lsb';
 import {
   type ChiSquareReport,
@@ -23,6 +32,57 @@ import {
 import type React from 'react';
 import { useCallback, useState } from 'react';
 
+const STEGO_METHODS: Array<{ id: string; name: string; badge: string; method: StegoMethod }> = [
+  {
+    id: 'stego-hyper-matrix',
+    name: 'OMBRIX Hyper-Matrix (Dual-Layer)',
+    badge: 'WhatsApp Resilient',
+    method: hyperMatrixMethod,
+  },
+  {
+    id: 'stego-robust-resilient',
+    name: 'Robust Messaging',
+    badge: 'JPEG Safe',
+    method: robustResilientStego,
+  },
+  {
+    id: 'stego-stealth-matrix',
+    name: 'Stealth Matrix (PVD + Scatter)',
+    badge: 'Forensic Stealth',
+    method: stealthMatrixMethod,
+  },
+  {
+    id: 'stego-lsb-matching',
+    name: 'LSB Matching (±1)',
+    badge: 'Pairs-of-Values Immune',
+    method: pngLsbMatching,
+  },
+  {
+    id: 'stego-png-lsb',
+    name: 'Sequential RGB LSB',
+    badge: 'Baseline (Fragile)',
+    method: pngLsbSequential,
+  },
+  {
+    id: 'stego-dwt',
+    name: '2D Haar DWT',
+    badge: 'Wavelet Subband',
+    method: haarDwtStego,
+  },
+  {
+    id: 'stego-dct',
+    name: 'JPEG 8x8 DCT',
+    badge: 'AC Coefficients',
+    method: jpegDctStego,
+  },
+  {
+    id: 'stego-pvd',
+    name: 'Wu & Tsai PVD',
+    badge: 'Edge-Adaptive',
+    method: pvdStego,
+  },
+];
+
 export const TransitStudio: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'transit' | 'trace'>('transit');
 
@@ -31,6 +91,9 @@ export const TransitStudio: React.FC = () => {
   const [carrierData, setCarrierData] = useState<CarrierImage | null>(null);
   const [_carrierMeta, setCarrierMeta] = useState<{ width: number; height: number } | null>(null);
   const [carrierError, setCarrierError] = useState<string | null>(null);
+
+  // Steganography Method Under Test
+  const [selectedMethodId, setSelectedMethodId] = useState<string>('stego-hyper-matrix');
 
   // Transit Simulation State
   const [transformType, setTransformType] = useState<TransitTransformType>('JPEG');
@@ -47,15 +110,21 @@ export const TransitStudio: React.FC = () => {
 
   // Generate Synthetic Stego Carrier for Instant Testing
   const generateSampleStegoCarrier = useCallback(async () => {
-    const width = 120;
-    const height = 120;
+    const width = 384;
+    const height = 384;
     const data = new Uint8ClampedArray(width * height * 4);
 
-    for (let i = 0; i < data.length; i += 4) {
-      data[i] = (i * 3) % 256;
-      data[i + 1] = (i * 5) % 256;
-      data[i + 2] = (i * 7) % 256;
-      data[i + 3] = 255;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        const r = Math.sin(x * 0.05) * 60 + Math.cos(y * 0.05) * 60 + 128;
+        const g = Math.cos(x * 0.03) * 50 + Math.sin(y * 0.03) * 50 + 128;
+        const b = Math.sin((x + y) * 0.04) * 50 + 128;
+        data[idx] = Math.max(0, Math.min(255, Math.round(r)));
+        data[idx + 1] = Math.max(0, Math.min(255, Math.round(g)));
+        data[idx + 2] = Math.max(0, Math.min(255, Math.round(b)));
+        data[idx + 3] = 255;
+      }
     }
 
     const carrier = { width, height, data };
@@ -63,8 +132,9 @@ export const TransitStudio: React.FC = () => {
       'OMBRIX Transit Resilience Verification: Testing survival against lossy channels.',
     );
 
-    // Embed using standard sequential LSB
-    const stego = await pngLsbSequential.embed(carrier, samplePayload);
+    const activeMethod =
+      STEGO_METHODS.find((m) => m.id === selectedMethodId)?.method ?? hyperMatrixMethod;
+    const stego = await activeMethod.embed(carrier, samplePayload);
 
     // Render to data url for preview
     const canvas = document.createElement('canvas');
@@ -81,7 +151,7 @@ export const TransitStudio: React.FC = () => {
     setCarrierError(null);
     setSimResult(null);
     setTraceReport(null);
-  }, []);
+  }, [selectedMethodId]);
 
   // Handle User Uploaded Carrier
   const handleCarrierSelect = useCallback(async (file: File) => {
@@ -128,7 +198,9 @@ export const TransitStudio: React.FC = () => {
     setSimPreviewUrl(null);
 
     try {
-      const result = await runTransitSimulation(carrierData, pngLsbSequential, transformType, {
+      const activeMethod =
+        STEGO_METHODS.find((m) => m.id === selectedMethodId)?.method ?? hyperMatrixMethod;
+      const result = await runTransitSimulation(carrierData, activeMethod, transformType, {
         jpegQuality,
         scaleFactor,
         errorRate,
@@ -287,6 +359,29 @@ export const TransitStudio: React.FC = () => {
             {/* TAB 1: Transit Simulation Configuration */}
             {activeTab === 'transit' && (
               <div className="space-y-4 pt-2 border-t border-[#1E293B]">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="pipeline-stego-method" className="text-xs text-[#94A3B8]">
+                      Evaluated Steganography Engine
+                    </label>
+                    <span className="text-[10px] text-emerald-400 font-mono">
+                      Dual-Layer Enabled
+                    </span>
+                  </div>
+                  <select
+                    id="pipeline-stego-method"
+                    value={selectedMethodId}
+                    onChange={(e) => setSelectedMethodId(e.target.value)}
+                    className="w-full p-2.5 rounded-lg bg-[#0B0F19] border border-[#1E293B] text-white text-xs focus:outline-none focus:border-[#3B82F6]"
+                  >
+                    {STEGO_METHODS.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.badge})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="space-y-1.5">
                   <label htmlFor="pipeline-transform-type" className="text-xs text-[#94A3B8]">
                     Transmission Pipeline Transformation

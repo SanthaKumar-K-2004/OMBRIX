@@ -78,7 +78,11 @@ import {
   packFilePayload,
   unpackFilePayload,
 } from '../utils/filePayload.js';
-import { type GhostCarrierTheme, generateGhostCarrier } from '../utils/ghostCarrier.js';
+import {
+  type GhostCarrierResolution,
+  type GhostCarrierTheme,
+  generateGhostCarrier,
+} from '../utils/ghostCarrier.js';
 import {
   getImageDimensions,
   optimizeCovertPhotoForRobustMessaging,
@@ -148,6 +152,7 @@ export const CoreStudio: React.FC = () => {
   const [carrierImageData, setCarrierImageData] = useState<ImageData | null>(null);
   const [isGeneratingGhost, setIsGeneratingGhost] = useState(false);
   const [ghostTheme, setGhostTheme] = useState<GhostCarrierTheme>('nebula');
+  const [ghostResolution, setGhostResolution] = useState<GhostCarrierResolution>('whatsapp');
 
   // Hide (Embed) State
   const [payloadMode, setPayloadMode] = useState<'text' | 'image'>('text');
@@ -413,14 +418,16 @@ export const CoreStudio: React.FC = () => {
 
   // Handle 1-Click Procedural Ghost Carrier Synthesis
   const handleGenerateGhostCarrier = useCallback(
-    async (theme?: GhostCarrierTheme) => {
+    async (theme?: GhostCarrierTheme, res?: GhostCarrierResolution) => {
       setIsGeneratingGhost(true);
       setValidationError(null);
       setEmbedError(null);
       try {
-        const selected = theme ?? ghostTheme;
+        const selectedTheme = theme ?? ghostTheme;
+        const selectedRes = res ?? ghostResolution;
         if (theme) setGhostTheme(theme);
-        const ghost = await generateGhostCarrier(selected, 1920, 1080);
+        if (res) setGhostResolution(res);
+        const ghost = await generateGhostCarrier(selectedTheme, selectedRes);
         await handleCarrierSelect(ghost.file);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -429,8 +436,51 @@ export const CoreStudio: React.FC = () => {
         setIsGeneratingGhost(false);
       }
     },
-    [ghostTheme, handleCarrierSelect],
+    [ghostTheme, ghostResolution, handleCarrierSelect],
   );
+
+  // Handle 1-Click Carrier Auto-Fit for WhatsApp / Social Media (Downscale to <=1280px to prevent WhatsApp downscaling)
+  const handleAutoFitCarrierForSocial = useCallback(async () => {
+    if (!carrierImageData) return;
+    const maxDim = Math.max(carrierImageData.width, carrierImageData.height);
+    if (maxDim <= 1280) return;
+    const scale = 1280 / maxDim;
+    const targetW = Math.round((carrierImageData.width * scale) / 8) * 8;
+    const targetH = Math.round((carrierImageData.height * scale) / 8) * 8;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = carrierImageData.width;
+    tempCanvas.height = carrierImageData.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+    tempCtx.putImageData(carrierImageData, 0, 0);
+
+    ctx.drawImage(tempCanvas, 0, 0, targetW, targetH);
+    const newImgData = ctx.getImageData(0, 0, targetW, targetH);
+    setCarrierImageData(newImgData);
+
+    const cap = computeMethodCapacity(selectedMethod, {
+      width: newImgData.width,
+      height: newImgData.height,
+      data: newImgData.data,
+    });
+    setCapacity(cap);
+
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      setCarrierPreview((prev) => {
+        revokeTrackedUrl(prev);
+        return registerTrackedUrl(url);
+      });
+    }, 'image/png');
+  }, [carrierImageData, selectedMethod, registerTrackedUrl, revokeTrackedUrl]);
 
   // Handle Secret Image selection with smart auto-optimization for large photos
   const handleSecretImageSelect = useCallback(
@@ -1246,9 +1296,35 @@ export const CoreStudio: React.FC = () => {
                         </div>
                       </div>
                       {/* Procedural Ghost Chips */}
-                      <div className="pt-2 border-t border-white/[0.06] space-y-1.5">
-                        <div className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
-                          Or synthesize zero-provenance carrier:
+                      <div className="pt-2 border-t border-white/[0.06] space-y-2">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-1.5 w-full">
+                          <div className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                            Synthesize Zero-Provenance Carrier:
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {(['whatsapp', 'desktop', 'compact'] as const).map((r) => (
+                              <button
+                                key={r}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setGhostResolution(r);
+                                }}
+                                className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                                  ghostResolution === r
+                                    ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                                    : 'bg-[#131B2E] text-slate-400 hover:text-slate-200 border border-white/[0.04]'
+                                }`}
+                              >
+                                {r === 'whatsapp'
+                                  ? '720p (Chat)'
+                                  : r === 'desktop'
+                                    ? '1080p'
+                                    : '540p'}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                         <div className="flex flex-wrap items-center justify-center gap-1.5">
                           {(['nebula', 'cyber', 'quantum', 'aurora'] as const).map((theme) => (
@@ -1291,6 +1367,30 @@ export const CoreStudio: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Large Carrier Warning & Social Auto-Fit */}
+                {carrierImageData &&
+                  Math.max(carrierImageData.width, carrierImageData.height) > 1280 && (
+                    <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                      <div className="flex items-start gap-2.5 text-amber-300">
+                        <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-400" />
+                        <div>
+                          <span className="font-semibold text-amber-200">Social Media Alert:</span>{' '}
+                          Carrier exceeds 1280px ({carrierImageData.width} ×{' '}
+                          {carrierImageData.height}). Messaging apps (WhatsApp, Telegram) will
+                          automatically recompress and downscale this image if sent as a standard
+                          photo.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAutoFitCarrierForSocial}
+                        className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-[11px] font-semibold transition-colors self-end sm:self-auto"
+                      >
+                        Auto-Fit Carrier (≤1280px)
+                      </button>
+                    </div>
+                  )}
 
                 {/* Carrier Specs Grid */}
                 {carrierImageData && capacity && (

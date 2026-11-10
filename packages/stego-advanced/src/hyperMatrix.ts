@@ -11,7 +11,7 @@ import {
   type StegoProgressCallback,
 } from '@ombrix/stego-interface';
 import { robustResilientStego } from './robustResilient.js';
-import { ChaCha20Prng, hmacSha256, sha256 } from './stealthCrypto.js';
+import { ChaCha20Prng, hmacSha256, normalizePasskeyInput, sha256 } from './stealthCrypto.js';
 
 const HYPER_MATRIX_MAGIC = new Uint8Array([0x48, 0x59, 0x50, 0x52]); // "HYPR"
 const DEFAULT_HYPER_SEED = 'OMBRIX_HYPER_MATRIX_OMNI_STEALTH_2026';
@@ -26,7 +26,8 @@ function deriveHyperKeys(passphrase?: string): {
   cipherKey: Uint8Array;
   authKey: Uint8Array;
 } {
-  const baseSalt = new TextEncoder().encode(passphrase?.trim() || DEFAULT_HYPER_SEED);
+  const normalized = passphrase?.trim() ? normalizePasskeyInput(passphrase) : DEFAULT_HYPER_SEED;
+  const baseSalt = new TextEncoder().encode(normalized);
   const scatterKey = sha256(new Uint8Array([...baseSalt, 0x04, 0x48, 0x59, 0x50])); // "HYP"
   const cipherKey = sha256(new Uint8Array([...baseSalt, 0x05, 0x45, 0x4e, 0x43])); // "ENC"
   const authKey = sha256(new Uint8Array([...baseSalt, 0x06, 0x4d, 0x41, 0x43])); // "MAC"

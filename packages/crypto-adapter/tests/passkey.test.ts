@@ -219,6 +219,27 @@ describe('Smart Passkey Generator & Derivation Engine', () => {
       expect(enc1).not.toEqual(enc2);
     });
 
+    it('decrypts seamlessly across token case, hyphens, and whitespace variations', () => {
+      const tokenFormatted =
+        '2CC2-D98C-4E6B-641C-9D5D-CA4D-5831-C74B-A87E-26DD-20A3-C1F9-4523-37D8-5AEF-B491';
+      const encrypted = encryptWithPasskey(secretMessage, tokenFormatted);
+
+      // 1. Decrypt with raw lowercase stripped hex
+      const tokenLowerStripped = '2cc2d98c4e6b641c9d5dca4d5831c74ba87e26dd20a3c1f9452337d85aefb491';
+      const decrypted1 = decryptWithPasskey(encrypted, tokenLowerStripped);
+      expect(new TextDecoder().decode(decrypted1)).toBe(
+        'Confidential payload protected by 32-Byte Token',
+      );
+
+      // 2. Decrypt with space-delimited lowercase
+      const tokenSpaced =
+        '2cc2 d98c 4e6b 641c 9d5d ca4d 5831 c74b a87e 26dd 20a3 c1f9 4523 37d8 5aef b491';
+      const decrypted2 = decryptWithPasskey(encrypted, tokenSpaced);
+      expect(new TextDecoder().decode(decrypted2)).toBe(
+        'Confidential payload protected by 32-Byte Token',
+      );
+    });
+
     it('safely zeroizes memory buffers and performs constant-time comparison', () => {
       const keyBuffer = new Uint8Array([1, 2, 3, 4, 5]);
       zeroMemory(keyBuffer);

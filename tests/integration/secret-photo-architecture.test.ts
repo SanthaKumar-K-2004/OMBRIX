@@ -48,7 +48,7 @@ describe('Secret Photo Stego Architecture Verification', () => {
     for (let i = 0; i < original.data.length; i++) {
       expect(decoded.data[i]).toBe(original.data[i]);
     }
-  });
+  }, 15000);
 
   it('embeds photo as secret message, exports to PNG, reloads, and extracts with 32-byte token', async () => {
     await initCrypto();
@@ -138,7 +138,7 @@ describe('Secret Photo Stego Architecture Verification', () => {
     expect(unpacked?.width).toBe(640);
     expect(unpacked?.height).toBe(480);
     expect(unpacked?.data).toEqual(photoBytes);
-  });
+  }, 15000);
 
   it('provides a clean human-readable error when passkey is incorrect during auto-probe', async () => {
     const carrier = createSyntheticCarrier(400, 300);

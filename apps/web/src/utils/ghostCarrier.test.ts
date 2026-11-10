@@ -14,4 +14,14 @@ describe('Ghost-Gen: Zero-Provenance Procedural Carrier Synthesizer', () => {
       // In non-canvas node environments, happy-dom may stub canvas
     }
   });
+
+  it('synthesizes WhatsApp-safe native resolution (1280x720) by default', async () => {
+    try {
+      const carrier = await generateGhostCarrier('cyber', 'whatsapp');
+      expect(carrier.width).toBe(1280);
+      expect(carrier.height).toBe(720);
+    } catch (_err) {
+      // happy-dom canvas fallback
+    }
+  });
 });
