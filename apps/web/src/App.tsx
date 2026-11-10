@@ -40,6 +40,9 @@ const AirGapStudio = lazy(() =>
 const RelayStudio = lazy(() =>
   import('./components/RelayStudio.js').then((m) => ({ default: m.RelayStudio })),
 );
+const InvisibleLinkStudio = lazy(() =>
+  import('./components/InvisibleLinkStudio.js').then((m) => ({ default: m.InvisibleLinkStudio })),
+);
 
 export const App: React.FC = () => {
   const [activeModule, setActiveModule] = useState<ProductModule>('core');
@@ -156,6 +159,8 @@ export const App: React.FC = () => {
               {activeModule === 'airgap' && <AirGapStudio />}
 
               {activeModule === 'relay' && <RelayStudio />}
+
+              {activeModule === 'ghostlink' && <InvisibleLinkStudio />}
             </Suspense>
           </ErrorBoundary>
         </main>
