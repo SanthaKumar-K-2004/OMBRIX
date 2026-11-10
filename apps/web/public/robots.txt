@@ -2,4 +2,3 @@ User-agent: *
 Allow: /
 
 Sitemap: https://ombrix-stego.vercel.app/sitemap.xml
-Sitemap: https://web-omega-fawn-t137wilv47.vercel.app/sitemap.xml
