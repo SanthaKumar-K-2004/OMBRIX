@@ -183,3 +183,9 @@ OMBRIX is configured for zero-configuration static deployment on modern hosting 
 <div align="center">
   <sub>OMBRIX • Client-Side Forensic Steganography & Visual Cryptanalysis Suite</sub>
 </div>
+
+## Invisible Link Studio
+
+The **Invisible Link** module embeds an HTTP(S) destination into the RGB least-significant bits of a carrier image. It does not draw a QR pattern, logo, or visible text. The encoder exports a lossless PNG; the matching OMBRIX scanner reads the pixel payload locally and can open the recovered destination.
+
+**Important:** This is pixel-level steganography, not a standards-based optical QR code. A stock camera QR scanner cannot decode it. The image must be opened in OMBRIX's **Advanced Tools → Invisible Link → Scan image**. Avoid JPEG conversion, resizing, screenshots, or social-media photo compression because these can destroy LSB data. Processing stays in the browser; no image is uploaded.
