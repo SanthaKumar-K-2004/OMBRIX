@@ -6,6 +6,23 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
+  "categories": ["security", "utilities", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Encode Secret",
+      "short_name": "Encode",
+      "description": "Embed encrypted secrets into image carriers",
+      "url": "/?tab=hide",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Reveal Secret",
+      "short_name": "Reveal",
+      "description": "Extract hidden payloads from carriers",
+      "url": "/?tab=reveal",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
   "background_color": "#0B0F19",
   "theme_color": "#0B0F19",
   "icons": [
