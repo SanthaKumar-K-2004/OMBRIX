@@ -194,12 +194,26 @@ export const Navbar: React.FC<NavbarProps> = ({
             <OmbrixLogo tagline={true} />
           </button>
 
-          {/* Active Studio Indicator (Center) */}
+          {/* Active Studio Indicator & Quick Return to Core */}
           <div className="hidden md:flex items-center gap-2 text-xs font-mono bg-[#111827]/80 px-3.5 py-1.5 rounded-xl border border-white/[0.08]">
-            <span className="text-slate-400 font-sans font-medium">Studio /</span>
-            <span className="text-white font-semibold">
-              {activeSecondaryTool ? activeSecondaryTool.label : 'Core Steganography'}
-            </span>
+            {activeSecondaryTool ? (
+              <button
+                type="button"
+                onClick={() => handleSelectCoreTab('hide')}
+                className="flex items-center gap-1.5 text-violet-400 hover:text-violet-300 font-sans font-medium transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-500 rounded"
+                title="Return to Core Steganography Studio"
+              >
+                <span className="group-hover:-translate-x-0.5 transition-transform">←</span>
+                <span>Core Stego</span>
+                <span className="text-slate-600 font-mono">/</span>
+                <span className="text-white font-semibold">{activeSecondaryTool.label}</span>
+              </button>
+            ) : (
+              <>
+                <span className="text-slate-400 font-sans font-medium">Studio /</span>
+                <span className="text-white font-semibold">Core Steganography</span>
+              </>
+            )}
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono ml-1">
               Active
             </span>
@@ -207,6 +221,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Controls & Secondary Tools Dropdown */}
           <div className="hidden lg:flex items-center gap-3">
+            {/* Quick Return to Core Studio button when viewing secondary module */}
+            {activeSecondaryTool && (
+              <button
+                type="button"
+                onClick={() => handleSelectCoreTab('hide')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600/15 hover:bg-violet-600/25 border border-violet-500/30 text-xs font-medium text-violet-300 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:outline-none"
+              >
+                <span>← Core Studio</span>
+              </button>
+            )}
             {/* Advanced Tools Dropdown */}
             <div className="relative" ref={dropdownRef}>
               <button
@@ -315,6 +339,22 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Mobile & Tablet Drawer Menu */}
       {isMobileMenuOpen && (
         <div className="lg:hidden border-t border-[#1E293B] bg-[#0B0F19] px-4 pt-3 pb-6 space-y-4 shadow-2xl">
+          {activeSecondaryTool && (
+            <div className="p-3 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-between">
+              <div className="text-xs">
+                <span className="text-slate-400">Current Tool: </span>
+                <span className="font-semibold text-white">{activeSecondaryTool.label}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleSelectCoreTab('hide')}
+                className="px-3 py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+              >
+                Back to Core
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"

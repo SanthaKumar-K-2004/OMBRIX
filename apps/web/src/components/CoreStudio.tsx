@@ -1128,8 +1128,8 @@ export const CoreStudio: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Studio Header & Tab Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl">
+      {/* Studio Header & Tab Switcher (Astryx ToolbarCardHeader & Segmented TabList Pattern) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 md:p-6 rounded-2xl bg-[#0F172A]/90 backdrop-blur-xl border border-white/[0.08] shadow-xl">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5 flex-wrap">
             <h2 className="text-lg font-bold font-['Sora'] text-white tracking-tight flex items-center gap-2">
@@ -1155,10 +1155,11 @@ export const CoreStudio: React.FC = () => {
             <span>Argon2id Salted • Zero-Leakage</span>
           </div>
 
-          {/* Primary Studio Segmented Controller */}
+          {/* Primary Studio Segmented Controller (Astryx TabList Pattern) */}
           <div
             className="inline-flex p-1 rounded-xl bg-[#0B0F19] border border-white/[0.08] shadow-inner"
             role="tablist"
+            aria-label="Steganography Operations"
           >
             <button
               type="button"
@@ -1168,9 +1169,9 @@ export const CoreStudio: React.FC = () => {
                 setActiveTab('hide');
                 studioDataBus.setCoreTab('hide');
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 cursor-pointer ${
                 activeTab === 'hide'
-                  ? 'bg-violet-600 text-white shadow-sm'
+                  ? 'bg-violet-600 text-white shadow-md shadow-violet-950/50'
                   : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
@@ -1185,9 +1186,9 @@ export const CoreStudio: React.FC = () => {
                 setActiveTab('reveal');
                 studioDataBus.setCoreTab('reveal');
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 cursor-pointer ${
                 activeTab === 'reveal'
-                  ? 'bg-sky-600 text-white shadow-sm'
+                  ? 'bg-sky-600 text-white shadow-md shadow-sky-950/50'
                   : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
@@ -1201,7 +1202,7 @@ export const CoreStudio: React.FC = () => {
             type="button"
             onClick={handlePanicZeroize}
             title="Forensic RAM Zeroization: Instantly wipes all in-memory carrier and payload buffers and purges object URLs"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border border-rose-500/30 text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 transition-all shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border border-rose-500/30 text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5 text-rose-400" />
             <span className="hidden sm:inline">Zeroize RAM</span>
@@ -1230,10 +1231,15 @@ export const CoreStudio: React.FC = () => {
               {/* Card 1: Carrier Cover Image */}
               <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                    <ImageIcon className="w-4 h-4 text-violet-400" />
-                    <span>1. Carrier Image (Cover)</span>
-                  </h3>
+                  <div className="flex items-center gap-2.5">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-violet-500/20 border border-violet-500/40 text-violet-300 text-xs font-bold font-mono">
+                      1
+                    </span>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4 text-violet-400" />
+                      <span>Carrier Image (Cover)</span>
+                    </h3>
+                  </div>
                   <div className="flex items-center gap-2">
                     {carrierImageData && (
                       <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium font-mono">
@@ -1433,10 +1439,15 @@ export const CoreStudio: React.FC = () => {
               {/* Card 2: Secret Payload Input */}
               <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-sky-400" />
-                    <span>2. Secret Payload</span>
-                  </h3>
+                  <div className="flex items-center gap-2.5">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-violet-500/20 border border-violet-500/40 text-violet-300 text-xs font-bold font-mono">
+                      2
+                    </span>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-sky-400" />
+                      <span>Secret Payload Content</span>
+                    </h3>
+                  </div>
                   <div className="inline-flex p-0.5 rounded-lg bg-[#0B0F19] border border-white/[0.08]">
                     <button
                       type="button"
@@ -1651,15 +1662,45 @@ export const CoreStudio: React.FC = () => {
               )}
             </div>
 
-            {/* RIGHT COLUMN: Steganography Engine, Security & Execution */}
+            {/* RIGHT COLUMN: Security Passkey, Stego Engine & Execution */}
             <div className="lg:col-span-6 space-y-5">
-              {/* Card 1: Steganography Engine Selector */}
+              {/* Step 3: Security Passkey & Access Lock */}
+              <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-4">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-violet-500/20 border border-violet-500/40 text-violet-300 text-xs font-bold font-mono">
+                      3
+                    </span>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-violet-400" />
+                      <span>Security Passkey &amp; Access Lock</span>
+                    </h3>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 font-mono">
+                    Argon2id • AES-256-GCM
+                  </span>
+                </div>
+                <SmartPasskeyAssistant
+                  idPrefix="encode-passkey"
+                  value={passphrase}
+                  onChange={(newKey) => setPassphrase(newKey)}
+                  mode="encode"
+                  placeholder="Enter passkey, or pick Memorable Words, Photo Key, 32-Byte Token, or Biometrics..."
+                />
+              </div>
+
+              {/* Step 4: Steganography Engine Selector & Target Mode */}
               <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-3.5">
                 <div className="flex items-center justify-between text-xs">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-violet-400" />
-                    <span>3. Steganography Engine</span>
-                  </h3>
+                  <div className="flex items-center gap-2.5">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-violet-500/20 border border-violet-500/40 text-violet-300 text-xs font-bold font-mono">
+                      4
+                    </span>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-violet-400" />
+                      <span>Steganography Engine &amp; Transmission Target</span>
+                    </h3>
+                  </div>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono">
                     ±1 LSB Undetectable
                   </span>
@@ -1865,18 +1906,7 @@ export const CoreStudio: React.FC = () => {
                 </div>
               </div>
 
-              {/* Card 2: Passkey Protection */}
-              <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl">
-                <SmartPasskeyAssistant
-                  idPrefix="encode-passkey"
-                  value={passphrase}
-                  onChange={(newKey) => setPassphrase(newKey)}
-                  mode="encode"
-                  placeholder="Enter passkey, or pick Memorable Words, Photo Key, 32-Byte Token, or Biometrics..."
-                />
-              </div>
-
-              {/* Card 3: Advanced Cryptography & Anti-Coercion (Progressive Disclosure Accordion) */}
+              {/* Advanced Cryptography & Anti-Coercion (Progressive Disclosure Accordion) */}
               <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-4">
                 <button
                   type="button"
@@ -2090,7 +2120,7 @@ export const CoreStudio: React.FC = () => {
                 )}
               </div>
 
-              {/* Card 4: Action Button */}
+              {/* Execution CTA Button */}
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <button
@@ -2103,7 +2133,7 @@ export const CoreStudio: React.FC = () => {
                       (payloadMode === 'image' && !secretImageBytes) ||
                       (Boolean(capacity) && effectivePayloadLength > (capacity?.usableBytes ?? 0))
                     }
-                    className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-md transition-all cursor-pointer"
+                    className="flex-1 flex items-center justify-center gap-2.5 px-6 py-3.5 h-12 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-semibold shadow-lg shadow-violet-950/40 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
                   >
                     {isEmbedding ? (
                       <>
@@ -2188,7 +2218,7 @@ export const CoreStudio: React.FC = () => {
 
               {/* Download & Verification Actions */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   <button
                     type="button"
                     onClick={() => {
@@ -2379,11 +2409,22 @@ export const CoreStudio: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Carrier Ingestion & Keys */}
           <div className="lg:col-span-6 space-y-5">
+            {/* Step 1: Upload Stego Carrier Image */}
             <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-sky-400" />
-                <span>1. Upload Stego Carrier Image</span>
-              </h3>
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-500/20 border border-sky-500/40 text-sky-300 text-xs font-bold font-mono">
+                    1
+                  </span>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-sky-400" />
+                    <span>Upload Stego Carrier Image</span>
+                  </h3>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 font-mono">
+                  Universal Decoder
+                </span>
+              </div>
 
               <label
                 htmlFor="reveal-input"
@@ -2431,6 +2472,24 @@ export const CoreStudio: React.FC = () => {
                   <span>{revealValidationError}</span>
                 </div>
               )}
+            </div>
+
+            {/* Step 2: Passkey Unlock & Extraction Engine */}
+            <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-4">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-500/20 border border-sky-500/40 text-sky-300 text-xs font-bold font-mono">
+                    2
+                  </span>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                    <Key className="w-4 h-4 text-sky-400" />
+                    <span>Passkey Unlock &amp; Algorithm</span>
+                  </h3>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 font-mono">
+                  Auto-Detect Ready
+                </span>
+              </div>
 
               {/* Extraction Algorithm Selector (Auto-Detect Default + Manual Override) */}
               <div className="space-y-1.5 p-3.5 rounded-xl bg-[#0B0F19] border border-white/[0.06]">
@@ -2506,7 +2565,7 @@ export const CoreStudio: React.FC = () => {
                   type="button"
                   onClick={handleExtract}
                   disabled={!revealPreview || isExtracting || Boolean(revealValidationError)}
-                  className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-md transition-all cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-2.5 px-6 py-3.5 h-12 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-semibold shadow-lg shadow-sky-950/40 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
                 >
                   {isExtracting ? (
                     <>
@@ -2525,7 +2584,7 @@ export const CoreStudio: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => extractAbortRef.current?.abort()}
-                    className="px-4 py-3 rounded-xl bg-[#1E293B] hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-white/[0.08] transition-colors"
+                    className="px-4 py-3 h-12 rounded-xl bg-[#1E293B] hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-white/[0.08] transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -2585,10 +2644,22 @@ export const CoreStudio: React.FC = () => {
           {/* Right Column: Extracted Secret Inspector */}
           <div className="lg:col-span-6 space-y-5">
             <div className="p-5 rounded-2xl bg-[#0F172A]/85 backdrop-blur-xl border border-white/[0.08] shadow-xl space-y-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-emerald-400" />
-                <span>2. Extracted Secret Information</span>
-              </h3>
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold font-mono">
+                    3
+                  </span>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-400" />
+                    <span>Extracted Secret Information</span>
+                  </h3>
+                </div>
+                {decryptionStatus === 'passkey_decrypted' && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono">
+                    Unlocked
+                  </span>
+                )}
+              </div>
 
               {extractedPayloadText !== null || extractedSecretFile !== null ? (
                 <div className="space-y-4">
