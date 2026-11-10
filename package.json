@@ -13,7 +13,9 @@
     "typecheck": "pnpm -r run typecheck",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "release:package": "node --experimental-strip-types scripts/release-package.ts"
+    "release:package": "node --experimental-strip-types scripts/release-package.ts",
+    "gsc:verify": "node scripts/set-gsc-token.mjs",
+    "gsc": "npx --yes @nalyk/gsccli"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
