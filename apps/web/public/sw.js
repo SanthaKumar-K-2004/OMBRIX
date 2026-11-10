@@ -1,7 +1,7 @@
 // OMBRIX Air-Gapped Offline Service Worker
 // Network-First for Navigation, Cache-First for Immutable Media
 
-const CACHE_NAME = 'ombrix-airgap-v4';
+const CACHE_NAME = 'ombrix-airgap-v5';
 const PRECACHE_ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {
