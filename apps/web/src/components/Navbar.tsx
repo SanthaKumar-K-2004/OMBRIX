@@ -8,6 +8,7 @@ import {
   FlaskConical,
   Link2,
   Lock,
+  ScanLine,
   Menu,
   Radar,
   Radio,
@@ -34,7 +35,8 @@ export type ProductModule =
   | 'relay'
   | 'link'
   | 'flow'
-  | 'edge';
+  | 'edge'
+  | 'ghostlink';
 
 interface NavbarProps {
   activeModule: ProductModule;
@@ -83,6 +85,14 @@ const SECONDARY_TOOLS: SecondaryTool[] = [
   },
 
   // Security & Transport
+  {
+    id: 'ghostlink',
+    label: 'Invisible Link',
+    sublabel: 'Pixel-hidden URLs & local image scanner',
+    category: 'Security & Transport',
+    icon: ScanLine,
+    badge: 'Stealth',
+  },
   {
     id: 'vault',
     label: 'Key Vault',
