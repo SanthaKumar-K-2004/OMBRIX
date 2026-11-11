@@ -13,6 +13,18 @@ import {
   type WorkerPostMessagePort,
 } from '../src/index.js';
 
+if (typeof globalThis.ErrorEvent === 'undefined') {
+  class ErrorEventPolyfill extends Event {
+    readonly message: string;
+    constructor(type: string, init?: { message?: string }) {
+      super(type);
+      this.message = init?.message ?? '';
+    }
+  }
+  // @ts-expect-error Node.js polyfill
+  globalThis.ErrorEvent = ErrorEventPolyfill;
+}
+
 function createMockChannel() {
   const eventListeners = new Map<
     string,

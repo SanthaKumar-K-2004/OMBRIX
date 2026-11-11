@@ -36,14 +36,14 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
-      - name: Run Core Test Suite
-        run: pnpm run test
-
       - name: Build Web Application
         run: pnpm run build
 
       - name: Build CLI & MCP Server Binaries
         run: node scripts/build-tools.mjs
+
+      - name: Run Core Test Suite
+        run: pnpm run test
 
       - name: Verify CLI Binary
         run: node packages/cli/dist/bin.js --help

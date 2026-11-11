@@ -10,6 +10,18 @@ import {
   type WorkerChannelEvent,
 } from '../../packages/stego-worker/src/worker-client.js';
 
+if (typeof globalThis.ErrorEvent === 'undefined') {
+  class ErrorEventPolyfill extends Event {
+    readonly message: string;
+    constructor(type: string, init?: { message?: string }) {
+      super(type);
+      this.message = init?.message ?? '';
+    }
+  }
+  // @ts-expect-error Node.js polyfill
+  globalThis.ErrorEvent = ErrorEventPolyfill;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '../..');
