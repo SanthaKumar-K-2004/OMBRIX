@@ -309,7 +309,17 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
     }
 
     case 'stego_extract': {
-      const { stegoPath, passkey, method = 'auto', outputPath } = args;
+      const {
+        stegoPath,
+        passkey,
+        method = 'auto',
+        outputPath,
+      } = args as {
+        stegoPath?: string;
+        passkey?: string;
+        method?: string;
+        outputPath?: string;
+      };
 
       if (!stegoPath) throw new Error('Missing stegoPath parameter.');
       if (!fs.existsSync(stegoPath)) throw new Error(`Stego file not found: ${stegoPath}`);
@@ -384,7 +394,7 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
     }
 
     case 'stego_scan': {
-      const { imagePath } = args;
+      const { imagePath } = args as { imagePath?: string };
       if (!imagePath) throw new Error('Missing imagePath parameter.');
       if (!fs.existsSync(imagePath)) throw new Error(`Image file not found: ${imagePath}`);
 
@@ -403,28 +413,31 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
             estimatedPayloadRatioPercent: Number(
               (report.detectors.rs.estimatedPayloadRatio * 100).toFixed(1),
             ),
-            isSuspicious: report.detectors.rs.isSuspicious,
+            isSuspicious: report.detectors.rs.classification !== 'clean',
           },
           samplePairAnalysis: {
             estimatedPayloadRatioPercent: Number(
               (report.detectors.spa.estimatedPayloadRatio * 100).toFixed(1),
             ),
-            isSuspicious: report.detectors.spa.isSuspicious,
+            isSuspicious: report.detectors.spa.classification !== 'clean',
           },
           chiSquarePoVs: {
             pValue: report.detectors.chiSquare.pValue,
-            isSuspicious: report.detectors.chiSquare.isSuspicious,
+            isSuspicious: report.detectors.chiSquare.tamperingDetected,
           },
           laplacianResidual: {
             variance: Number(report.detectors.noiseResidual.variance.toFixed(4)),
-            isSuspicious: report.detectors.noiseResidual.isSuspicious,
+            isSuspicious: report.detectors.noiseResidual.hfpi > 0.5,
           },
         },
       };
     }
 
     case 'stego_benchmark': {
-      const { carrierPath, payload = 'OMBRIX Benchmark Test Vector' } = args;
+      const { carrierPath, payload = 'OMBRIX Benchmark Test Vector' } = args as {
+        carrierPath?: string;
+        payload?: string;
+      };
       if (!carrierPath) throw new Error('Missing carrierPath parameter.');
       if (!fs.existsSync(carrierPath)) throw new Error(`Carrier file not found: ${carrierPath}`);
 
@@ -491,7 +504,7 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
     }
 
     case 'stego_inspect': {
-      const { imagePath } = args;
+      const { imagePath } = args as { imagePath?: string };
       if (!imagePath) throw new Error('Missing imagePath parameter.');
       if (!fs.existsSync(imagePath)) throw new Error(`Image file not found: ${imagePath}`);
 

@@ -27,8 +27,6 @@ describe('OMBRIX CLI - Extended Features & MCP Installer Suite', () => {
       width,
       height,
       data,
-      colorType: 6,
-      bitDepth: 8,
     });
 
     carrierPath = path.join(tmpDir, 'carrier.png');

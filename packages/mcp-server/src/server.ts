@@ -61,8 +61,8 @@ export async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcRes
   }
 
   if (method === 'tools/call') {
-    const toolName = params?.name;
-    const toolArgs = params?.arguments || {};
+    const toolName = String(params?.name || '');
+    const toolArgs = (params?.arguments as Record<string, unknown>) || {};
 
     try {
       const output = await executeTool(toolName, toolArgs);

@@ -144,8 +144,11 @@ describe('OMBRIX MCP 2.0 Code Mode Suite', () => {
       method: 'tools/list',
     });
 
-    expect(listRes?.result.tools).toHaveLength(8);
-    const names = listRes?.result.tools.map((t: { name: string }) => t.name);
+    const listResult = listRes?.result as unknown as {
+      tools: Array<{ name: string; description?: string }>;
+    };
+    expect(listResult.tools).toHaveLength(8);
+    const names = listResult.tools.map((t) => t.name);
     expect(names).toContain('stego_code_mode');
     expect(names).toContain('stego_api_docs');
 
@@ -160,7 +163,10 @@ describe('OMBRIX MCP 2.0 Code Mode Suite', () => {
       },
     });
 
-    const parsedDocs = JSON.parse(docsRes?.result.content[0].text);
+    const docsResult = docsRes?.result as unknown as {
+      content: Array<{ type: string; text: string }>;
+    };
+    const parsedDocs = JSON.parse(docsResult.content[0].text) as { apiDocs: string };
     expect(parsedDocs.apiDocs).toContain('declare namespace ombrix');
 
     // 3. Call stego_code_mode via JSON-RPC
@@ -179,7 +185,13 @@ describe('OMBRIX MCP 2.0 Code Mode Suite', () => {
       },
     });
 
-    const parsedCode = JSON.parse(codeRes?.result.content[0].text);
+    const codeResult = codeRes?.result as unknown as {
+      content: Array<{ type: string; text: string }>;
+    };
+    const parsedCode = JSON.parse(codeResult.content[0].text) as {
+      status: string;
+      result: { wordCount: number; phrase: string };
+    };
     expect(parsedCode.status).toBe('success');
     expect(parsedCode.result.wordCount).toBe(3);
     expect(parsedCode.result.phrase.split('-')).toHaveLength(3);

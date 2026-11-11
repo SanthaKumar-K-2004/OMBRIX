@@ -128,8 +128,6 @@ export function createOmbrixSandboxApi(logs: string[]) {
           width,
           height,
           data,
-          colorType: 6,
-          bitDepth: 8,
         };
       },
 

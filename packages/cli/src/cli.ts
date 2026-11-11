@@ -11,7 +11,7 @@ import {
   isPasskeyEncrypted,
 } from '@ombrix/crypto-adapter';
 import { Ombrix, type StegoMethod } from '@ombrix/edge-sdk';
-import { executeCodeMode, getCodeModeApiDocs, startMcpServer } from '@ombrix/mcp-server';
+import { executeCodeMode, startMcpServer } from '@ombrix/mcp-server';
 import {
   haarDwtStego,
   hyperMatrixMethod,

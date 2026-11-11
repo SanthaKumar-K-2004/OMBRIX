@@ -4,7 +4,20 @@ import * as path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { encodePng } from '../src/png.js';
 import { handleJsonRpc } from '../src/server.js';
-import { MCP_TOOLS } from '../src/tools.js';
+
+
+interface InitializeResult {
+  serverInfo: { name: string; version: string };
+  capabilities: { tools: unknown };
+}
+
+interface ToolListResult {
+  tools: Array<{ name: string; description?: string }>;
+}
+
+interface ToolCallResult {
+  content: Array<{ type: string; text: string }>;
+}
 
 describe('OMBRIX MCP Server', () => {
   let tmpDir: string;
@@ -46,8 +59,9 @@ describe('OMBRIX MCP Server', () => {
 
     expect(res).not.toBeNull();
     expect(res?.result).toBeDefined();
-    expect(res?.result.serverInfo.name).toBe('ombrix-mcp');
-    expect(res?.result.capabilities.tools).toBeDefined();
+    const initResult = res?.result as unknown as InitializeResult;
+    expect(initResult.serverInfo.name).toBe('ombrix-mcp');
+    expect(initResult.capabilities.tools).toBeDefined();
   });
 
   it('returns complete tool catalog in tools/list', async () => {
@@ -57,8 +71,9 @@ describe('OMBRIX MCP Server', () => {
       method: 'tools/list',
     });
 
-    expect(res?.result.tools).toHaveLength(8);
-    const toolNames = res?.result.tools.map((t: { name: string }) => t.name);
+    const listResult = res?.result as unknown as ToolListResult;
+    expect(listResult.tools).toHaveLength(8);
+    const toolNames = listResult.tools.map((t) => t.name);
     expect(toolNames).toContain('stego_embed');
     expect(toolNames).toContain('stego_extract');
     expect(toolNames).toContain('stego_scan');
@@ -81,7 +96,11 @@ describe('OMBRIX MCP Server', () => {
       },
     });
 
-    const parsedDiceware = JSON.parse(resDiceware?.result.content[0].text);
+    const diceResult = resDiceware?.result as unknown as ToolCallResult;
+    const parsedDiceware = JSON.parse(diceResult.content[0].text) as {
+      type: string;
+      passphrase: string;
+    };
     expect(parsedDiceware.type).toBe('diceware');
     expect(parsedDiceware.passphrase.split('-')).toHaveLength(4);
 
@@ -96,7 +115,12 @@ describe('OMBRIX MCP Server', () => {
       },
     });
 
-    const parsedCrypto = JSON.parse(resCrypto?.result.content[0].text);
+    const cryptoResult = resCrypto?.result as unknown as ToolCallResult;
+    const parsedCrypto = JSON.parse(cryptoResult.content[0].text) as {
+      type: string;
+      rawHex: string;
+      passkey: string;
+    };
     expect(parsedCrypto.type).toBe('crypto32');
     expect(parsedCrypto.rawHex).toHaveLength(64);
     expect(parsedCrypto.passkey.length).toBeGreaterThanOrEqual(64);
@@ -113,7 +137,11 @@ describe('OMBRIX MCP Server', () => {
       },
     });
 
-    const parsed = JSON.parse(res?.result.content[0].text);
+    const inspectResult = res?.result as unknown as ToolCallResult;
+    const parsed = JSON.parse(inspectResult.content[0].text) as {
+      image: { width: number; height: number };
+      usableCapacity: { sequentialLsbBytes: number };
+    };
     expect(parsed.image.width).toBe(64);
     expect(parsed.image.height).toBe(64);
     expect(parsed.usableCapacity.sequentialLsbBytes).toBeGreaterThan(0);
@@ -141,7 +169,11 @@ describe('OMBRIX MCP Server', () => {
       },
     });
 
-    const embedParsed = JSON.parse(embedRes?.result.content[0].text);
+    const embedResult = embedRes?.result as unknown as ToolCallResult;
+    const embedParsed = JSON.parse(embedResult.content[0].text) as {
+      status: string;
+      encryptedWithPasskey: boolean;
+    };
     expect(embedParsed.status).toBe('success');
     expect(embedParsed.encryptedWithPasskey).toBe(true);
     expect(fs.existsSync(stegoOut)).toBe(true);
@@ -160,7 +192,11 @@ describe('OMBRIX MCP Server', () => {
       },
     });
 
-    const lockedParsed = JSON.parse(lockedRes?.result.content[0].text);
+    const lockedResult = lockedRes?.result as unknown as ToolCallResult;
+    const lockedParsed = JSON.parse(lockedResult.content[0].text) as {
+      status: string;
+      isPasskeyEncrypted: boolean;
+    };
     expect(lockedParsed.status).toBe('locked');
     expect(lockedParsed.isPasskeyEncrypted).toBe(true);
 
@@ -179,7 +215,11 @@ describe('OMBRIX MCP Server', () => {
       },
     });
 
-    const unlockParsed = JSON.parse(unlockRes?.result.content[0].text);
+    const unlockResult = unlockRes?.result as unknown as ToolCallResult;
+    const unlockParsed = JSON.parse(unlockResult.content[0].text) as {
+      status: string;
+      previewText: string;
+    };
     expect(unlockParsed.status).toBe('success');
     expect(unlockParsed.previewText).toBe(secretMessage);
   });
@@ -195,7 +235,17 @@ describe('OMBRIX MCP Server', () => {
       },
     });
 
-    const parsed = JSON.parse(res?.result.content[0].text);
+    const scanResult = res?.result as unknown as ToolCallResult;
+    const parsed = JSON.parse(scanResult.content[0].text) as {
+      status: string;
+      verdict: unknown;
+      detectors: {
+        rsSteganalysis: unknown;
+        samplePairAnalysis: unknown;
+        chiSquarePoVs: unknown;
+        laplacianResidual: unknown;
+      };
+    };
     expect(parsed.status).toBe('success');
     expect(parsed.verdict).toBeDefined();
     expect(parsed.detectors.rsSteganalysis).toBeDefined();
