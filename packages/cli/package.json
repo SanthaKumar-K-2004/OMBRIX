@@ -13,7 +13,7 @@
   },
   "keywords": ["steganography", "forensics", "mcp", "code-mode", "security", "cryptography", "cli"],
   "scripts": {
-    "build": "node ../../scripts/build-tools.mjs",
+    "build": "node ../../scripts/build-tools.mjs cli",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

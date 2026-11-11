@@ -22,7 +22,7 @@
     "ai-agents"
   ],
   "scripts": {
-    "build": "node ../../scripts/build-tools.mjs",
+    "build": "node ../../scripts/build-tools.mjs mcp",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
