@@ -1,20 +1,26 @@
 {
   "name": "@ombrix/mcp-server",
   "version": "0.1.0",
-  "description": "Model Context Protocol (MCP) server for OMBRIX — Steganography & Visual Cryptanalysis Suite for AI Agents",
+  "description": "Model Context Protocol (MCP 2.0) server with Code Mode for OMBRIX steganography & visual forensics suite",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
   "types": "./src/index.ts",
-  "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts",
-      "default": "./src/index.ts"
-    }
-  },
   "bin": {
     "ombrix-mcp": "./dist/index.js"
   },
+  "files": ["dist", "README.md"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "mcp",
+    "mcp2",
+    "code-mode",
+    "model-context-protocol",
+    "steganography",
+    "forensics",
+    "ai-agents"
+  ],
   "scripts": {
     "build": "node ../../scripts/build-tools.mjs",
     "typecheck": "tsc --noEmit",

@@ -10,6 +10,8 @@ pnpm-debug.log*
 dist/
 build/
 out/
+releases/
+*.tgz
 .turbo/
 *.tsbuildinfo
 

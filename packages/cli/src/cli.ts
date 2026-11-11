@@ -11,7 +11,7 @@ import {
   isPasskeyEncrypted,
 } from '@ombrix/crypto-adapter';
 import { Ombrix, type StegoMethod } from '@ombrix/edge-sdk';
-import { startMcpServer } from '@ombrix/mcp-server';
+import { executeCodeMode, getCodeModeApiDocs, startMcpServer } from '@ombrix/mcp-server';
 import {
   haarDwtStego,
   hyperMatrixMethod,
@@ -52,6 +52,8 @@ COMMANDS:
   inspect <imagePath>                 Analyze carrier capacity across 7 algorithms
   benchmark <carrierPath> [options]   Compare algorithms on carrier (PSNR, MSE, SSIM)
   keygen [diceware|crypto32|keypair]  Generate cryptographic passkeys or keypairs
+  eval <script>                       Execute sandboxed JavaScript/TypeScript Code Mode script
+  run-script <scriptFile>             Run an OMBRIX Code Mode workflow script from file
   mcp <install|show|run> [target]     AI Agent Model Context Protocol (MCP) commands
   experiment <carrierPath> [options]  Generate Section 16.5 Reproducibility Record
   verify <stegoPath>                  Verify carrier integrity and OMB1 envelope
@@ -741,6 +743,67 @@ export async function runCli(args: string[]): Promise<CliResult> {
           log('\x1b[33mℹ Carrier is clean or contains no detectable OMB1 envelope\x1b[0m');
           return { exitCode: 0, stdout, stderr };
         }
+      }
+
+      case 'eval': {
+        const scriptCode = cmdArgs.join(' ');
+        if (!scriptCode.trim()) {
+          err('Error: Missing script code for eval command');
+          err('Example: ombrix eval \'const cap = ombrix.inspect("img.png"); return cap;\'');
+          return { exitCode: 1, stdout, stderr };
+        }
+
+        const res = await executeCodeMode(scriptCode);
+        if (res.logs.length > 0) {
+          for (const l of res.logs) log(l);
+        }
+
+        if (res.status === 'success') {
+          if (res.result !== undefined) {
+            log(
+              typeof res.result === 'object'
+                ? JSON.stringify(res.result, null, 2)
+                : String(res.result),
+            );
+          }
+          return { exitCode: 0, stdout, stderr };
+        }
+
+        err(`Code execution error: ${res.error}`);
+        return { exitCode: 1, stdout, stderr };
+      }
+
+      case 'run-script': {
+        const scriptPath = cmdArgs[0];
+        if (!scriptPath || scriptPath.startsWith('-')) {
+          err('Error: Missing <scriptFile> path for run-script command');
+          return { exitCode: 1, stdout, stderr };
+        }
+
+        if (!fs.existsSync(scriptPath)) {
+          err(`Error: Script file not found: ${scriptPath}`);
+          return { exitCode: 1, stdout, stderr };
+        }
+
+        const scriptCode = fs.readFileSync(scriptPath, 'utf8');
+        const res = await executeCodeMode(scriptCode);
+        if (res.logs.length > 0) {
+          for (const l of res.logs) log(l);
+        }
+
+        if (res.status === 'success') {
+          if (res.result !== undefined) {
+            log(
+              typeof res.result === 'object'
+                ? JSON.stringify(res.result, null, 2)
+                : String(res.result),
+            );
+          }
+          return { exitCode: 0, stdout, stderr };
+        }
+
+        err(`Code execution error: ${res.error}`);
+        return { exitCode: 1, stdout, stderr };
       }
 
       default:

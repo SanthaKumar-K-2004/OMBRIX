@@ -57,7 +57,7 @@ describe('OMBRIX MCP Server', () => {
       method: 'tools/list',
     });
 
-    expect(res?.result.tools).toHaveLength(6);
+    expect(res?.result.tools).toHaveLength(8);
     const toolNames = res?.result.tools.map((t: { name: string }) => t.name);
     expect(toolNames).toContain('stego_embed');
     expect(toolNames).toContain('stego_extract');
@@ -65,6 +65,8 @@ describe('OMBRIX MCP Server', () => {
     expect(toolNames).toContain('stego_benchmark');
     expect(toolNames).toContain('stego_keygen');
     expect(toolNames).toContain('stego_inspect');
+    expect(toolNames).toContain('stego_code_mode');
+    expect(toolNames).toContain('stego_api_docs');
   });
 
   it('generates cryptographic keys via stego_keygen', async () => {

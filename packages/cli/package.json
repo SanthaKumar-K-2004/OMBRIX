@@ -1,32 +1,31 @@
 {
   "name": "@ombrix/cli",
   "version": "0.1.0",
+  "description": "Zero-telemetry forensic steganography CLI and MCP 2.0 Code Mode runner",
   "type": "module",
   "bin": {
     "ombrix": "./dist/bin.js"
   },
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
-  "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
-    }
+  "main": "./dist/bin.js",
+  "files": ["dist", "README.md"],
+  "publishConfig": {
+    "access": "public"
   },
-  "dependencies": {
-    "@ombrix/edge-sdk": "workspace:*",
-    "@ombrix/image-validation": "workspace:*",
-    "@ombrix/stego-interface": "workspace:*",
-    "@ombrix/stego-png-lsb": "workspace:*",
-    "@ombrix/stego-advanced": "workspace:*",
-    "@ombrix/stego-forensics": "workspace:*",
-    "@ombrix/crypto-adapter": "workspace:*",
-    "@ombrix/mcp-server": "workspace:*",
-    "@ombrix/stego-lab": "workspace:*"
-  },
+  "keywords": ["steganography", "forensics", "mcp", "code-mode", "security", "cryptography", "cli"],
   "scripts": {
     "build": "node ../../scripts/build-tools.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@ombrix/crypto-adapter": "workspace:*",
+    "@ombrix/edge-sdk": "workspace:*",
+    "@ombrix/image-validation": "workspace:*",
+    "@ombrix/mcp-server": "workspace:*",
+    "@ombrix/stego-advanced": "workspace:*",
+    "@ombrix/stego-forensics": "workspace:*",
+    "@ombrix/stego-interface": "workspace:*",
+    "@ombrix/stego-lab": "workspace:*",
+    "@ombrix/stego-png-lsb": "workspace:*"
   }
 }

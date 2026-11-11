@@ -20,6 +20,7 @@ import {
 import type { CarrierImage } from '@ombrix/stego-interface';
 import { pngLsbMatching } from '@ombrix/stego-lab';
 import { pngLsbSequential } from '@ombrix/stego-png-lsb';
+import { executeCodeMode, getCodeModeApiDocs } from './code-mode.js';
 import { decodePng, encodePng } from './png.js';
 
 export interface McpToolDefinition {
@@ -174,6 +175,36 @@ export const MCP_TOOLS: McpToolDefinition[] = [
         },
       },
       required: ['imagePath'],
+    },
+  },
+  {
+    name: 'stego_code_mode',
+    description:
+      'Executes sandboxed JavaScript/TypeScript code using MCP 2.0 Code Mode architecture. Enables complex multi-step steganography workflows (batching, conditional extraction, forensic scanning, key generation, and benchmark comparisons) inside a single air-gapped call, reducing token consumption by over 95% and eliminating intermediate payload leakage.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        code: {
+          type: 'string',
+          description:
+            'JavaScript/TypeScript code to execute. Has access to the global `ombrix` API (load, save, embed, extract, scan, benchmark, keygen, inspect, read, write) and `console.log`. The script must `return` the final result object or value.',
+        },
+        timeoutMs: {
+          type: 'number',
+          description: 'Maximum execution timeout in milliseconds (default: 15000, max: 30000).',
+          default: 15000,
+        },
+      },
+      required: ['code'],
+    },
+  },
+  {
+    name: 'stego_api_docs',
+    description:
+      'Discovers the complete TypeScript API definitions, method signatures, types, and usage patterns available inside `stego_code_mode`. Call this to inspect available capabilities before running Code Mode scripts.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
     },
   },
 ];
@@ -484,6 +515,33 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
           robustMessagingBytes: Math.floor((totalPixels / 64) * 0.125), // block-based
           dwtWaveletBytes: Math.floor(rawLsbBytes * 0.5),
         },
+      };
+    }
+
+    case 'stego_code_mode': {
+      const { code, timeoutMs = 15000 } = args as { code?: string; timeoutMs?: number };
+      if (!code || typeof code !== 'string') {
+        throw new Error('Missing "code" parameter for stego_code_mode.');
+      }
+      const safeTimeout = Math.min(Math.max(Number(timeoutMs) || 15000, 1000), 30000);
+      return await executeCodeMode(code, safeTimeout);
+    }
+
+    case 'stego_api_docs': {
+      return {
+        apiDocs: getCodeModeApiDocs(),
+        runtime: 'Node.js V8 Sandboxed VM (MCP 2.0 Code Mode)',
+        zeroNetworkAirGap: true,
+        availableModules: [
+          'ombrix',
+          'console',
+          'Uint8Array',
+          'Uint8ClampedArray',
+          'TextEncoder',
+          'TextDecoder',
+          'JSON',
+          'Math',
+        ],
       };
     }
 

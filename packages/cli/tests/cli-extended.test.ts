@@ -130,4 +130,33 @@ describe('OMBRIX CLI - Extended Features & MCP Installer Suite', () => {
     expect(res.stdout).toContain('Cursor IDE');
     expect(res.stdout).toContain('Installation complete!');
   });
+
+  it('evaluates Code Mode scripts via CLI eval command', async () => {
+    const script = `
+      console.log('Evaluating in CLI Code Mode');
+      const token = await ombrix.keygen('crypto32');
+      return { tokenPreview: token.passkey.substring(0, 9), entropy: token.entropyBits };
+    `;
+    const res = await runCli(['eval', script]);
+    expect(res.exitCode).toBe(0);
+    expect(res.stdout).toContain('Evaluating in CLI Code Mode');
+    expect(res.stdout).toContain('tokenPreview');
+    expect(res.stdout).toContain('256');
+  });
+
+  it('executes Code Mode workflow script files via CLI run-script command', async () => {
+    const scriptFile = path.join(tmpDir, 'test-workflow.js');
+    const scriptCode = `
+      const carrier = ombrix.createCarrier(32, 32);
+      const cap = ombrix.inspect(carrier);
+      console.log('Carrier ready with pixels:', cap.totalPixels);
+      return { totalPixels: cap.totalPixels, lsbBytes: cap.capacities.sequentialLsbBytes };
+    `;
+    fs.writeFileSync(scriptFile, scriptCode, 'utf8');
+
+    const res = await runCli(['run-script', scriptFile]);
+    expect(res.exitCode).toBe(0);
+    expect(res.stdout).toContain('Carrier ready with pixels: 1024');
+    expect(res.stdout).toContain('384');
+  });
 });
