@@ -28,3 +28,4 @@
 2. Enter repository: `https://github.com/SanthaKumar-K-2004/OMBRIX`
 3. Smithery auto-detects `smithery.yaml` and `Dockerfile` from the root directory.
 4. Click **Publish** to generate the live Smithery link: `https://smithery.ai/server/SanthaKumar-K-2004/OMBRIX`.
+

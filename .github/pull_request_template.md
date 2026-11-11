@@ -20,3 +20,4 @@ Fixes #(issue)
 - [ ] I have added tests that prove my fix is effective or that my feature works (`pnpm run test` passes).
 - [ ] Zero network requests or telemetry were introduced (client-side air-gap strictly preserved).
 - [ ] TypeScript types check cleanly (`pnpm run typecheck` passes).
+

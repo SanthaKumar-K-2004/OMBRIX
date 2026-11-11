@@ -53,3 +53,4 @@ jobs:
       - name: Verify MCP Server Binary Handshake
         run: |
           echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node packages/mcp-server/dist/index.js
+
