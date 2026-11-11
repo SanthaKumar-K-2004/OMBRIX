@@ -87,6 +87,31 @@ export async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcRes
         },
       };
     } catch (err) {
+      const errMsg = (err as Error).message || String(err);
+      let code = 'E_TOOL_FAILED';
+      let message = errMsg;
+      let hint = 'Verify tool arguments, carrier image validity, and passkey.';
+
+      const codeMatch = errMsg.match(/^(E_[A-Z0-9_]+):\s*(.*)/);
+      if (codeMatch) {
+        code = codeMatch[1] ?? 'E_TOOL_FAILED';
+        const rest = codeMatch[2] ?? '';
+        const hintSplit = rest.split(/\s*Hint:\s*/i);
+        message = hintSplit[0]?.trim() ?? rest;
+        if (hintSplit[1]) {
+          hint = hintSplit[1].trim();
+        }
+      }
+
+      const structuredError = {
+        ok: false,
+        error: {
+          code,
+          message,
+          hint,
+        },
+      };
+
       return {
         jsonrpc: '2.0',
         id,
@@ -95,7 +120,7 @@ export async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcRes
           content: [
             {
               type: 'text',
-              text: `Error executing ${toolName}: ${(err as Error).message}`,
+              text: JSON.stringify(structuredError, null, 2),
             },
           ],
         },

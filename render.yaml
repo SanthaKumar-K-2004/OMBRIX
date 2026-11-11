@@ -4,7 +4,8 @@ services:
     runtime: node
     plan: free
     region: oregon
-    buildCommand: "node -e 'console.log(\"Build OK\")'"
+    # No build step needed - index.js is pre-bundled (zero dependencies)
+    buildCommand: "echo 'Using pre-bundled index.js - no build needed'"
     startCommand: "node spaces/huggingface/index.js"
     envVars:
       - key: PORT
@@ -15,3 +16,6 @@ services:
         value: production
     healthCheckPath: /health
     autoDeploy: true
+    # Render free tier: 750 hours/month, spins down after 15min inactivity
+    # First request after spin-down: ~30s cold start
+    # Upgrade to Starter ($7/mo) for always-on

@@ -50,6 +50,45 @@ function areEqualBytes(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 /**
+ * Safely resolves an Argon2id passkey from passkeyEnv (environment variable),
+ * passkeyFile (filesystem path), or direct passkey argument.
+ * Protects passkeys from needing to travel through AI chat prompts.
+ */
+function resolvePasskey(args: {
+  passkey?: string;
+  passkeyEnv?: string;
+  passkeyFile?: string;
+}): string | undefined {
+  if (args.passkeyEnv && typeof args.passkeyEnv === 'string') {
+    const envVal = process.env[args.passkeyEnv];
+    if (!envVal) {
+      throw new Error(
+        `E_PASSKEY_ENV_NOT_FOUND: Environment variable '${args.passkeyEnv}' is not set or empty. Hint: Set the environment variable in your shell or MCP client config.`,
+      );
+    }
+    return envVal;
+  }
+  if (args.passkeyFile && typeof args.passkeyFile === 'string') {
+    if (!fs.existsSync(args.passkeyFile)) {
+      throw new Error(
+        `E_PASSKEY_FILE_NOT_FOUND: Passkey file not found: ${args.passkeyFile}. Hint: Verify the file path.`,
+      );
+    }
+    const fileVal = fs.readFileSync(args.passkeyFile, 'utf8').trim();
+    if (!fileVal) {
+      throw new Error(
+        `E_PASSKEY_FILE_EMPTY: Passkey file is empty: ${args.passkeyFile}. Hint: Ensure the file contains your secret passphrase.`,
+      );
+    }
+    return fileVal;
+  }
+  if (args.passkey && typeof args.passkey === 'string' && args.passkey.length > 0) {
+    return args.passkey;
+  }
+  return undefined;
+}
+
+/**
  * Loads and decodes an image from filesystem path, base64 data URL, or remote URL.
  */
 async function loadInputImage(params: {
@@ -89,7 +128,7 @@ async function loadInputImage(params: {
   // Check for JPEG magic signature [0xFF, 0xD8, 0xFF]
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
     throw new Error(
-      'E_UNSUPPORTED_FORMAT: JPEG image detected. Lossy JPEG recompression destroys steganographic pixel bits. Please convert to PNG or send as a Document in WhatsApp. Or use the "robust-resilient" algorithm for lossy survival.',
+      'E_UNSUPPORTED_FORMAT: JPEG image detected. Lossy JPEG recompression destroys steganographic pixel bits. Hint: Please convert to PNG or send as a Document in WhatsApp. Or use the robust-resilient algorithm for lossy survival.',
     );
   }
 
@@ -115,7 +154,7 @@ export const MCP_TOOLS: McpToolDefinition[] = [
   {
     name: 'stego_plan',
     description:
-      'Recommends the optimal steganography algorithm, checks capacity limits, and provides delivery channel guidance (e.g. WhatsApp Document vs Photo, Email, Web).',
+      'Recommends optimal steganography algorithm, checks capacity limits, and provides delivery channel guidance (e.g. WhatsApp Document vs Photo, Email, Web). Example: { "channel": "whatsapp-photo", "payloadLengthBytes": 32 }',
     inputSchema: {
       type: 'object',
       properties: {
@@ -137,6 +176,10 @@ export const MCP_TOOLS: McpToolDefinition[] = [
           type: 'string',
           description: 'Optional Base64-encoded PNG cover image.',
         },
+        carrierUrl: {
+          type: 'string',
+          description: 'Optional public HTTP/HTTPS URL of candidate cover PNG.',
+        },
         withPasskey: {
           type: 'boolean',
           default: true,
@@ -150,7 +193,7 @@ export const MCP_TOOLS: McpToolDefinition[] = [
   {
     name: 'stego_hide',
     description:
-      'High-level, one-call steganography embedding tool with automatic safe algorithm selection, in-memory self-verification, and Base64/filesystem output.',
+      'High-level one-call steganography embedding tool with automatic safe algorithm selection, in-memory self-verification, and Base64/filesystem output. Accepts PNG only. Example: { "carrierPath": "cover.png", "message": "Secret", "passkeyEnv": "SECRET_KEY" }',
     inputSchema: {
       type: 'object',
       properties: {
@@ -164,6 +207,15 @@ export const MCP_TOOLS: McpToolDefinition[] = [
         passkey: {
           type: 'string',
           description: 'Optional secret passkey for Argon2id authenticated encryption.',
+        },
+        passkeyEnv: {
+          type: 'string',
+          description:
+            'Environment variable containing secret passkey (recommended for AI safety).',
+        },
+        passkeyFile: {
+          type: 'string',
+          description: 'Filesystem path to a file containing the secret passkey.',
         },
         channel: {
           type: 'string',
@@ -183,7 +235,7 @@ export const MCP_TOOLS: McpToolDefinition[] = [
   {
     name: 'stego_reveal',
     description:
-      'High-level, one-call steganography extraction tool. Automatically searches all algorithms and returns recovered secret message with prompt-injection safety tags.',
+      'High-level one-call steganography extraction tool. Automatically searches all algorithms and returns recovered secret message with prompt-injection safety tags. Accepts PNG only. Example: { "stegoPath": "stego.png", "passkeyEnv": "SECRET_KEY" }',
     inputSchema: {
       type: 'object',
       properties: {
@@ -194,13 +246,22 @@ export const MCP_TOOLS: McpToolDefinition[] = [
           type: 'string',
           description: 'Secret passkey if the payload was encrypted during embedding.',
         },
+        passkeyEnv: {
+          type: 'string',
+          description:
+            'Environment variable containing secret passkey (recommended for AI safety).',
+        },
+        passkeyFile: {
+          type: 'string',
+          description: 'Filesystem path to a file containing the secret passkey.',
+        },
       },
     },
   },
   {
     name: 'stego_embed',
     description:
-      'Conceals a secret plaintext message or file into a PNG carrier image using military-grade steganography (Universal Hyper-Matrix, Robust Resilient, DWT, PVD, or LSB Matching) with in-memory self-verification and optional Argon2id passkey encryption.',
+      'Conceals a secret plaintext message or file into a PNG carrier image (Hyper-Matrix, Robust Resilient, DWT, PVD, LSB Matching, or LSB) with in-memory self-verification and optional Argon2id passkey encryption. Accepts PNG only. Example: { "carrierPath": "cover.png", "payload": "Data", "method": "hyper-matrix" }',
     inputSchema: {
       type: 'object',
       properties: {
@@ -219,6 +280,15 @@ export const MCP_TOOLS: McpToolDefinition[] = [
           type: 'string',
           description: 'Optional secret passkey for Argon2id key derivation & encryption.',
         },
+        passkeyEnv: {
+          type: 'string',
+          description:
+            'Environment variable containing secret passkey (recommended for AI safety).',
+        },
+        passkeyFile: {
+          type: 'string',
+          description: 'Filesystem path to a file containing the secret passkey.',
+        },
         method: {
           type: 'string',
           enum: ['hyper-matrix', 'robust-resilient', 'dwt', 'pvd', 'matching', 'lsb'],
@@ -235,7 +305,7 @@ export const MCP_TOOLS: McpToolDefinition[] = [
   {
     name: 'stego_extract',
     description:
-      'Extracts a concealed secret message or file from an OMBRIX stego carrier image, supporting automatic multi-algorithm sequential search and Argon2id passkey unlocking.',
+      'Extracts a concealed secret message or file from an OMBRIX stego carrier image, supporting automatic multi-algorithm sequential search and Argon2id passkey unlocking. Accepts PNG only. Example: { "stegoPath": "stego.png", "method": "auto" }',
     inputSchema: {
       type: 'object',
       properties: {
@@ -245,6 +315,15 @@ export const MCP_TOOLS: McpToolDefinition[] = [
         passkey: {
           type: 'string',
           description: 'Secret passkey if the payload was encrypted during embedding.',
+        },
+        passkeyEnv: {
+          type: 'string',
+          description:
+            'Environment variable containing secret passkey (recommended for AI safety).',
+        },
+        passkeyFile: {
+          type: 'string',
+          description: 'Filesystem path to a file containing the secret passkey.',
         },
         method: {
           type: 'string',
@@ -408,6 +487,8 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         payloadFilePath,
         message,
         passkey,
+        passkeyEnv,
+        passkeyFile,
         method = 'hyper-matrix',
         channel = 'whatsapp-document',
         outputPath,
@@ -419,6 +500,8 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         payloadFilePath?: string;
         message?: string;
         passkey?: string;
+        passkeyEnv?: string;
+        passkeyFile?: string;
         method?: string;
         channel?: string;
         outputPath?: string;
@@ -446,12 +529,14 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         effectiveMethod = 'robust-resilient';
       }
 
+      const resolvedKey = resolvePasskey({ passkey, passkeyEnv, passkeyFile });
+
       // Encrypt with passkey if provided
       let finalPayload = rawBytes;
       let encrypted = false;
-      if (passkey) {
+      if (resolvedKey) {
         await ensureCrypto();
-        finalPayload = encryptWithPasskey(rawBytes, passkey);
+        finalPayload = encryptWithPasskey(rawBytes, resolvedKey);
         encrypted = true;
       }
 
@@ -547,6 +632,8 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         stegoBase64,
         stegoUrl,
         passkey,
+        passkeyEnv,
+        passkeyFile,
         method = 'auto',
         outputPath,
       } = args as {
@@ -554,6 +641,8 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         stegoBase64?: string;
         stegoUrl?: string;
         passkey?: string;
+        passkeyEnv?: string;
+        passkeyFile?: string;
         method?: string;
         outputPath?: string;
       };
@@ -600,7 +689,7 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
             detectedMethod = 'omb1-envelope';
           } catch {
             throw new Error(
-              'E_NO_STEGO_DETECTED: No valid hidden payload found using any supported algorithm (tried hyper-matrix, matching, pvd, dwt, robust-resilient, lsb).',
+              'E_NO_STEGO_DETECTED: No valid hidden payload found using any supported algorithm (tried hyper-matrix, matching, pvd, dwt, robust-resilient, lsb). Hint: Ensure the file is an authentic OMBRIX carrier and uncorrupted.',
             );
           }
         }
@@ -626,22 +715,30 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
       // Decrypt if passkey-protected
       let wasEncrypted = false;
       let finalBytes = extractedRaw;
+      const resolvedKey = resolvePasskey({ passkey, passkeyEnv, passkeyFile });
 
       if (isPasskeyEncrypted(extractedRaw)) {
         wasEncrypted = true;
-        if (!passkey) {
+        if (!resolvedKey) {
           return {
             status: 'locked',
             ok: false,
             code: 'E_PASSKEY_REQUIRED',
             message:
-              'Payload is encrypted with an Argon2id passkey. Please call again with passkey.',
+              'Payload is encrypted with an Argon2id passkey. Please call again with passkey, passkeyEnv, or passkeyFile.',
+            hint: 'Provide passkey, passkeyEnv (environment variable name), or passkeyFile (path to secret key file).',
             isPasskeyEncrypted: true,
             detectedMethod,
           };
         }
         await ensureCrypto();
-        finalBytes = decryptWithPasskey(extractedRaw, passkey);
+        try {
+          finalBytes = decryptWithPasskey(extractedRaw, resolvedKey);
+        } catch {
+          throw new Error(
+            'E_AUTH_FAILED: Authentication failed or no valid stego payload present. Hint: Ensure the passkey is correct (case-sensitive) and matches the carrier.',
+          );
+        }
       }
 
       let writtenFile: string | undefined;

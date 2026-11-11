@@ -3,86 +3,72 @@ title: OMBRIX MCP 2.0 Server
 emoji: 🛡️
 colorFrom: blue
 colorTo: purple
-sdk: docker
-app_port: 7860
+sdk: static
 pinned: false
 license: mit
 short_description: Stego & forensics MCP server for AI agents
 ---
 
-# 🛡️ OMBRIX MCP 2.0 Server (Hugging Face Spaces)
+# 🛡️ OMBRIX MCP 2.0 — Zero-Telemetry Steganography Server
 
-A high-performance, air-gapped, zero-telemetry **Model Context Protocol (MCP 2.0)** server. Connect your AI assistants (Claude Desktop, Cursor, Antigravity, Open WebUI, Windsurf) directly to OMBRIX's military-grade steganography, multi-detector forensics, and sandboxed Code Mode runtime over high-speed Server-Sent Events (SSE).
+> **This space is a landing page.** The live MCP server runs on [Render.com](https://ombrix-mcp.onrender.com) (see below).
+
+A high-performance, air-gapped, zero-telemetry **Model Context Protocol (MCP 2.0)** server. Connect your AI assistants (Claude Desktop, Cursor, Antigravity, Open WebUI, Windsurf) directly to OMBRIX's military-grade steganography, multi-detector forensics, and sandboxed Code Mode runtime.
 
 ---
 
-## 🔌 Live Connect URL
+## 🔌 Live MCP Connect URL
 
-```text
-https://spidysanta-ombrix-mcp.hf.space/sse
+```
+https://ombrix-mcp.onrender.com/sse
 ```
 
+> **Note:** Render free tier spins down after 15 min of inactivity. First connection after sleep may take ~30 seconds. For always-on, upgrade Render to Starter ($7/mo) or use the local npx command.
+
 ---
 
-## 💻 AI Agent Configuration
+## ⚡ Zero-Install Local Use (No Server Needed)
 
-### 1. Claude Desktop
-Add to your `claude_desktop_config.json`:
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-- **Linux**: `~/.config/Claude/claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "ombrix": {
-      "url": "https://spidysanta-ombrix-mcp.hf.space/sse"
-    }
-  }
-}
+```bash
+npx ombrix-mcp-server
 ```
 
-### 2. Cursor
-1. Go to **Cursor Settings** &rarr; **Features** &rarr; **MCP**.
-2. Click **+ Add New MCP Server**.
-3. Set:
-   - **Name**: `ombrix`
-   - **Type**: `sse`
-   - **URL**: `https://spidysanta-ombrix-mcp.hf.space/sse`
+Then connect your MCP client to: `http://localhost:3000/sse`
 
 ---
 
-## 🛠️ Available MCP Tools (11)
+## 🛠️ Smithery One-Click Connect
 
-| Tool | Capability |
-| :--- | :--- |
-| `stego_plan` | Channel recommendation engine. Advises on method, checks capacity fit, and warns about lossy JPEG recompression on WhatsApp Photos vs Documents. |
-| `stego_hide` | Simplified one-step payload hiding with safe defaults, Base64/URL support, and automated in-memory self-verification (`verified: true`). |
-| `stego_reveal` | Simplified one-step payload extraction with automatic multi-algorithm sequential fallback and prompt-injection safety tags. |
-| `stego_embed` | Conceals secret plaintext messages or files into PNG carriers using Hyper-Matrix, DWT, PVD, LSB Matching, or Robust Resilient with Argon2id encryption. |
-| `stego_extract` | Extracts concealed secret payloads with automatic algorithm detection and passkey unlocking. |
-| `stego_scan` | Multi-detector forensic steganalysis using calibrated Fridrich RS Steganalysis, Dumitrescu Sample Pair Analysis (SPA), Chi-Square (PoVs), and Laplacian noise variance. |
-| `stego_benchmark` | Benchmarks all 6 steganography algorithms across empirical image quality metrics (PSNR in dB, MSE, capacity limits). |
-| `stego_keygen` | Generates Diceware passphrases, 32-byte tokens, X25519 keypairs, and Ed25519 signing keys. |
-| `stego_inspect` | Inspects image dimensions, color channels, and exact usable byte payload capacity per algorithm. |
-| `stego_code_mode` | Sandboxed JavaScript/TypeScript execution inside a single air-gapped call, reducing LLM token consumption by over 95%. |
-| `stego_api_docs` | Discovers full TypeScript API definitions and signatures for Code Mode. |
+[Connect on Smithery](https://smithery.ai/server/ombrix-mcp-server)
 
 ---
 
-## 🔒 Security & Privacy Guarantee
+## 🧰 11 Available Tools
 
-- **Zero-Telemetry Boundary**: Operates strictly within ephemeral RAM.
-- **No Persistence / No Logs**: Images and secret payloads processed in-memory are never written to disk or transmitted to third parties.
-- **Prompt Injection Defense**: All revealed content is tagged with `{ untrusted: true }` and strict safety notices to protect host LLMs.
-- **Memory Released Instantly**: Ephemeral buffers are garbage-collected immediately upon response completion.
+| Tool | Description |
+|------|-------------|
+| `stego_embed` | Hide data in PNG images (6 algorithms) |
+| `stego_extract` | Extract hidden data with auto-detect |
+| `stego_inspect` | Capacity analysis per algorithm |
+| `stego_scan` | Chi-square + RS steganalysis |
+| `stego_benchmark` | Performance benchmark all 6 algorithms |
+| `stego_keygen` | Generate cryptographic diceware passkeys |
+| `stego_validate` | Validate PNG integrity |
+| `stego_plan` | Channel-aware method recommender |
+| `stego_hide` | Simplified embed alias |
+| `stego_reveal` | Simplified extract alias |
+| `code_execute` | Sandboxed Node.js code runner |
 
----
+## 🔬 6 Steganography Algorithms
 
-## 🌐 Links
+- `hyper-matrix` — Best for large payloads, full round-trip ✅
+- `lsb` — Classic LSB, now fixed and verified ✅
+- `matching` — ±1 embedding, low distortion
+- `pvd` — Pixel value differencing
+- `dwt` — Discrete wavelet transform
+- `robust-resilient` — Survives JPEG recompression (≤56 bytes)
 
-- **Main Repository**: [github.com/SanthaKumar-K-2004/OMBRIX](https://github.com/SanthaKumar-K-2004/OMBRIX)
-- **Web Studio**: [ombrix-stego.vercel.app](https://ombrix-stego.vercel.app/)
-- **npm Package**: [npmjs.com/package/ombrix-mcp-server](https://www.npmjs.com/package/ombrix-mcp-server)
+## 📦 Source
 
-
+- GitHub: [SanthaKumar-K-2004/OMBRIX](https://github.com/SanthaKumar-K-2004/OMBRIX)
+- npm: [ombrix-mcp-server](https://npmjs.com/package/ombrix-mcp-server)

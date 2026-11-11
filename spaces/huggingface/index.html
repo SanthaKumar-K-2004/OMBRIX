@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OMBRIX MCP 2.0 Server</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #0a0a1a 0%, #1a0a3a 50%, #0a1a2a 100%);
+      min-height: 100vh; color: #e0e0ff; padding: 2rem;
+    }
+    .container { max-width: 860px; margin: 0 auto; }
+    .header { text-align: center; padding: 3rem 0 2rem; }
+    .logo { font-size: 4rem; margin-bottom: 1rem; }
+    h1 { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.02em;
+         background: linear-gradient(90deg, #7c3aed, #2563eb, #06b6d4);
+         -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .tagline { margin-top: 0.75rem; font-size: 1.1rem; color: #94a3b8; }
+    .connect-box {
+      background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.4);
+      border-radius: 1rem; padding: 2rem; margin: 2rem 0;
+    }
+    .connect-box h2 { font-size: 1.3rem; color: #a78bfa; margin-bottom: 1rem; }
+    .url-block {
+      background: rgba(0,0,0,0.5); border: 1px solid #334155; border-radius: 0.5rem;
+      padding: 1rem 1.5rem; font-family: monospace; font-size: 1.1rem;
+      color: #38bdf8; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    }
+    .copy-btn {
+      background: #7c3aed; color: white; border: none; border-radius: 0.4rem;
+      padding: 0.4rem 1rem; cursor: pointer; font-size: 0.85rem; transition: background 0.2s;
+    }
+    .copy-btn:hover { background: #6d28d9; }
+    .copy-btn.copied { background: #059669; }
+    .badge { display: inline-flex; align-items: center; gap: 0.3rem;
+             background: rgba(5,150,105,0.2); border: 1px solid rgba(5,150,105,0.4);
+             border-radius: 2rem; padding: 0.25rem 0.75rem; font-size: 0.8rem; color: #34d399; }
+    .note { margin-top: 0.75rem; font-size: 0.85rem; color: #64748b; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 2rem 0; }
+    @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 0.75rem; padding: 1.5rem;
+    }
+    .card h3 { font-size: 1rem; color: #93c5fd; margin-bottom: 0.75rem; }
+    .card code { 
+      display: block; background: rgba(0,0,0,0.4); border-radius: 0.4rem;
+      padding: 0.75rem; font-family: monospace; font-size: 0.85rem; color: #86efac;
+      white-space: pre; overflow-x: auto;
+    }
+    .tools { margin: 2rem 0; }
+    .tools h2 { font-size: 1.3rem; color: #a78bfa; margin-bottom: 1rem; }
+    .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 0.75rem; }
+    .tool-pill {
+      background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.3);
+      border-radius: 0.5rem; padding: 0.6rem 1rem; font-size: 0.85rem;
+    }
+    .tool-pill code { background: none; padding: 0; color: #60a5fa; font-size: 0.9em; }
+    .tool-pill p { color: #94a3b8; font-size: 0.75rem; margin-top: 0.2rem; }
+    .footer { text-align: center; margin-top: 3rem; color: #475569; font-size: 0.85rem; }
+    .footer a { color: #7c3aed; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+    .status-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: #22c55e; margin-right: 6px; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">🛡️</div>
+      <h1>OMBRIX MCP 2.0</h1>
+      <div class="tagline">Zero-Telemetry • Air-Gapped • Forensic Steganography • 11 Tools</div>
+    </div>
+
+    <div class="connect-box">
+      <h2>🔌 MCP SSE Connect URL</h2>
+      <div class="url-block">
+        <span id="mcp-url">https://ombrix-mcp.onrender.com/sse</span>
+        <button class="copy-btn" onclick="copyUrl()">📋 Copy</button>
+        <span class="badge"><span class="status-dot"></span>Live on Render.com</span>
+      </div>
+      <p class="note">⚠️ Free tier: spins down after 15 min inactivity. First request after sleep takes ~30s. For always-on, use <code>npx ombrix-mcp-server</code> locally.</p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>⚡ Local (Zero-Install)</h3>
+        <code>npx ombrix-mcp-server</code>
+        <p style="color:#94a3b8;font-size:0.8rem;margin-top:0.5rem">Connect to: http://localhost:3000/sse</p>
+      </div>
+      <div class="card">
+        <h3>🔍 Health Check</h3>
+        <code>curl https://ombrix-mcp.onrender.com/health</code>
+      </div>
+      <div class="card">
+        <h3>🤖 Claude Desktop Config</h3>
+        <code>{
+  "mcpServers": {
+    "ombrix": {
+      "url": "https://ombrix-mcp
+              .onrender.com/sse"
+    }
+  }
+}</code>
+      </div>
+      <div class="card">
+        <h3>🌐 Smithery</h3>
+        <code>smithery.ai/server/
+ombrix-mcp-server</code>
+        <p style="color:#94a3b8;font-size:0.8rem;margin-top:0.5rem">One-click install in Claude</p>
+      </div>
+    </div>
+
+    <div class="tools">
+      <h2>🧰 11 Available Tools</h2>
+      <div class="tool-grid">
+        <div class="tool-pill"><code>stego_embed</code><p>Hide data in PNG (6 algos)</p></div>
+        <div class="tool-pill"><code>stego_extract</code><p>Extract with auto-detect</p></div>
+        <div class="tool-pill"><code>stego_inspect</code><p>Capacity analysis</p></div>
+        <div class="tool-pill"><code>stego_scan</code><p>Chi-square steganalysis</p></div>
+        <div class="tool-pill"><code>stego_benchmark</code><p>Benchmark all 6 algos</p></div>
+        <div class="tool-pill"><code>stego_keygen</code><p>Diceware passkey gen</p></div>
+        <div class="tool-pill"><code>stego_validate</code><p>PNG integrity check</p></div>
+        <div class="tool-pill"><code>stego_plan</code><p>Channel recommender</p></div>
+        <div class="tool-pill"><code>stego_hide</code><p>Simplified embed</p></div>
+        <div class="tool-pill"><code>stego_reveal</code><p>Simplified extract</p></div>
+        <div class="tool-pill"><code>code_execute</code><p>Sandboxed Node.js</p></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>
+        <a href="https://github.com/SanthaKumar-K-2004/OMBRIX" target="_blank">GitHub</a> ·
+        <a href="https://npmjs.com/package/ombrix-mcp-server" target="_blank">npm</a> ·
+        <a href="https://smithery.ai/server/ombrix-mcp-server" target="_blank">Smithery</a> ·
+        <a href="https://ombrix-stego.vercel.app/" target="_blank">Web App</a>
+      </p>
+      <p style="margin-top:0.5rem">Zero telemetry · No user logging · No passkey serialization</p>
+    </div>
+  </div>
+
+  <script>
+    function copyUrl() {
+      const url = document.getElementById('mcp-url').textContent;
+      navigator.clipboard.writeText(url).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        btn.textContent = '✅ Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = '📋 Copy'; btn.classList.remove('copied'); }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>

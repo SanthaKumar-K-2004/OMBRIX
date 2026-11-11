@@ -1,0 +1,44 @@
+# fly.io deployment config for OMBRIX MCP Server
+# Free tier: 3 shared VMs, 256MB RAM, always-on
+# Deploy: flyctl auth login && flyctl deploy --dockerfile spaces/huggingface/Dockerfile
+app = "ombrix-mcp"
+primary_region = "sin"  # Singapore (closest to India)
+
+[build]
+  dockerfile = "spaces/huggingface/Dockerfile"
+
+[env]
+  PORT = "8080"
+  MCP_TRANSPORT = "sse"
+  NODE_ENV = "production"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "get"
+    path = "/health"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false   # Keep alive (free tier allows 3 VMs)
+  auto_start_machines = true
+  min_machines_running = 1
