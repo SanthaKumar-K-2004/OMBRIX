@@ -18,6 +18,12 @@ interface ToolCallResult {
   content: Array<{ type: string; text: string }>;
 }
 
+function getText(result: ToolCallResult): string {
+  const item = result.content[0];
+  if (!item) throw new Error('Missing content in tool result');
+  return item.text;
+}
+
 describe('OMBRIX MCP Server', () => {
   let tmpDir: string;
   let testPngPath: string;
@@ -96,7 +102,7 @@ describe('OMBRIX MCP Server', () => {
     });
 
     const diceResult = resDiceware?.result as unknown as ToolCallResult;
-    const parsedDiceware = JSON.parse(diceResult.content[0].text) as {
+    const parsedDiceware = JSON.parse(getText(diceResult)) as {
       type: string;
       passphrase: string;
     };
@@ -115,7 +121,7 @@ describe('OMBRIX MCP Server', () => {
     });
 
     const cryptoResult = resCrypto?.result as unknown as ToolCallResult;
-    const parsedCrypto = JSON.parse(cryptoResult.content[0].text) as {
+    const parsedCrypto = JSON.parse(getText(cryptoResult)) as {
       type: string;
       rawHex: string;
       passkey: string;
@@ -137,7 +143,7 @@ describe('OMBRIX MCP Server', () => {
     });
 
     const inspectResult = res?.result as unknown as ToolCallResult;
-    const parsed = JSON.parse(inspectResult.content[0].text) as {
+    const parsed = JSON.parse(getText(inspectResult)) as {
       image: { width: number; height: number };
       usableCapacity: { sequentialLsbBytes: number };
     };
@@ -169,7 +175,7 @@ describe('OMBRIX MCP Server', () => {
     });
 
     const embedResult = embedRes?.result as unknown as ToolCallResult;
-    const embedParsed = JSON.parse(embedResult.content[0].text) as {
+    const embedParsed = JSON.parse(getText(embedResult)) as {
       status: string;
       encryptedWithPasskey: boolean;
     };
@@ -192,7 +198,7 @@ describe('OMBRIX MCP Server', () => {
     });
 
     const lockedResult = lockedRes?.result as unknown as ToolCallResult;
-    const lockedParsed = JSON.parse(lockedResult.content[0].text) as {
+    const lockedParsed = JSON.parse(getText(lockedResult)) as {
       status: string;
       isPasskeyEncrypted: boolean;
     };
@@ -215,7 +221,7 @@ describe('OMBRIX MCP Server', () => {
     });
 
     const unlockResult = unlockRes?.result as unknown as ToolCallResult;
-    const unlockParsed = JSON.parse(unlockResult.content[0].text) as {
+    const unlockParsed = JSON.parse(getText(unlockResult)) as {
       status: string;
       previewText: string;
     };
@@ -235,7 +241,7 @@ describe('OMBRIX MCP Server', () => {
     });
 
     const scanResult = res?.result as unknown as ToolCallResult;
-    const parsed = JSON.parse(scanResult.content[0].text) as {
+    const parsed = JSON.parse(getText(scanResult)) as {
       status: string;
       verdict: unknown;
       detectors: {

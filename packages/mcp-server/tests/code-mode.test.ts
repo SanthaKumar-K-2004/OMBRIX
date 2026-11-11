@@ -166,7 +166,8 @@ describe('OMBRIX MCP 2.0 Code Mode Suite', () => {
     const docsResult = docsRes?.result as unknown as {
       content: Array<{ type: string; text: string }>;
     };
-    const parsedDocs = JSON.parse(docsResult.content[0].text) as { apiDocs: string };
+    const docsText = docsResult.content[0]?.text ?? '{}';
+    const parsedDocs = JSON.parse(docsText) as { apiDocs: string };
     expect(parsedDocs.apiDocs).toContain('declare namespace ombrix');
 
     // 3. Call stego_code_mode via JSON-RPC
@@ -188,7 +189,8 @@ describe('OMBRIX MCP 2.0 Code Mode Suite', () => {
     const codeResult = codeRes?.result as unknown as {
       content: Array<{ type: string; text: string }>;
     };
-    const parsedCode = JSON.parse(codeResult.content[0].text) as {
+    const codeText = codeResult.content[0]?.text ?? '{}';
+    const parsedCode = JSON.parse(codeText) as {
       status: string;
       result: { wordCount: number; phrase: string };
     };
