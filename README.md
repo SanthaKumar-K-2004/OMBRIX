@@ -9,9 +9,10 @@ Carrier-grade visual steganography, subband wavelet modulation, and lossy-resili
 <br/>
 
 [![Live Demo](https://img.shields.io/badge/Live%20App-ombrix--stego.vercel.app-7C3AED.svg?style=flat-square&logo=vercel)](https://ombrix-stego.vercel.app/)
+[![npm ombrix-cli](https://img.shields.io/npm/v/ombrix-cli?style=flat-square&color=CB3837&logo=npm)](https://www.npmjs.com/package/ombrix-cli)
 [![MCP 2.0](https://img.shields.io/badge/MCP%202.0-Code%20Mode%20Ready-black.svg?style=flat-square)](https://github.com/SanthaKumar-K-2004/OMBRIX/tree/main/packages/mcp-server)
-[![CLI](https://img.shields.io/badge/CLI-@ombrix/cli-blueviolet.svg?style=flat-square)](https://github.com/SanthaKumar-K-2004/OMBRIX/tree/main/packages/cli)
-[![Language](https://img.shields.io/badge/TypeScript-5.8+-3178C6.svg?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![CI](https://github.com/SanthaKumar-K-2004/OMBRIX/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SanthaKumar-K-2004/OMBRIX/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![Cryptography](https://img.shields.io/badge/Cryptography-Libsodium%20%2F%20Argon2id-4B5563.svg?style=flat-square)](https://libsodium.gitbook.io/)
 [![Security Policy](https://img.shields.io/badge/Network-Zero--Telemetry%20Air--Gap-059669.svg?style=flat-square)](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP)
 
@@ -176,9 +177,9 @@ OMBRIX includes an official, zero-telemetry MCP server with **MCP 2.0 Code Mode*
 
 ### Automatic Assistant Configuration
 ```bash
-npx @ombrix/cli mcp install
+npx ombrix-cli mcp install
 ```
-This auto-detects existing AI clients on your system, creates backups, and merges `@ombrix/mcp-server`.
+This auto-detects existing AI clients on your system (Claude Desktop, Cursor, Antigravity, Windsurf), creates automatic backups, and registers OMBRIX.
 
 ### Manual Configuration
 Add to your client configuration (e.g. `~/.config/Claude/claude_desktop_config.json` or `~/.cursor/mcp.json`):
@@ -187,7 +188,7 @@ Add to your client configuration (e.g. `~/.config/Claude/claude_desktop_config.j
   "mcpServers": {
     "ombrix": {
       "command": "npx",
-      "args": ["-y", "@ombrix/mcp-server"]
+      "args": ["-y", "ombrix-mcp-server"]
     }
   }
 }
@@ -213,19 +214,19 @@ return { anomaly: scan.overallAnomalyScore, passkey: token.passkey };
 Run directly or install globally:
 ```bash
 # Embed secret message with Argon2id passkey
-npx @ombrix/cli embed cover.png -p "Classified Coordinates" -k "secret-passkey" -m hyper-matrix -o stego.png
+npx ombrix-cli embed cover.png -p "Classified Coordinates" -k "secret-passkey" -m hyper-matrix -o stego.png
 
 # Extract protected secret
-npx @ombrix/cli extract stego.png -k "secret-passkey"
+npx ombrix-cli extract stego.png -k "secret-passkey"
 
 # Analyze carrier capacity across 7 algorithms
-npx @ombrix/cli inspect cover.png
+npx ombrix-cli inspect cover.png
 
 # Multi-detector forensic steganalysis (RS, SPA, Chi-Square, Laplacian)
-npx @ombrix/cli scan candidate.png
+npx ombrix-cli scan candidate.png
 
 # Run Code Mode scripts directly from the terminal
-npx @ombrix/cli eval "const cap = ombrix.inspect('cover.png'); return cap;"
+npx ombrix-cli eval "const cap = ombrix.inspect('cover.png'); return cap;"
 ```
 
 ---

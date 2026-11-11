@@ -1,0 +1,30 @@
+name: Feature Request
+description: Propose a new steganography algorithm, forensic detector, or MCP capability
+title: "[FEATURE]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to make OMBRIX more powerful, stealthy, or capable? Let us know!
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Motivation
+      description: Is your feature request related to a problem or limitation?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution / Algorithmic Mechanism
+      description: Describe the mathematical or functional approach (e.g. new frequency transform, wavelet decomposition, or agent tool).
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative implementations or existing tools explored?
+    validations:
+      required: false

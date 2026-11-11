@@ -1,19 +1,19 @@
-# @ombrix/cli
+# ombrix-cli
 
 Command-line interface and MCP 2.0 Code Mode execution runner for the **OMBRIX** Steganography & Visual Cryptanalysis Suite.
 
-## Installation
+## Quickstart
 
-Run directly with `npx`:
+Run directly with `npx` (zero install):
 
 ```bash
-npx @ombrix/cli --help
+npx ombrix-cli --help
 ```
 
 Or install globally:
 
 ```bash
-npm install -g @ombrix/cli
+npm install -g ombrix-cli
 ```
 
 ## CLI Usage

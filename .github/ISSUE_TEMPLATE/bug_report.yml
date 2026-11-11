@@ -1,0 +1,55 @@
+name: Bug Report
+description: File a bug report or algorithmic issue with OMBRIX
+title: "[BUG]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue! OMBRIX is committed to zero-telemetry client-side integrity and algorithmic precision.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      description: Which part of OMBRIX encountered the issue?
+      options:
+        - "Web Studio (ombrix-stego.vercel.app)"
+        - "MCP Server (Code Mode / Tools)"
+        - "CLI (ombrix / ombrix-cli)"
+        - "Algorithm (Hyper-Matrix / Resilient / DWT / PVD / LSB)"
+        - "Forensic Steganalysis (RS / SPA / Chi-Square / Laplacian)"
+        - "Cryptography / Argon2id / X25519"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Clear, minimal steps to reproduce the issue.
+      placeholder: |
+        1. Run `npx ombrix-cli embed cover.png -p "test" -k "key"`
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually occurred? Include error traces or screenshots if applicable.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS version, Node version, Browser / MCP Host (Claude Desktop, Cursor, Antigravity)
+      placeholder: "e.g. Linux 6.8 / Node 20.12 / Claude Desktop 0.8"
+    validations:
+      required: false

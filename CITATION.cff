@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use OMBRIX in your research or applications, please cite it as below."
+authors:
+  - family-names: "K"
+    given-names: "SanthaKumar"
+    orcid: "https://orcid.org/0009-0000-0000-0000"
+title: "OMBRIX: Zero-Telemetry Steganography, Visual Cryptanalysis Suite, and MCP 2.0 Code Mode for AI Agents"
+version: 0.1.0
+date-released: 2026-11-11
+url: "https://ombrix-stego.vercel.app/"
+repository-code: "https://github.com/SanthaKumar-K-2004/OMBRIX"
+keywords:
+  - steganography
+  - steganalysis
+  - "model context protocol"
+  - "code mode"
+  - "lossless compression"
+  - "visual cryptanalysis"
+  - "frequency domain"
+  - "wavelet transform"
+license: MIT

@@ -1,4 +1,4 @@
-# @ombrix/mcp-server
+# ombrix-mcp-server
 
 Model Context Protocol (MCP 2.0) Server with Code Mode architecture for the **OMBRIX** Steganography & Visual Cryptanalysis Suite.
 
@@ -23,7 +23,7 @@ Run via `npx`:
   "mcpServers": {
     "ombrix": {
       "command": "npx",
-      "args": ["-y", "@ombrix/mcp-server"]
+      "args": ["-y", "ombrix-mcp-server"]
     }
   }
 }
@@ -32,6 +32,6 @@ Run via `npx`:
 Or configure automatically using the OMBRIX CLI:
 
 ```bash
-npx @ombrix/cli mcp install
+npx ombrix-cli mcp install
 ```
 

@@ -13,3 +13,4 @@ WORKDIR /app
 COPY --from=builder /app/packages/mcp-server/dist/index.js ./index.js
 ENV NODE_ENV=production
 ENTRYPOINT ["node", "index.js"]
+

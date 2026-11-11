@@ -9,7 +9,8 @@ configSchema:
 commandFunction: |-
   (config) => ({
     command: 'npx',
-    args: ['-y', '@ombrix/mcp-server']
+    args: ['-y', 'ombrix-mcp-server']
   })
 
 exampleConfig: {}
+
