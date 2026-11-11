@@ -72,4 +72,3 @@ describe('MCP SSE Server', () => {
     await reader!.cancel();
   });
 });
-
