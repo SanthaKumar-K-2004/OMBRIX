@@ -5,7 +5,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { encodePng } from '../src/png.js';
 import { handleJsonRpc } from '../src/server.js';
 
-
 interface InitializeResult {
   serverInfo: { name: string; version: string };
   capabilities: { tools: unknown };
