@@ -34,3 +34,4 @@ Or configure automatically using the OMBRIX CLI:
 ```bash
 npx @ombrix/cli mcp install
 ```
+

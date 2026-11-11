@@ -52,3 +52,4 @@ console.log('\nTo publish to the npm registry:');
 console.log('  1. Login with: npm login');
 console.log('  2. Publish with: npm publish releases/<tarball> --access public');
 console.log('=============================================================\n');
+

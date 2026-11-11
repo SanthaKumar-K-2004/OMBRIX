@@ -65,3 +65,4 @@ ombrix mcp show
 # Run MCP server stdio process
 ombrix mcp run
 ```
+

@@ -8,10 +8,11 @@ Carrier-grade visual steganography, subband wavelet modulation, and lossy-resili
 
 <br/>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![Live Demo](https://img.shields.io/badge/Live%20App-ombrix--stego.vercel.app-7C3AED.svg?style=flat-square&logo=vercel)](https://ombrix-stego.vercel.app/)
+[![MCP 2.0](https://img.shields.io/badge/MCP%202.0-Code%20Mode%20Ready-black.svg?style=flat-square)](https://github.com/SanthaKumar-K-2004/OMBRIX/tree/main/packages/mcp-server)
+[![CLI](https://img.shields.io/badge/CLI-@ombrix/cli-blueviolet.svg?style=flat-square)](https://github.com/SanthaKumar-K-2004/OMBRIX/tree/main/packages/cli)
 [![Language](https://img.shields.io/badge/TypeScript-5.8+-3178C6.svg?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Cryptography](https://img.shields.io/badge/Cryptography-Libsodium%20%2F%20Argon2id-4B5563.svg?style=flat-square)](https://libsodium.gitbook.io/)
-[![Runtime](https://img.shields.io/badge/Runtime-100%25%20Client--Side%20WASM-7C3AED.svg?style=flat-square)](https://webassembly.org/)
 [![Security Policy](https://img.shields.io/badge/Network-Zero--Telemetry%20Air--Gap-059669.svg?style=flat-square)](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP)
 
 <br/>
@@ -165,6 +166,66 @@ pnpm run dev
 ```bash
 # Compile all workspace packages and mirror production assets
 pnpm run build
+```
+
+---
+
+## Model Context Protocol (MCP 2.0) Server
+
+OMBRIX includes an official, zero-telemetry MCP server with **MCP 2.0 Code Mode** support for AI assistants (Claude Desktop, Cursor IDE, Google Antigravity, Windsurf).
+
+### Automatic Assistant Configuration
+```bash
+npx @ombrix/cli mcp install
+```
+This auto-detects existing AI clients on your system, creates backups, and merges `@ombrix/mcp-server`.
+
+### Manual Configuration
+Add to your client configuration (e.g. `~/.config/Claude/claude_desktop_config.json` or `~/.cursor/mcp.json`):
+```json
+{
+  "mcpServers": {
+    "ombrix": {
+      "command": "npx",
+      "args": ["-y", "@ombrix/mcp-server"]
+    }
+  }
+}
+```
+
+### MCP 2.0 Code Mode
+Agents can script multi-step workflows in an air-gapped sandboxed runtime without intermediate payload leakage and with >95% token savings:
+```javascript
+const carrier = ombrix.createCarrier(128, 128);
+const token = await ombrix.keygen('crypto32');
+const embedded = await ombrix.embed(carrier, 'Secret transmission', {
+  method: 'hyper-matrix',
+  passkey: token.passkey
+});
+const scan = ombrix.scan(embedded.carrier);
+return { anomaly: scan.overallAnomalyScore, passkey: token.passkey };
+```
+
+---
+
+## Command Line Interface (CLI)
+
+Run directly or install globally:
+```bash
+# Embed secret message with Argon2id passkey
+npx @ombrix/cli embed cover.png -p "Classified Coordinates" -k "secret-passkey" -m hyper-matrix -o stego.png
+
+# Extract protected secret
+npx @ombrix/cli extract stego.png -k "secret-passkey"
+
+# Analyze carrier capacity across 7 algorithms
+npx @ombrix/cli inspect cover.png
+
+# Multi-detector forensic steganalysis (RS, SPA, Chi-Square, Laplacian)
+npx @ombrix/cli scan candidate.png
+
+# Run Code Mode scripts directly from the terminal
+npx @ombrix/cli eval "const cap = ombrix.inspect('cover.png'); return cap;"
 ```
 
 ---

@@ -1,0 +1,15 @@
+startCommand:
+  type: stdio
+
+configSchema:
+  type: object
+  properties: {}
+  description: OMBRIX is zero-telemetry and offline-first; no API keys or configuration needed.
+
+commandFunction: |-
+  (config) => ({
+    command: 'npx',
+    args: ['-y', '@ombrix/mcp-server']
+  })
+
+exampleConfig: {}
