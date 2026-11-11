@@ -21,7 +21,7 @@ fs.mkdirSync(releasesDir, { recursive: true });
 fs.mkdirSync(stagingDir, { recursive: true });
 
 const commonMetadata = {
-  version: '0.1.0',
+  version: '0.1.1',
   type: 'module',
   author: 'SanthaKumar K <https://github.com/SanthaKumar-K-2004>',
   license: 'MIT',
@@ -41,8 +41,15 @@ const commonMetadata = {
 
 const cliDist = path.join(root, 'packages/cli/dist/bin.js');
 const mcpDist = path.join(root, 'packages/mcp-server/dist/index.js');
+const edgeSdkDist = path.join(root, 'packages/edge-sdk/dist/index.js');
+const edgeSdkDts = path.join(root, 'packages/edge-sdk/dist/index.d.ts');
+const forensicsDist = path.join(root, 'packages/stego-forensics/dist/index.js');
+const forensicsDts = path.join(root, 'packages/stego-forensics/dist/index.d.ts');
+
 const cliReadme = path.join(root, 'packages/cli/README.md');
 const mcpReadme = path.join(root, 'packages/mcp-server/README.md');
+const edgeSdkReadme = path.join(root, 'packages/edge-sdk/README.md');
+const forensicsReadme = path.join(root, 'packages/stego-forensics/README.md');
 const rootReadme = path.join(root, 'README.md');
 const licenseFile = path.join(root, 'LICENSE');
 
@@ -50,7 +57,7 @@ const packageConfigs = [
   // 1. Unscoped ombrix-cli (Universal, highly recommended)
   {
     targetName: 'ombrix-cli',
-    tarballOutput: 'ombrix-cli-0.1.0.tgz',
+    tarballOutput: 'ombrix-cli-0.1.1.tgz',
     manifest: {
       ...commonMetadata,
       name: 'ombrix-cli',
@@ -85,7 +92,7 @@ const packageConfigs = [
   // 2. Unscoped ombrix-mcp-server (Universal, highly recommended)
   {
     targetName: 'ombrix-mcp-server',
-    tarballOutput: 'ombrix-mcp-server-0.1.0.tgz',
+    tarballOutput: 'ombrix-mcp-server-0.1.1.tgz',
     manifest: {
       ...commonMetadata,
       name: 'ombrix-mcp-server',
@@ -121,7 +128,7 @@ const packageConfigs = [
   // 3. Unscoped unified 'ombrix' package (CLI + MCP in one)
   {
     targetName: 'ombrix',
-    tarballOutput: 'ombrix-0.1.0.tgz',
+    tarballOutput: 'ombrix-0.1.1.tgz',
     manifest: {
       ...commonMetadata,
       name: 'ombrix',
@@ -155,7 +162,7 @@ const packageConfigs = [
   // 4. Scoped @ombrix/cli (For org publish)
   {
     targetName: '@ombrix/cli',
-    tarballOutput: 'ombrix-scoped-cli-0.1.0.tgz',
+    tarballOutput: 'ombrix-scoped-cli-0.1.1.tgz',
     manifest: {
       ...commonMetadata,
       name: '@ombrix/cli',
@@ -185,7 +192,7 @@ const packageConfigs = [
   // 5. Scoped @ombrix/mcp-server (For org publish)
   {
     targetName: '@ombrix/mcp-server',
-    tarballOutput: 'ombrix-scoped-mcp-server-0.1.0.tgz',
+    tarballOutput: 'ombrix-scoped-mcp-server-0.1.1.tgz',
     manifest: {
       ...commonMetadata,
       name: '@ombrix/mcp-server',
@@ -194,6 +201,7 @@ const packageConfigs = [
       main: './dist/index.js',
       bin: {
         'ombrix-mcp': './dist/index.js',
+        'ombrix-mcp-server': './dist/index.js',
       },
       keywords: [
         'mcp',
@@ -209,6 +217,80 @@ const packageConfigs = [
     files: [
       { from: mcpDist, to: 'dist/index.js' },
       { from: mcpReadme, to: 'README.md' },
+      { from: licenseFile, to: 'LICENSE' },
+    ],
+  },
+
+  // 6. Scoped @ombrix/edge-sdk (Programmatic browser & Node SDK)
+  {
+    targetName: '@ombrix/edge-sdk',
+    tarballOutput: 'ombrix-scoped-edge-sdk-0.1.1.tgz',
+    manifest: {
+      ...commonMetadata,
+      name: '@ombrix/edge-sdk',
+      description:
+        'Zero-telemetry client-side forensic steganography SDK for edge environments, browsers, and Node.js runtimes',
+      main: './dist/index.js',
+      types: './dist/index.d.ts',
+      exports: {
+        '.': {
+          types: './dist/index.d.ts',
+          import: './dist/index.js',
+          default: './dist/index.js',
+        },
+      },
+      keywords: [
+        'steganography',
+        'edge-sdk',
+        'cryptography',
+        'lsb',
+        'pvd',
+        'dwt',
+        'privacy',
+        'zero-telemetry',
+      ],
+      files: ['dist', 'README.md', 'LICENSE'],
+    },
+    files: [
+      { from: edgeSdkDist, to: 'dist/index.js' },
+      { from: edgeSdkDts, to: 'dist/index.d.ts' },
+      { from: edgeSdkReadme, to: 'README.md' },
+      { from: licenseFile, to: 'LICENSE' },
+    ],
+  },
+
+  // 7. Scoped @ombrix/stego-forensics (Analytical and steganalysis suite)
+  {
+    targetName: '@ombrix/stego-forensics',
+    tarballOutput: 'ombrix-scoped-stego-forensics-0.1.1.tgz',
+    manifest: {
+      ...commonMetadata,
+      name: '@ombrix/stego-forensics',
+      description:
+        'Multi-detector steganalysis and forensic validation suite (RS Steganalysis, Sample Pair Analysis, Noise Residuals, Consensus Engine)',
+      main: './dist/index.js',
+      types: './dist/index.d.ts',
+      exports: {
+        '.': {
+          types: './dist/index.d.ts',
+          import: './dist/index.js',
+          default: './dist/index.js',
+        },
+      },
+      keywords: [
+        'steganography',
+        'steganalysis',
+        'rs-steganalysis',
+        'forensics',
+        'sample-pair-analysis',
+        'roc-benchmark',
+      ],
+      files: ['dist', 'README.md', 'LICENSE'],
+    },
+    files: [
+      { from: forensicsDist, to: 'dist/index.js' },
+      { from: forensicsDts, to: 'dist/index.d.ts' },
+      { from: forensicsReadme, to: 'README.md' },
       { from: licenseFile, to: 'LICENSE' },
     ],
   },

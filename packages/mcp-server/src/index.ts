@@ -5,10 +5,13 @@ export { startMcpServer, handleJsonRpc } from './server.js';
 export { MCP_TOOLS, executeTool } from './tools.js';
 export { executeCodeMode, getCodeModeApiDocs } from './code-mode.js';
 
-// Auto-run when invoked directly as a binary
+// Auto-run when invoked directly as a binary (CLI, npx, or stdio)
 if (
   process.argv[1] &&
-  (process.argv[1].endsWith('index.js') || process.argv[1].endsWith('ombrix-mcp'))
+  !process.env.VITEST &&
+  (process.argv[1].endsWith('index.js') ||
+    process.argv[1].includes('ombrix-mcp') ||
+    process.argv[1].includes('mcp'))
 ) {
   startMcpServer();
 }

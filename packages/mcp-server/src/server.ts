@@ -113,24 +113,27 @@ export function startMcpServer(): void {
 
   process.stdin.setEncoding('utf8');
 
-  process.stdin.on('data', async (chunk) => {
+  process.stdin.on('data', async (chunk: string) => {
     buffer += chunk;
 
-    // Support both Content-Length headers and plain newline-delimited JSON
-    while (true) {
-      if (buffer.startsWith('Content-Length:')) {
+    // Support both Content-Length headers and standard MCP newline-delimited JSON
+    while (buffer.length > 0) {
+      const trimmed = buffer.trimStart();
+      if (trimmed.startsWith('Content-Length:')) {
         const headerEnd = buffer.indexOf('\r\n\r\n');
-        if (headerEnd === -1) break;
+        const sepLen = headerEnd !== -1 ? 4 : 2;
+        const actualHeaderEnd = headerEnd !== -1 ? headerEnd : buffer.indexOf('\n\n');
+        if (actualHeaderEnd === -1) break;
 
-        const headerLine = buffer.slice(0, headerEnd);
+        const headerLine = buffer.slice(0, actualHeaderEnd);
         const match = headerLine.match(/Content-Length:\s*(\d+)/i);
         if (!match) {
-          buffer = buffer.slice(headerEnd + 4);
+          buffer = buffer.slice(actualHeaderEnd + sepLen);
           continue;
         }
 
         const length = Number.parseInt(match[1] ?? '0', 10);
-        const messageStart = headerEnd + 4;
+        const messageStart = actualHeaderEnd + sepLen;
         if (buffer.length < messageStart + length) {
           break; // wait for more data
         }
@@ -138,10 +141,25 @@ export function startMcpServer(): void {
         const rawJson = buffer.slice(messageStart, messageStart + length);
         buffer = buffer.slice(messageStart + length);
 
-        await processMessage(rawJson);
+        if (rawJson.trim()) {
+          await processMessage(rawJson.trim());
+        }
       } else {
         const newlineIdx = buffer.indexOf('\n');
-        if (newlineIdx === -1) break;
+        if (newlineIdx === -1) {
+          // If buffer contains a complete single-line JSON without trailing newline, process it
+          const rawCandidate = buffer.trim();
+          if (rawCandidate.startsWith('{') && rawCandidate.endsWith('}')) {
+            try {
+              JSON.parse(rawCandidate);
+              buffer = '';
+              await processMessage(rawCandidate);
+            } catch {
+              // wait for more chunks
+            }
+          }
+          break;
+        }
 
         const line = buffer.slice(0, newlineIdx).trim();
         buffer = buffer.slice(newlineIdx + 1);
@@ -153,7 +171,15 @@ export function startMcpServer(): void {
     }
   });
 
+  process.stdin.on('end', async () => {
+    const remaining = buffer.trim();
+    if (remaining) {
+      await processMessage(remaining);
+    }
+  });
+
   async function processMessage(raw: string) {
+    if (!raw || raw.trim().length === 0) return;
     try {
       const req: JsonRpcRequest = JSON.parse(raw);
       const res = await handleJsonRpc(req);
@@ -173,8 +199,8 @@ export function startMcpServer(): void {
 
   function sendResponse(res: JsonRpcResponse) {
     const payload = JSON.stringify(res);
-    // Standard MCP stdio output
-    process.stdout.write(`Content-Length: ${Buffer.byteLength(payload, 'utf8')}\r\n\r\n${payload}`);
+    // Standard MCP stdio output: newline-delimited JSON (NDJSON)
+    process.stdout.write(`${payload}\n`);
   }
 
   process.stderr.write('[OMBRIX MCP] Server started on stdio. Ready for AI agent tool calls.\n');

@@ -131,7 +131,8 @@ export function installMcpToClient(
   if (fs.existsSync(target.configPath)) {
     try {
       const raw = fs.readFileSync(target.configPath, 'utf8');
-      configData = JSON.parse(raw);
+      const trimmed = raw.trim();
+      configData = trimmed ? JSON.parse(trimmed) : {};
 
       // Create backup
       backupPath = `${target.configPath}.ombrix-backup-${Date.now()}`;

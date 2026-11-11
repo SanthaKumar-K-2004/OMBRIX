@@ -1,12 +1,13 @@
 {
   "name": "@ombrix/mcp-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Model Context Protocol (MCP 2.0) server with Code Mode for OMBRIX steganography & visual forensics suite",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./src/index.ts",
   "bin": {
-    "ombrix-mcp": "./dist/index.js"
+    "ombrix-mcp": "./dist/index.js",
+    "ombrix-mcp-server": "./dist/index.js"
   },
   "files": ["dist", "README.md"],
   "publishConfig": {

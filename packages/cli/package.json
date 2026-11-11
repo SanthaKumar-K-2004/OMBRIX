@@ -1,6 +1,6 @@
 {
   "name": "@ombrix/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Zero-telemetry forensic steganography CLI and MCP 2.0 Code Mode runner",
   "type": "module",
   "bin": {

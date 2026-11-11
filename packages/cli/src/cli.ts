@@ -127,6 +127,17 @@ export async function runCli(args: string[]): Promise<CliResult> {
     return { exitCode: 0, stdout, stderr };
   }
 
+  if (args[0] === '--mcp') {
+    startMcpServer();
+    await new Promise<void>((resolve) => {
+      process.stdin.on('close', resolve);
+      process.stdin.on('end', resolve);
+      process.on('SIGINT', () => resolve());
+      process.on('SIGTERM', () => resolve());
+    });
+    return { exitCode: 0, stdout: '', stderr: '' };
+  }
+
   const command = args[0];
   const cmdArgs = args.slice(1);
 
@@ -465,7 +476,13 @@ export async function runCli(args: string[]): Promise<CliResult> {
 
         if (sub === 'run') {
           startMcpServer();
-          return { exitCode: 0, stdout, stderr };
+          await new Promise<void>((resolve) => {
+            process.stdin.on('close', resolve);
+            process.stdin.on('end', resolve);
+            process.on('SIGINT', () => resolve());
+            process.on('SIGTERM', () => resolve());
+          });
+          return { exitCode: 0, stdout: '', stderr: '' };
         }
 
         if (sub === 'show') {

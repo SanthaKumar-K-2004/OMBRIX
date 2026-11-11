@@ -1,6 +1,9 @@
 export { analyzeConsensus } from './consensus.js';
 export { computeNoiseResidual } from './noiseResidual.js';
-export { analyzeRsSteganalysis } from './rsSteganalysis.js';
+export {
+  analyzeRsSteganalysis,
+  analyzeRsSteganalysis as runRsSteganalysis,
+} from './rsSteganalysis.js';
 export { analyzeSamplePairs } from './samplePairAnalysis.js';
 export { computeTrapezoidalAuc, evaluateRocCurve } from './rocBenchmark.js';
 export type {
