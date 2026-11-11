@@ -44,7 +44,15 @@ export async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcRes
         },
         serverInfo: {
           name: 'ombrix-mcp',
-          version: '0.1.0',
+          version: '0.1.1',
+          description: 'Zero-knowledge undetectable steganography and visual forensics suite.',
+          icons: [
+            {
+              src: 'https://spidysanta-ombrix-mcp.hf.space/icon.svg',
+              mimeType: 'image/svg+xml',
+              sizes: ['512x512'],
+            },
+          ],
         },
       },
     };

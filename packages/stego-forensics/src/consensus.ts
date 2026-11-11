@@ -12,9 +12,11 @@ export function analyzeConsensus(carrier: CarrierImage): ForensicsConsensusRepor
   const chi = analyzeChiSquare(carrier);
 
   // Compute normalized anomaly scores per detector [0 - 100]
-  const rsScore = Math.min(100, rs.estimatedPayloadRatio * 100);
-  const spaScore = Math.min(100, spa.estimatedPayloadRatio * 100);
-  const chiScore = Math.min(100, chi.pValue * 100);
+  const rsScore = Math.min(100, Math.max(0, rs.estimatedPayloadRatio * 100));
+  const spaScore = Math.min(100, Math.max(0, spa.estimatedPayloadRatio * 100));
+  // Chi-Square: High p-value (near 1.0) indicates natural/clean distribution.
+  // Low p-value (p < 0.05) indicates anomaly/tampering.
+  const chiScore = chi.anomalyDetected ? Math.min(100, Math.max(0, (1 - chi.pValue) * 100)) : 0;
   // HFPI benchmark: baseline noise is ~10-25; values > 40 indicate high frequency elevation
   const noiseScore = Math.min(100, Math.max(0, (noise.highFrequencyPerturbationIndex - 15) * 2));
 

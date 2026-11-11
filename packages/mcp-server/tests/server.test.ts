@@ -77,8 +77,11 @@ describe('OMBRIX MCP Server', () => {
     });
 
     const listResult = res?.result as unknown as ToolListResult;
-    expect(listResult.tools).toHaveLength(8);
+    expect(listResult.tools).toHaveLength(11);
     const toolNames = listResult.tools.map((t) => t.name);
+    expect(toolNames).toContain('stego_plan');
+    expect(toolNames).toContain('stego_hide');
+    expect(toolNames).toContain('stego_reveal');
     expect(toolNames).toContain('stego_embed');
     expect(toolNames).toContain('stego_extract');
     expect(toolNames).toContain('stego_scan');

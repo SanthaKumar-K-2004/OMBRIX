@@ -84,3 +84,4 @@ Add the remote URL to `claude_desktop_config.json`:
 Test your live server by opening the base URL in your browser:
 - `https://<your-username>-ombrix-mcp.hf.space/` &rarr; Interactive Cyber-Hub Dashboard
 - `https://<your-username>-ombrix-mcp.hf.space/health` &rarr; JSON health check report
+

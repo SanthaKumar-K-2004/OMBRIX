@@ -9,6 +9,7 @@ USER node
 # Copy pre-bundled zero-dependency standalone production files
 COPY --chown=node:node package.json ./
 COPY --chown=node:node index.js ./
+COPY --chown=node:node icon.svg ./
 
 # Hugging Face Spaces listens on port 7860
 ENV PORT=7860

@@ -3,6 +3,67 @@ import * as http from 'node:http';
 import { handleJsonRpc } from './server.js';
 import { MCP_TOOLS } from './tools.js';
 
+export const ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#111827" />
+      <stop offset="50%" stopColor="#0B0F19" />
+      <stop offset="100%" stopColor="#050811" />
+    </linearGradient>
+    <linearGradient id="border-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#7C3AED" stopOpacity="0.6" />
+      <stop offset="50%" stopColor="#3B82F6" stopOpacity="0.2" />
+      <stop offset="100%" stopColor="#06B6D4" stopOpacity="0.5" />
+    </linearGradient>
+    <radialGradient id="radial-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stopColor="#7C3AED" stopOpacity="0.45" />
+      <stop offset="60%" stopColor="#3B82F6" stopOpacity="0.15" />
+      <stop offset="100%" stopColor="#0B0F19" stopOpacity="0" />
+    </radialGradient>
+    <linearGradient id="ribbon-1" x1="10%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stopColor="#C084FC" />
+      <stop offset="40%" stopColor="#9333EA" />
+      <stop offset="75%" stopColor="#7C3AED" />
+      <stop offset="100%" stopColor="#3B82F6" />
+    </linearGradient>
+    <linearGradient id="ribbon-2" x1="100%" y1="10%" x2="0%" y2="90%">
+      <stop offset="0%" stopColor="#38BDF8" />
+      <stop offset="30%" stopColor="#3B82F6" />
+      <stop offset="65%" stopColor="#7C3AED" />
+      <stop offset="100%" stopColor="#A855F7" />
+    </linearGradient>
+    <linearGradient id="crystal-core" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#2DD4BF" stopOpacity="0.9" />
+      <stop offset="50%" stopColor="#06B6D4" stopOpacity="0.75" />
+      <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.5" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  <rect x="8" y="8" width="496" height="496" rx="124" fill="url(#bg-grad)" stroke="url(#border-grad)" stroke-width="6" />
+  <circle cx="256" cy="256" r="180" fill="url(#radial-glow)" />
+  <g opacity="0.08" stroke="#FFFFFF" stroke-width="1.5">
+    <line x1="128" y1="96" x2="128" y2="416" stroke-dasharray="4 8" />
+    <line x1="256" y1="96" x2="256" y2="416" stroke-dasharray="4 8" />
+    <line x1="384" y1="96" x2="384" y2="416" stroke-dasharray="4 8" />
+    <line x1="96" y1="128" x2="416" y2="128" stroke-dasharray="4 8" />
+    <line x1="96" y1="256" x2="416" y2="256" stroke-dasharray="4 8" />
+    <line x1="96" y1="384" x2="416" y2="384" stroke-dasharray="4 8" />
+  </g>
+  <g transform="translate(68, 68) scale(3.76)" filter="url(#glow)">
+    <path d="M 50 8 L 88 30 L 76 46 L 50 30 L 24 46 L 12 30 Z" fill="url(#ribbon-1)" />
+    <path d="M 88 30 L 88 70 L 50 92 L 12 70 L 12 30 L 24 46 L 50 62 L 76 46 Z" fill="url(#ribbon-2)" />
+    <polygon points="50,32 74,48 50,64 26,48" fill="url(#crystal-core)" stroke="#C084FC" stroke-width="1.6" stroke-opacity="0.8" />
+    <circle cx="50" cy="48" r="3.2" fill="#E0E7FF" opacity="0.9" />
+  </g>
+  <circle cx="64" cy="64" r="3" fill="#7C3AED" opacity="0.6" />
+  <circle cx="448" cy="64" r="3" fill="#3B82F6" opacity="0.6" />
+  <circle cx="64" cy="448" r="3" fill="#06B6D4" opacity="0.6" />
+  <circle cx="448" cy="448" r="3" fill="#A855F7" opacity="0.6" />
+</svg>`;
+
 /**
  * HTML Landing Page displayed on Hugging Face Spaces root (GET /)
  */
@@ -196,6 +257,16 @@ export function startSseServer(port = 7860): http.Server {
           activeSessions: sessions.size,
         }),
       );
+      return;
+    }
+
+    // Icon and Favicon endpoint
+    if ((url.pathname === '/icon.svg' || url.pathname === '/favicon.ico') && req.method === 'GET') {
+      res.writeHead(200, {
+        'Content-Type': 'image/svg+xml',
+        'Cache-Control': 'public, max-age=86400',
+      });
+      res.end(ICON_SVG);
       return;
     }
 

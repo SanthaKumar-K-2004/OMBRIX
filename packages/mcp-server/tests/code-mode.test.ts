@@ -147,7 +147,7 @@ describe('OMBRIX MCP 2.0 Code Mode Suite', () => {
     const listResult = listRes?.result as unknown as {
       tools: Array<{ name: string; description?: string }>;
     };
-    expect(listResult.tools).toHaveLength(8);
+    expect(listResult.tools).toHaveLength(11);
     const names = listResult.tools.map((t) => t.name);
     expect(names).toContain('stego_code_mode');
     expect(names).toContain('stego_api_docs');
