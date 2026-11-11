@@ -23,6 +23,11 @@ async function buildMcp() {
     outfile: mcpOut,
   });
   fs.chmodSync(mcpOut, 0o755);
+
+  const hfSpaceDir = path.join(root, 'spaces/huggingface');
+  if (fs.existsSync(hfSpaceDir)) {
+    fs.copyFileSync(mcpOut, path.join(hfSpaceDir, 'index.js'));
+  }
 }
 
 async function buildCli() {

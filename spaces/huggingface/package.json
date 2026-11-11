@@ -1,0 +1,14 @@
+{
+  "name": "ombrix-mcp-space",
+  "version": "0.1.1",
+  "description": "OMBRIX Zero-Telemetry Forensic Steganography MCP 2.0 Server on Hugging Face Spaces",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
+

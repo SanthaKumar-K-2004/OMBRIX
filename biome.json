@@ -7,7 +7,16 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "ignore": ["node_modules", "dist", "build", "coverage", ".turbo", "*.jpeg"]
+    "ignore": [
+      "node_modules",
+      "dist",
+      "build",
+      "coverage",
+      ".turbo",
+      "*.jpeg",
+      "spaces",
+      "releases"
+    ]
   },
   "formatter": {
     "enabled": true,
