@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "ombrix": "./src/bin.ts"
+    "ombrix": "./dist/bin.js"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -21,10 +21,11 @@
     "@ombrix/stego-advanced": "workspace:*",
     "@ombrix/stego-forensics": "workspace:*",
     "@ombrix/crypto-adapter": "workspace:*",
+    "@ombrix/mcp-server": "workspace:*",
     "@ombrix/stego-lab": "workspace:*"
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "node ../../scripts/build-tools.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   }

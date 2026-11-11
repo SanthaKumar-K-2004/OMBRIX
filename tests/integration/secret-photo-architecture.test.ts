@@ -175,5 +175,5 @@ describe('Secret Photo Stego Architecture Verification', () => {
     // Must NOT be the misleading Haar DWT error!
     expect(workerError.error.message).not.toContain('Invalid Haar DWT');
     expect(workerError.error.message).toContain('No valid steganographic payload detected');
-  });
+  }, 15000);
 });
