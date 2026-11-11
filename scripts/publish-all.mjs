@@ -9,7 +9,9 @@ const root = path.resolve(__dirname, '..');
 const otpArg = process.argv[2];
 
 if (!otpArg) {
-  console.error('❌ Please provide your 6-digit 2FA OTP code: node scripts/publish-all.mjs <6-digit-otp>');
+  console.error(
+    '❌ Please provide your 6-digit 2FA OTP code: node scripts/publish-all.mjs <6-digit-otp>',
+  );
   process.exit(1);
 }
 
