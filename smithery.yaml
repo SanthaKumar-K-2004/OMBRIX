@@ -1,5 +1,9 @@
 startCommand:
   type: stdio
+  command: npx
+  args:
+    - "-y"
+    - "ombrix-mcp-server"
 
 configSchema:
   type: object
