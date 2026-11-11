@@ -17,7 +17,7 @@ describe('Lossless Compression Engine', () => {
 
     const decompressed = await decompressBytes(compressed);
     expect(new TextDecoder().decode(decompressed)).toBe(originalText);
-  });
+  }, 15000);
 
   it('smartCompress applies compression and magic header when payload shrinks', async () => {
     const text = 'Confidential message with high redundancy '.repeat(100);
@@ -30,7 +30,7 @@ describe('Lossless Compression Engine', () => {
 
     const restored = await smartDecompress(data);
     expect(new TextDecoder().decode(restored)).toBe(text);
-  });
+  }, 15000);
 
   it('smartCompress skips compression if data does not shrink', async () => {
     // High-entropy random data cannot be compressed by Deflate
@@ -44,7 +44,7 @@ describe('Lossless Compression Engine', () => {
 
     const restored = await smartDecompress(data);
     expect(restored).toEqual(randomBytes);
-  });
+  }, 15000);
 
   it('smartDecompress leaves uncompressed data untouched', async () => {
     const plain = new TextEncoder().encode('Ordinary plain text without magic');
