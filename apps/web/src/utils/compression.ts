@@ -25,29 +25,11 @@ export async function compressBytes(data: Uint8Array): Promise<Uint8Array> {
     return data;
   }
 
-  const cs = new CompressionStream('deflate-raw');
-  const writer = cs.writable.getWriter();
-  writer.write(data as unknown as BufferSource);
-  await writer.close();
-
-  const chunks: Uint8Array[] = [];
-  const reader = cs.readable.getReader();
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) chunks.push(value);
-  }
-
-  const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  return result;
+  const stream = new Blob([data as unknown as BlobPart])
+    .stream()
+    .pipeThrough(new CompressionStream('deflate-raw'));
+  const buffer = await new Response(stream).arrayBuffer();
+  return new Uint8Array(buffer);
 }
 
 /**
@@ -58,29 +40,11 @@ export async function decompressBytes(data: Uint8Array): Promise<Uint8Array> {
     return data;
   }
 
-  const ds = new DecompressionStream('deflate-raw');
-  const writer = ds.writable.getWriter();
-  writer.write(data as unknown as BufferSource);
-  await writer.close();
-
-  const chunks: Uint8Array[] = [];
-  const reader = ds.readable.getReader();
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) chunks.push(value);
-  }
-
-  const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  return result;
+  const stream = new Blob([data as unknown as BlobPart])
+    .stream()
+    .pipeThrough(new DecompressionStream('deflate-raw'));
+  const buffer = await new Response(stream).arrayBuffer();
+  return new Uint8Array(buffer);
 }
 
 /**
