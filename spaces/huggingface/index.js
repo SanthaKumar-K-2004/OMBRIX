@@ -10263,7 +10263,7 @@ async function handleJsonRpc(request) {
         },
         serverInfo: {
           name: "ombrix-mcp",
-          version: "0.1.1",
+          version: "0.1.2",
           description: "Zero-knowledge undetectable steganography and visual forensics suite.",
           icons: [
             {
