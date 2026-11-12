@@ -375,7 +375,16 @@ export const MCP_TOOLS: McpToolDefinition[] = [
         },
         method: {
           type: 'string',
-          enum: ['auto', 'hyper-matrix', 'robust-resilient', 'dwt', 'pvd', 'matching', 'lsb', 'dct'],
+          enum: [
+            'auto',
+            'hyper-matrix',
+            'robust-resilient',
+            'dwt',
+            'pvd',
+            'matching',
+            'lsb',
+            'dct',
+          ],
           default: 'auto',
           description: 'Specific algorithm to extract with, or auto for sequential discovery.',
         },
@@ -783,8 +792,15 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
                 res[2] === 0x42 &&
                 res[3] === 0x31;
               const text = new TextDecoder().decode(res);
-              const isCleanText =
-                !text.includes('\ufffd') && !/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(text.slice(0, 50));
+              let hasControlChars = false;
+              for (let i = 0; i < Math.min(50, res.length); i++) {
+                const b = res[i] ?? 0;
+                if (b < 32 && b !== 9 && b !== 10 && b !== 13) {
+                  hasControlChars = true;
+                  break;
+                }
+              }
+              const isCleanText = !text.includes('\ufffd') && !hasControlChars;
 
               if (isEnc || isOmb1 || isCleanText) {
                 extractedRaw = res;

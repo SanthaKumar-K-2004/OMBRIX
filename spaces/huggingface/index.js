@@ -9678,7 +9678,16 @@ var MCP_TOOLS = [
         },
         method: {
           type: "string",
-          enum: ["auto", "hyper-matrix", "robust-resilient", "dwt", "pvd", "matching", "lsb", "dct"],
+          enum: [
+            "auto",
+            "hyper-matrix",
+            "robust-resilient",
+            "dwt",
+            "pvd",
+            "matching",
+            "lsb",
+            "dct"
+          ],
           default: "auto",
           description: "Specific algorithm to extract with, or auto for sequential discovery."
         },
@@ -10012,7 +10021,15 @@ async function executeTool(name, args) {
               const isEnc = isPasskeyEncrypted(res);
               const isOmb1 = res.length >= 4 && res[0] === 79 && res[1] === 77 && res[2] === 66 && res[3] === 49;
               const text2 = new TextDecoder().decode(res);
-              const isCleanText = !text2.includes("\uFFFD") && !/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(text2.slice(0, 50));
+              let hasControlChars = false;
+              for (let i2 = 0; i2 < Math.min(50, res.length); i2++) {
+                const b2 = res[i2] ?? 0;
+                if (b2 < 32 && b2 !== 9 && b2 !== 10 && b2 !== 13) {
+                  hasControlChars = true;
+                  break;
+                }
+              }
+              const isCleanText = !text2.includes("\uFFFD") && !hasControlChars;
               if (isEnc || isOmb1 || isCleanText) {
                 extractedRaw = res;
                 detectedMethod = candidate.name;
