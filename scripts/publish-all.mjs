@@ -24,10 +24,10 @@ if (!fs.existsSync(releasesDir)) {
   process.exit(1);
 }
 
-const tgzFiles = fs.readdirSync(releasesDir).filter((f) => f.endsWith('-0.1.3.tgz'));
+const tgzFiles = fs.readdirSync(releasesDir).filter((f) => f.endsWith('-0.1.4.tgz'));
 if (tgzFiles.length === 0) {
   console.error(
-    '❌ No -0.1.3.tgz tarballs found in releases/. Please run node scripts/prepare-publish.mjs first.',
+    '❌ No -0.1.4.tgz tarballs found in releases/. Please run node scripts/prepare-publish.mjs first.',
   );
   process.exit(1);
 }

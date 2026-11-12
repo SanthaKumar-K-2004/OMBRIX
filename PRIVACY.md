@@ -39,3 +39,4 @@ OMBRIX is engineered from the ground up on an **offline-first, zero-telemetry, z
 ## 5. Contact & Security Inquiries
 If you discover a security vulnerability or have privacy questions, please submit an issue or reach out via the official repository:  
 [https://github.com/SanthaKumar-K-2004/OMBRIX/issues](https://github.com/SanthaKumar-K-2004/OMBRIX/issues)
+

@@ -48,7 +48,15 @@ describe('OMBRIX Production Hardening Matrix Test Suite', () => {
     }
   });
 
-  const algorithms = ['hyper-matrix', 'matching', 'pvd', 'dwt', 'robust-resilient', 'lsb'] as const;
+  const algorithms = [
+    'hyper-matrix',
+    'matching',
+    'pvd',
+    'dwt',
+    'robust-resilient',
+    'dct',
+    'lsb',
+  ] as const;
 
   for (const algo of algorithms) {
     describe(`Algorithm: ${algo}`, () => {
@@ -274,7 +282,7 @@ describe('OMBRIX Production Hardening Matrix Test Suite', () => {
       expect(planData.warning).toContain('WhatsApp Photo compression');
     });
 
-    it('benchmarks all 6 steganography algorithms in a single call', async () => {
+    it('benchmarks all 7 steganography algorithms in a single call', async () => {
       const benchRes = await handleJsonRpc({
         jsonrpc: '2.0',
         id: 13,
@@ -283,7 +291,7 @@ describe('OMBRIX Production Hardening Matrix Test Suite', () => {
           name: 'stego_benchmark',
           arguments: {
             carrierPath: testPngPath,
-            payload: 'Benchmarking all 6 OMBRIX methods',
+            payload: 'Benchmarking all 7 OMBRIX methods',
           },
         },
       });
@@ -291,7 +299,7 @@ describe('OMBRIX Production Hardening Matrix Test Suite', () => {
       const benchResult = benchRes?.result as unknown as ToolCallResult;
       const benchData = JSON.parse(getText(benchResult));
       expect(benchData.status).toBe('success');
-      expect(benchData.benchmarkResults.length).toBe(6);
+      expect(benchData.benchmarkResults.length).toBe(7);
       const algoIds = benchData.benchmarkResults.map((r: { id: string }) => r.id);
       expect(algoIds).toEqual([
         'hyper-matrix',
@@ -299,6 +307,7 @@ describe('OMBRIX Production Hardening Matrix Test Suite', () => {
         'pvd',
         'dwt',
         'robust-resilient',
+        'dct',
         'lsb',
       ]);
     });

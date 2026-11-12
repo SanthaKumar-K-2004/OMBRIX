@@ -21,7 +21,7 @@ fs.mkdirSync(releasesDir, { recursive: true });
 fs.mkdirSync(stagingDir, { recursive: true });
 
 const commonMetadata = {
-  version: '0.1.3',
+  version: '0.1.4',
   type: 'module',
   author: 'SanthaKumar K <https://github.com/SanthaKumar-K-2004>',
   license: 'MIT',
@@ -57,7 +57,7 @@ const packageConfigs = [
   // 1. Unscoped ombrix-cli (Universal, highly recommended)
   {
     targetName: 'ombrix-cli',
-    tarballOutput: 'ombrix-cli-0.1.3.tgz',
+    tarballOutput: 'ombrix-cli-0.1.4.tgz',
     manifest: {
       ...commonMetadata,
       name: 'ombrix-cli',
@@ -92,7 +92,7 @@ const packageConfigs = [
   // 2. Unscoped ombrix-mcp-server (Universal, highly recommended)
   {
     targetName: 'ombrix-mcp-server',
-    tarballOutput: 'ombrix-mcp-server-0.1.3.tgz',
+    tarballOutput: 'ombrix-mcp-server-0.1.4.tgz',
     manifest: {
       ...commonMetadata,
       name: 'ombrix-mcp-server',
@@ -128,7 +128,7 @@ const packageConfigs = [
   // 3. Unscoped unified 'ombrix' package (CLI + MCP in one)
   {
     targetName: 'ombrix',
-    tarballOutput: 'ombrix-0.1.3.tgz',
+    tarballOutput: 'ombrix-0.1.4.tgz',
     manifest: {
       ...commonMetadata,
       name: 'ombrix',
@@ -162,7 +162,7 @@ const packageConfigs = [
   // 4. Scoped @ombrix/cli (For org publish)
   {
     targetName: '@ombrix/cli',
-    tarballOutput: 'ombrix-scoped-cli-0.1.3.tgz',
+    tarballOutput: 'ombrix-scoped-cli-0.1.4.tgz',
     manifest: {
       ...commonMetadata,
       name: '@ombrix/cli',
@@ -192,7 +192,7 @@ const packageConfigs = [
   // 5. Scoped @ombrix/mcp-server (For org publish)
   {
     targetName: '@ombrix/mcp-server',
-    tarballOutput: 'ombrix-scoped-mcp-server-0.1.3.tgz',
+    tarballOutput: 'ombrix-scoped-mcp-server-0.1.4.tgz',
     manifest: {
       ...commonMetadata,
       name: '@ombrix/mcp-server',
@@ -224,7 +224,7 @@ const packageConfigs = [
   // 6. Scoped @ombrix/edge-sdk (Programmatic browser & Node SDK)
   {
     targetName: '@ombrix/edge-sdk',
-    tarballOutput: 'ombrix-scoped-edge-sdk-0.1.3.tgz',
+    tarballOutput: 'ombrix-scoped-edge-sdk-0.1.4.tgz',
     manifest: {
       ...commonMetadata,
       name: '@ombrix/edge-sdk',
@@ -262,7 +262,7 @@ const packageConfigs = [
   // 7. Scoped @ombrix/stego-forensics (Analytical and steganalysis suite)
   {
     targetName: '@ombrix/stego-forensics',
-    tarballOutput: 'ombrix-scoped-stego-forensics-0.1.3.tgz',
+    tarballOutput: 'ombrix-scoped-stego-forensics-0.1.4.tgz',
     manifest: {
       ...commonMetadata,
       name: '@ombrix/stego-forensics',

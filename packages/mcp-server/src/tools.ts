@@ -14,6 +14,7 @@ import { Ombrix } from '@ombrix/edge-sdk';
 import {
   haarDwtStego,
   hyperMatrixMethod,
+  jpegDctStego,
   pvdStego,
   robustResilientStego,
 } from '@ombrix/stego-advanced';
@@ -126,6 +127,11 @@ async function loadInputImage(params: {
     bytes = new Uint8Array(arrayBuf);
   } else if (params.path) {
     if (!fs.existsSync(params.path)) {
+      if (params.path.startsWith('/mnt/user-data/') || params.path.startsWith('/mnt/data/')) {
+        throw new Error(
+          `E_CARRIER_NOT_FOUND: ${name} path '${params.path}' is an internal cloud container path in Claude web. The OMBRIX MCP server cannot access Claude web containers directly. Hint: To use local files, run Claude Desktop with OMBRIX MCP configured locally on your computer, or provide an image URL via ${name}Url, or a Base64 string via ${name}Base64.`,
+        );
+      }
       throw new Error(
         `E_CARRIER_NOT_FOUND: ${name} file not found on filesystem: ${params.path}. Hint: Use base64 or verify path.`,
       );
@@ -327,7 +333,7 @@ export const MCP_TOOLS: McpToolDefinition[] = [
         },
         method: {
           type: 'string',
-          enum: ['hyper-matrix', 'robust-resilient', 'dwt', 'pvd', 'matching', 'lsb'],
+          enum: ['hyper-matrix', 'robust-resilient', 'dwt', 'pvd', 'matching', 'lsb', 'dct'],
           default: 'hyper-matrix',
           description: 'Steganographic algorithm to use.',
         },
@@ -369,7 +375,7 @@ export const MCP_TOOLS: McpToolDefinition[] = [
         },
         method: {
           type: 'string',
-          enum: ['auto', 'hyper-matrix', 'robust-resilient', 'dwt', 'pvd', 'matching', 'lsb'],
+          enum: ['auto', 'hyper-matrix', 'robust-resilient', 'dwt', 'pvd', 'matching', 'lsb', 'dct'],
           default: 'auto',
           description: 'Specific algorithm to extract with, or auto for sequential discovery.',
         },
@@ -570,6 +576,7 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         method = 'hyper-matrix',
         channel = 'whatsapp-document',
         outputPath,
+        includeBase64,
       } = args as {
         carrierPath?: string;
         carrierBase64?: string;
@@ -583,6 +590,7 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         method?: string;
         channel?: string;
         outputPath?: string;
+        includeBase64?: boolean;
       };
 
       const secretText = message !== undefined ? message : payload;
@@ -636,6 +644,8 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         stegoCarrier = await pvdStego.embed(carrier, finalPayload);
       } else if (effectiveMethod === 'matching') {
         stegoCarrier = await pngLsbMatching.embed(carrier, finalPayload);
+      } else if (effectiveMethod === 'dct') {
+        stegoCarrier = await jpegDctStego.embed(carrier, finalPayload);
       } else {
         stegoCarrier = await pngLsbSequential.embed(carrier, finalPayload);
       }
@@ -654,6 +664,8 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
           testExtracted = await pvdStego.extract(stegoCarrier);
         } else if (effectiveMethod === 'matching') {
           testExtracted = await pngLsbMatching.extract(stegoCarrier);
+        } else if (effectiveMethod === 'dct') {
+          testExtracted = await jpegDctStego.extract(stegoCarrier);
         } else {
           testExtracted = await pngLsbSequential.extract(stegoCarrier);
         }
@@ -686,6 +698,17 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
 
       const fidelity = computeFidelity(carrier, stegoCarrier);
 
+      // Prevent multi-megabyte base64 strings from crashing AI assistant context windows
+      const isLargeBase64 = outB64.length > 65536; // > 64 KB
+      let outputBase64Result: string;
+      if (includeBase64 || (!resolvedOut && !isLargeBase64)) {
+        outputBase64Result = `data:image/png;base64,${outB64}`;
+      } else if (resolvedOut) {
+        outputBase64Result = `[Base64 omitted (${(encodedPng.length / 1024 / 1024).toFixed(2)} MB to prevent AI context overflow). Full image saved to ${resolvedOut}. Pass includeBase64: true to force raw base64.]`;
+      } else {
+        outputBase64Result = `data:image/png;base64,${outB64}`;
+      }
+
       return {
         status: 'success',
         ok: true,
@@ -694,7 +717,7 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         payloadBytes: rawBytes.length,
         encryptedWithPasskey: encrypted,
         outputPath: resolvedOut,
-        outputBase64: `data:image/png;base64,${outB64}`,
+        outputBase64: outputBase64Result,
         fidelity,
         channelRecommendation:
           effectiveMethod === 'robust-resilient'
@@ -743,6 +766,7 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
           { name: 'pvd', extract: () => pvdStego.extract(carrier) },
           { name: 'dwt', extract: () => haarDwtStego.extract(carrier) },
           { name: 'robust-resilient', extract: () => robustResilientStego.extract(carrier) },
+          { name: 'dct', extract: () => jpegDctStego.extract(carrier) },
           { name: 'lsb', extract: () => pngLsbSequential.extract(carrier) },
         ];
 
@@ -750,9 +774,23 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
           try {
             const res = await candidate.extract();
             if (res && res.length > 0) {
-              extractedRaw = res;
-              detectedMethod = candidate.name;
-              break;
+              // Discard false-positive noise extractions from uninitialized subbands
+              const isEnc = isPasskeyEncrypted(res);
+              const isOmb1 =
+                res.length >= 4 &&
+                res[0] === 0x4f &&
+                res[1] === 0x4d &&
+                res[2] === 0x42 &&
+                res[3] === 0x31;
+              const text = new TextDecoder().decode(res);
+              const isCleanText =
+                !text.includes('\ufffd') && !/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(text.slice(0, 50));
+
+              if (isEnc || isOmb1 || isCleanText) {
+                extractedRaw = res;
+                detectedMethod = candidate.name;
+                break;
+              }
             }
           } catch {
             // continue next candidate
@@ -767,7 +805,7 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
             detectedMethod = 'omb1-envelope';
           } catch {
             throw new Error(
-              'E_NO_STEGO_DETECTED: No valid hidden payload found using any supported algorithm (tried hyper-matrix, matching, pvd, dwt, robust-resilient, lsb). Hint: Ensure the file is an authentic OMBRIX carrier and uncorrupted.',
+              'E_NO_STEGO_DETECTED: No valid hidden payload found using any supported algorithm (tried hyper-matrix, matching, pvd, dwt, robust-resilient, dct, lsb). Hint: Ensure the file is an authentic OMBRIX carrier and uncorrupted.',
             );
           }
         }
@@ -783,6 +821,8 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
           extractedRaw = await pvdStego.extract(carrier);
         } else if (detectedMethod === 'matching') {
           extractedRaw = await pngLsbMatching.extract(carrier);
+        } else if (detectedMethod === 'dct') {
+          extractedRaw = await jpegDctStego.extract(carrier);
         } else if (detectedMethod === 'lsb') {
           extractedRaw = await pngLsbSequential.extract(carrier);
         } else {
@@ -921,6 +961,7 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         { id: 'pvd', name: 'Pixel Value Differencing', method: pvdStego },
         { id: 'dwt', name: '2D Haar DWT Wavelet', method: haarDwtStego },
         { id: 'robust-resilient', name: 'Robust Resilient', method: robustResilientStego },
+        { id: 'dct', name: 'JPEG 8x8 Block DCT', method: jpegDctStego },
         { id: 'lsb', name: 'Sequential LSB', method: pngLsbSequential },
       ];
 
@@ -979,6 +1020,7 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
       const dwtCap = haarDwtStego.calculateCapacity(carrier).usableBytes;
       const pvdCap = pvdStego.calculateCapacity(carrier).usableBytes;
       const matchCap = pngLsbMatching.calculateCapacity(carrier).usableBytes;
+      const dctCap = jpegDctStego.calculateCapacity(carrier).usableBytes;
       const lsbCap = pngLsbSequential.calculateCapacity(carrier).usableBytes;
 
       return {
@@ -1017,6 +1059,11 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
             plaintextBytes: matchCap,
             withPasskeyBytes: Math.max(0, matchCap - 48),
             description: '±1 LSB matching with high RS steganalysis resistance.',
+          },
+          dct: {
+            plaintextBytes: dctCap,
+            withPasskeyBytes: Math.max(0, dctCap - 48),
+            description: 'Quantized 8x8 JPEG discrete cosine transform AC coefficients.',
           },
           lsb: {
             plaintextBytes: lsbCap,
