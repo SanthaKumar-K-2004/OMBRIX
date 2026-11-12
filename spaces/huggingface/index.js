@@ -9481,6 +9481,12 @@ var MCP_TOOLS = [
   {
     name: "stego_plan",
     description: 'Recommends optimal steganography algorithm, checks capacity limits, and provides delivery channel guidance (e.g. WhatsApp Document vs Photo, Email, Web). Example: { "channel": "whatsapp-photo", "payloadLengthBytes": 32 }',
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -9518,6 +9524,12 @@ var MCP_TOOLS = [
   {
     name: "stego_hide",
     description: 'High-level one-call steganography embedding tool with automatic safe algorithm selection, in-memory self-verification, and Base64/filesystem output. Accepts PNG only. Example: { "carrierPath": "cover.png", "message": "Secret", "passkeyEnv": "SECRET_KEY" }',
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -9557,6 +9569,12 @@ var MCP_TOOLS = [
   {
     name: "stego_reveal",
     description: 'High-level one-call steganography extraction tool. Automatically searches all algorithms and returns recovered secret message with prompt-injection safety tags. Accepts PNG only. Example: { "stegoPath": "stego.png", "passkeyEnv": "SECRET_KEY" }',
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -9581,6 +9599,12 @@ var MCP_TOOLS = [
   {
     name: "stego_embed",
     description: 'Conceals a secret plaintext message or file into a PNG carrier image (Hyper-Matrix, Robust Resilient, DWT, PVD, LSB Matching, or LSB) with in-memory self-verification and optional Argon2id passkey encryption. Accepts PNG only. Example: { "carrierPath": "cover.png", "payload": "Data", "method": "hyper-matrix" }',
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -9623,6 +9647,12 @@ var MCP_TOOLS = [
   {
     name: "stego_extract",
     description: 'Extracts a concealed secret message or file from an OMBRIX stego carrier image, supporting automatic multi-algorithm sequential search and Argon2id passkey unlocking. Accepts PNG only. Example: { "stegoPath": "stego.png", "method": "auto" }',
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -9657,6 +9687,12 @@ var MCP_TOOLS = [
   {
     name: "stego_scan",
     description: "Performs calibrated multi-detector forensic steganalysis on an image using Fridrich RS Steganalysis, Dumitrescu Sample Pair Analysis (SPA), Westfeld Chi-Square (PoVs), and 2nd-Derivative Laplacian Noise Residual Variance.",
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -9669,6 +9705,12 @@ var MCP_TOOLS = [
   {
     name: "stego_benchmark",
     description: "Evaluates empirical image quality distortion metrics (PSNR in dB, MSE, SSIM, altered channels) across all 6 OMBRIX steganographic algorithms for a given carrier image.",
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -9681,6 +9723,12 @@ var MCP_TOOLS = [
   {
     name: "stego_keygen",
     description: "Generates cryptographically secure keys: Diceware 4-word human-memorable passphrases, 32-byte hex tokens, Libsodium X25519 encryption keypairs, or Ed25519 signing keypairs.",
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -9696,6 +9744,12 @@ var MCP_TOOLS = [
   {
     name: "stego_inspect",
     description: "Inspects an image to report dimensions, channel layout, and exact usable byte payload capacity limits across all 6 OMBRIX stego algorithms, with and without passkey encryption.",
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -9707,6 +9761,12 @@ var MCP_TOOLS = [
   {
     name: "stego_code_mode",
     description: "Executes sandboxed JavaScript/TypeScript code using MCP 2.0 Code Mode architecture. Enables complex multi-step steganography workflows inside a single air-gapped call.",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -9723,6 +9783,12 @@ var MCP_TOOLS = [
   {
     name: "stego_api_docs",
     description: "Discovers the complete TypeScript API definitions, method signatures, types, and usage patterns available inside stego_code_mode.",
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    },
     inputSchema: {
       type: "object",
       properties: {}
@@ -10263,7 +10329,7 @@ async function handleJsonRpc(request) {
         },
         serverInfo: {
           name: "ombrix-mcp",
-          version: "0.1.2",
+          version: "0.1.3",
           description: "Zero-knowledge undetectable steganography and visual forensics suite.",
           icons: [
             {

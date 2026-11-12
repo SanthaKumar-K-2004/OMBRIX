@@ -44,7 +44,7 @@ export async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcRes
         },
         serverInfo: {
           name: 'ombrix-mcp',
-          version: '0.1.2',
+          version: '0.1.3',
           description: 'Zero-knowledge undetectable steganography and visual forensics suite.',
           icons: [
             {
