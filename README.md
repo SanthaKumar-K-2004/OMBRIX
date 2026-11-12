@@ -11,6 +11,7 @@ Offline-first steganographic suite engineered for client-side execution — no n
 [![Live App](https://img.shields.io/badge/Live%20App-ombrix--stego.vercel.app-7C3AED.svg?style=flat-square&logo=vercel)](https://ombrix-stego.vercel.app/)
 [![npm ombrix-cli](https://img.shields.io/npm/v/ombrix-cli?style=flat-square&color=CB3837&logo=npm)](https://www.npmjs.com/package/ombrix-cli)
 [![npm mcp-server](https://img.shields.io/npm/v/ombrix-mcp-server?style=flat-square&color=CB3837&logo=npm)](https://www.npmjs.com/package/ombrix-mcp-server)
+[![M8ven Trust](https://m8ven.ai/badge/mcp/santhakumar-k-2004/ombrix)](https://m8ven.ai/mcp/santhakumar-k-2004/ombrix?s=readme)
 [![CI](https://github.com/SanthaKumar-K-2004/OMBRIX/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SanthaKumar-K-2004/OMBRIX/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![Zero Telemetry](https://img.shields.io/badge/Network-Zero--Telemetry%20Air--Gap-059669.svg?style=flat-square)](https://github.com/SanthaKumar-K-2004/OMBRIX)

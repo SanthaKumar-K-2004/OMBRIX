@@ -1,5 +1,9 @@
 # ombrix-mcp-server
 
+[![M8ven Trust](https://m8ven.ai/badge/mcp/santhakumar-k-2004/ombrix)](https://m8ven.ai/mcp/santhakumar-k-2004/ombrix?s=readme)
+[![npm version](https://img.shields.io/npm/v/ombrix-mcp-server?style=flat-square&color=CB3837&logo=npm)](https://www.npmjs.com/package/ombrix-mcp-server)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+
 Model Context Protocol (MCP 2.0) Server with Code Mode architecture for the **OMBRIX** Steganography & Visual Cryptanalysis Suite.
 
 ## Features
