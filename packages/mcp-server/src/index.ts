@@ -7,18 +7,20 @@ export { startSseServer } from './sse.js';
 export { MCP_TOOLS, executeTool } from './tools.js';
 export { executeCodeMode, getCodeModeApiDocs } from './code-mode.js';
 
-// Auto-run when invoked directly as a binary (CLI, npx, stdio, or HTTP SSE)
+// Auto-run when invoked directly as the MCP server entrypoint
+const argv1 = process.argv[1] || '';
 if (
-  process.argv[1] &&
+  argv1 &&
   !process.env.VITEST &&
-  (process.argv[1].endsWith('index.js') ||
-    process.argv[1].includes('ombrix-mcp') ||
-    process.argv[1].includes('mcp'))
+  (argv1.endsWith('mcp-server/dist/index.js') ||
+    argv1.includes('ombrix-mcp-server') ||
+    argv1.endsWith('/bin/ombrix-mcp') ||
+    argv1.endsWith('spaces/huggingface/index.js'))
 ) {
   const isSse =
     process.argv.includes('--sse') ||
     process.env.MCP_TRANSPORT === 'sse' ||
-    Boolean(process.env.PORT);
+    Boolean(process.env.SPACE_ID); // Hugging Face Spaces sets SPACE_ID
 
   if (isSse) {
     const port = Number(process.env.PORT || 7860);

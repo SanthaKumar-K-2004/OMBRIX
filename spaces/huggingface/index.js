@@ -7,8 +7,8 @@ var __require = /* @__PURE__ */ ((x2) => typeof require !== "undefined" ? requir
 });
 
 // packages/mcp-server/src/tools.ts
-import * as fs2 from "node:fs";
-import * as path2 from "node:path";
+import * as fs3 from "node:fs";
+import * as path3 from "node:path";
 
 // packages/crypto-adapter/src/errors.ts
 var CryptoError = class extends Error {
@@ -4303,7 +4303,7 @@ function generateRandomPasskey32(format = "formatted") {
 var PASSKEY_MAGIC_V1 = new Uint8Array([79, 77, 66, 80, 65, 83, 83, 1]);
 var PASSKEY_MAGIC_V2 = new Uint8Array([79, 77, 66, 80, 65, 83, 83, 2]);
 var PASSKEY_SALT_BYTES = 16;
-function derivePasskeyKey(passkey, salt) {
+function derivePasskeyKey(passkey, salt, opsLimit, memLimit) {
   const clean = normalizePasskeyInput(passkey);
   const sodium = getSodium();
   try {
@@ -4311,13 +4311,12 @@ function derivePasskeyKey(passkey, salt) {
       32,
       clean,
       salt,
-      sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE,
-      sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,
+      opsLimit ?? sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE,
+      memLimit ?? sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,
       sodium.crypto_pwhash_ALG_ARGON2ID13
     );
-  } catch {
-    const enc = new TextEncoder().encode(clean);
-    return sodium.crypto_generichash(32, enc, salt);
+  } catch (err) {
+    throw new InvalidKeyError(`Argon2id key derivation failed: ${err.message}`);
   }
 }
 function isPasskeyEncrypted(bytes) {
@@ -4346,6 +4345,21 @@ function encryptWithPasskey(data, passkey, version = 2) {
       zeroMemory(key322);
     }
   }
+  if (version === 3) {
+    const salt2 = sodium.randombytes_buf(PASSKEY_SALT_BYTES);
+    const nonce2 = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
+    const key322 = derivePasskeyKey(clean, salt2);
+    try {
+      const ciphertext = sodium.crypto_secretbox_easy(data, nonce2, key322);
+      const container = new Uint8Array(PASSKEY_SALT_BYTES + 24 + ciphertext.length);
+      container.set(salt2, 0);
+      container.set(nonce2, PASSKEY_SALT_BYTES);
+      container.set(ciphertext, PASSKEY_SALT_BYTES + 24);
+      return container;
+    } finally {
+      zeroMemory(key322);
+    }
+  }
   const salt = sodium.randombytes_buf(PASSKEY_SALT_BYTES);
   const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
   const key32 = derivePasskeyKey(clean, salt);
@@ -4362,44 +4376,62 @@ function encryptWithPasskey(data, passkey, version = 2) {
   }
 }
 function decryptWithPasskey(container, passkey) {
-  if (!isPasskeyEncrypted(container)) {
-    throw new DecryptionFailedError("Data is not a valid OMBRIX passkey-encrypted container.");
-  }
   const clean = passkey.trim();
   if (!clean) {
     throw new InvalidKeyError("Passkey or token is required to decrypt this payload.");
   }
   const sodium = getSodium();
-  const isV2 = container[7] === 2;
-  let key32;
-  let nonce;
-  let ciphertext;
-  if (isV2) {
-    if (container.length < 8 + PASSKEY_SALT_BYTES + 24 + 16) {
-      throw new DecryptionFailedError("Corrupt V2 passkey container: insufficient payload length.");
+  const hasMagic = isPasskeyEncrypted(container);
+  if (hasMagic) {
+    const isV2 = container[7] === 2;
+    let key32;
+    let nonce;
+    let ciphertext;
+    if (isV2) {
+      if (container.length < 8 + PASSKEY_SALT_BYTES + 24 + 16) {
+        throw new DecryptionFailedError(
+          "Corrupt V2 passkey container: insufficient payload length."
+        );
+      }
+      const salt = container.subarray(8, 8 + PASSKEY_SALT_BYTES);
+      nonce = container.subarray(8 + PASSKEY_SALT_BYTES, 8 + PASSKEY_SALT_BYTES + 24);
+      ciphertext = container.subarray(8 + PASSKEY_SALT_BYTES + 24);
+      key32 = derivePasskeyKey(clean, salt);
+    } else {
+      nonce = container.subarray(8, 32);
+      ciphertext = container.subarray(32);
+      key32 = parseAnyKey32(clean);
     }
-    const salt = container.subarray(8, 8 + PASSKEY_SALT_BYTES);
-    nonce = container.subarray(8 + PASSKEY_SALT_BYTES, 8 + PASSKEY_SALT_BYTES + 24);
-    ciphertext = container.subarray(8 + PASSKEY_SALT_BYTES + 24);
-    key32 = derivePasskeyKey(clean, salt);
-  } else {
-    nonce = container.subarray(8, 32);
-    ciphertext = container.subarray(32);
-    key32 = parseAnyKey32(clean);
-  }
-  try {
-    const plaintext = sodium.crypto_secretbox_open_easy(ciphertext, nonce, key32);
-    if (!plaintext) {
-      throw new Error("MAC verification failed");
+    try {
+      const plaintext = sodium.crypto_secretbox_open_easy(ciphertext, nonce, key32);
+      if (!plaintext) {
+        throw new Error("MAC verification failed");
+      }
+      return plaintext;
+    } catch (_err) {
+      throw new DecryptionFailedError(
+        "Decryption failed: incorrect passkey, token mismatch, or corrupted ciphertext."
+      );
+    } finally {
+      zeroMemory(key32);
     }
-    return plaintext;
-  } catch (_err) {
-    throw new DecryptionFailedError(
-      "Decryption failed: incorrect passkey, token mismatch, or corrupted ciphertext."
-    );
-  } finally {
-    zeroMemory(key32);
   }
+  if (container.length >= PASSKEY_SALT_BYTES + 24 + 16) {
+    const salt = container.subarray(0, PASSKEY_SALT_BYTES);
+    const nonce = container.subarray(PASSKEY_SALT_BYTES, PASSKEY_SALT_BYTES + 24);
+    const ciphertext = container.subarray(PASSKEY_SALT_BYTES + 24);
+    const key32 = derivePasskeyKey(clean, salt);
+    try {
+      const plaintext = sodium.crypto_secretbox_open_easy(ciphertext, nonce, key32);
+      if (plaintext) {
+        return plaintext;
+      }
+    } catch {
+    } finally {
+      zeroMemory(key32);
+    }
+  }
+  throw new DecryptionFailedError("Data is not a valid OMBRIX passkey-encrypted container.");
 }
 
 // packages/image-validation/src/crc32.ts
@@ -5267,28 +5299,16 @@ function logGamma(z2) {
   const t2 = z2 + c2.length - 0.5;
   return 0.5 * Math.log(2 * Math.PI) + (z2 + 0.5) * Math.log(t2) - t2 + Math.log(sum);
 }
-function analyzeChiSquare(carrier) {
-  const data = carrier.data;
-  const pixelCount = carrier.width * carrier.height;
-  const hist = new Uint32Array(256);
-  let sampleCount = 0;
-  for (let i2 = 0; i2 < pixelCount; i2++) {
-    const idx = i2 * 4;
-    for (let c2 = 0; c2 < 3; c2++) {
-      const val = data[idx + c2] ?? 0;
-      hist[val] = (hist[val] ?? 0) + 1;
-      sampleCount++;
-    }
-  }
-  const pairs = [];
+function computePoVChiSquare(hist) {
   let chiSquareTotal = 0;
-  let activePairsCount = 0;
+  let activePairs = 0;
+  const pairs = [];
   for (let k2 = 0; k2 < 128; k2++) {
     const countEven = hist[2 * k2] ?? 0;
     const countOdd = hist[2 * k2 + 1] ?? 0;
     const pairSum = countEven + countOdd;
-    if (pairSum > 5) {
-      activePairsCount++;
+    if (pairSum > 4) {
+      activePairs++;
       const expected = pairSum / 2;
       const diff = countEven - expected;
       const chiContribution = diff * diff / expected;
@@ -5302,32 +5322,78 @@ function analyzeChiSquare(carrier) {
       });
     }
   }
-  const degreesOfFreedom = Math.max(1, activePairsCount - 1);
+  const degreesOfFreedom = Math.max(1, activePairs - 1);
   const pValue = Math.max(
     0,
     Math.min(1, regularizedGammaQ(degreesOfFreedom / 2, chiSquareTotal / 2))
   );
-  let confidence = "CLEAN";
-  let anomalyDetected = false;
-  if (pValue >= 0.9) {
-    anomalyDetected = true;
-    confidence = "HIGH";
-  } else if (pValue >= 0.7) {
-    anomalyDetected = true;
-    confidence = "MEDIUM";
-  } else if (pValue >= 0.5) {
-    anomalyDetected = true;
-    confidence = "LOW";
-  }
-  pairs.sort((a2, b2) => b2.chiSquareContribution - a2.chiSquareContribution);
   return {
     chiSquare: Math.round(chiSquareTotal * 100) / 100,
     degreesOfFreedom,
     pValue: Math.round(pValue * 1e3) / 1e3,
+    pairs
+  };
+}
+function analyzeChiSquare(carrier) {
+  const data = carrier.data;
+  const pixelCount = carrier.width * carrier.height;
+  const totalSamples = pixelCount * 3;
+  const samples = new Uint8Array(totalSamples);
+  let sampleIdx = 0;
+  for (let i2 = 0; i2 < pixelCount; i2++) {
+    const base = i2 * 4;
+    samples[sampleIdx++] = data[base] ?? 0;
+    samples[sampleIdx++] = data[base + 1] ?? 0;
+    samples[sampleIdx++] = data[base + 2] ?? 0;
+  }
+  const globalHist = new Uint32Array(256);
+  for (let i2 = 0; i2 < totalSamples; i2++) {
+    globalHist[samples[i2]] = (globalHist[samples[i2]] ?? 0) + 1;
+  }
+  const globalResult = computePoVChiSquare(globalHist);
+  const blockSize = Math.min(2048, Math.max(512, Math.floor(totalSamples / 16)));
+  let peakLocalPValue = 0;
+  let anomalousBlocksCount = 0;
+  const totalBlocks = Math.max(1, Math.floor(totalSamples / blockSize));
+  for (let b2 = 0; b2 < totalBlocks; b2++) {
+    const start = b2 * blockSize;
+    const end = Math.min(start + blockSize, totalSamples);
+    const blockHist = new Uint32Array(256);
+    for (let i2 = start; i2 < end; i2++) {
+      blockHist[samples[i2]] = (blockHist[samples[i2]] ?? 0) + 1;
+    }
+    const blockResult = computePoVChiSquare(blockHist);
+    if (blockResult.degreesOfFreedom >= 8) {
+      if (blockResult.pValue > peakLocalPValue) {
+        peakLocalPValue = blockResult.pValue;
+      }
+      if (blockResult.pValue >= 0.7) {
+        anomalousBlocksCount++;
+      }
+    }
+  }
+  const effectivePValue = Math.max(globalResult.pValue, peakLocalPValue);
+  let confidence = "CLEAN";
+  let anomalyDetected = false;
+  if (effectivePValue >= 0.85 || anomalousBlocksCount >= 2) {
+    anomalyDetected = true;
+    confidence = "HIGH";
+  } else if (effectivePValue >= 0.65 || anomalousBlocksCount >= 1) {
+    anomalyDetected = true;
+    confidence = "MEDIUM";
+  } else if (effectivePValue >= 0.45) {
+    anomalyDetected = true;
+    confidence = "LOW";
+  }
+  globalResult.pairs.sort((a2, b2) => b2.chiSquareContribution - a2.chiSquareContribution);
+  return {
+    chiSquare: globalResult.chiSquare,
+    degreesOfFreedom: globalResult.degreesOfFreedom,
+    pValue: effectivePValue,
     anomalyDetected,
     confidence,
-    sampleCount,
-    topDeviatingPairs: pairs.slice(0, 10)
+    sampleCount: totalSamples,
+    topDeviatingPairs: globalResult.pairs.slice(0, 10)
   };
 }
 
@@ -5410,13 +5476,15 @@ async function createLinkContainer(options) {
     carrierName: options.carrierName,
     hasPassphrase: Boolean(options.passphrase && options.passphrase.length > 0),
     burnAfterReading: options.burnAfterReading ?? false,
-    senderFingerprint: options.senderFingerprint
+    senderFingerprint: options.senderFingerprint,
+    opsLimit: options.passphrase ? options.opsLimit ?? DEFAULT_OPS_LIMIT : void 0,
+    memLimit: options.passphrase ? options.memLimit ?? DEFAULT_MEM_LIMIT : void 0
   };
   if (metadata.hasPassphrase && options.passphrase) {
     const salt = sodium.randombytes_buf(sodium.crypto_pwhash_SALTBYTES);
     const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
-    const opsLimit = options.opsLimit ?? DEFAULT_OPS_LIMIT;
-    const memLimit = options.memLimit ?? DEFAULT_MEM_LIMIT;
+    const opsLimit = metadata.opsLimit ?? DEFAULT_OPS_LIMIT;
+    const memLimit = metadata.memLimit ?? DEFAULT_MEM_LIMIT;
     const derivedKey = deriveKeyArgon2id(options.passphrase, salt, opsLimit, memLimit);
     try {
       const ciphertext = sodium.crypto_secretbox_easy(options.payloadBytes, nonce, derivedKey);
@@ -5467,7 +5535,9 @@ async function openLinkContainer(container, options) {
     const salt = fromBase64(container.salt);
     const nonce = fromBase64(container.nonce);
     const ciphertext = fromBase64(container.ciphertext);
-    const derivedKey = deriveKeyArgon2id(options.passphrase, salt);
+    const opsLimit = container.metadata.opsLimit ?? DEFAULT_OPS_LIMIT;
+    const memLimit = container.metadata.memLimit ?? DEFAULT_MEM_LIMIT;
+    const derivedKey = deriveKeyArgon2id(options.passphrase, salt, opsLimit, memLimit);
     try {
       const decrypted = sodium.crypto_secretbox_open_easy(ciphertext, nonce, derivedKey);
       if (!decrypted) {
@@ -8466,6 +8536,9 @@ function analyzeConsensus(carrier) {
   };
 }
 
+// packages/edge-sdk/src/version.ts
+var OMBRIX_VERSION = "0.1.5";
+
 // packages/edge-sdk/src/experiment.ts
 async function runAutomatedExperiment(carrier, payload, method, options = {}) {
   const totalPixels = carrier.width * carrier.height;
@@ -8499,7 +8572,7 @@ async function runAutomatedExperiment(carrier, payload, method, options = {}) {
     schemaVersion: "OMBRIX_EXPERIMENT_V1",
     experimentId,
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-    ombrixVersion: "0.1.4",
+    ombrixVersion: OMBRIX_VERSION,
     metadata: {
       title: options.title ?? `Benchmark: ${method.name}`,
       description: options.description,
@@ -8743,9 +8816,10 @@ var Ombrix = {
 };
 
 // packages/mcp-server/src/code-mode.ts
-import * as fs from "node:fs";
-import * as path from "node:path";
+import * as fs2 from "node:fs";
+import * as path2 from "node:path";
 import * as vm from "node:vm";
+import { Worker } from "node:worker_threads";
 
 // packages/mcp-server/src/png.ts
 import { deflateSync, inflateSync } from "node:zlib";
@@ -8917,6 +8991,268 @@ function decodePng(buffer) {
   };
 }
 
+// packages/mcp-server/src/security.ts
+import * as dns from "node:dns/promises";
+import * as fs from "node:fs";
+import * as net from "node:net";
+import * as os from "node:os";
+import * as path from "node:path";
+var SecurityError = class extends Error {
+  code;
+  hint;
+  constructor(code, message, hint) {
+    super(`${code}: ${message}`);
+    this.name = "SecurityError";
+    this.code = code;
+    this.hint = hint;
+  }
+};
+function getOmbrixRoot() {
+  const envRoot = process.env.OMBRIX_ROOT;
+  if (envRoot?.trim()) {
+    return path.resolve(envRoot.trim());
+  }
+  return process.cwd();
+}
+var ALLOWED_OUTPUT_EXTENSIONS = /* @__PURE__ */ new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".txt",
+  ".bin",
+  ".json",
+  ".dat",
+  ".csv",
+  ".md"
+]);
+function isPathInside(parent, child) {
+  const rel = path.relative(parent, child);
+  return !rel.startsWith("..") && !path.isAbsolute(rel);
+}
+function validatePathConfinement(targetPath, options = {}) {
+  const param = options.paramName || "path";
+  if (!targetPath || typeof targetPath !== "string") {
+    throw new SecurityError(
+      "E_INVALID_PATH",
+      `Parameter '${param}' must be a non-empty string path.`
+    );
+  }
+  if (targetPath.startsWith("/mnt/user-data/") || targetPath.startsWith("/mnt/data/")) {
+    throw new SecurityError(
+      "E_CARRIER_NOT_FOUND",
+      `${param} path '${targetPath}' is an internal cloud container path in Claude web. The OMBRIX MCP server cannot access Claude web containers directly. Hint: To use local files, run Claude Desktop with OMBRIX MCP configured locally on your computer, or provide an image URL via ${param}Url, or a Base64 string via ${param}Base64.`
+    );
+  }
+  const root = getOmbrixRoot();
+  const absolutePath = path.resolve(root, targetPath);
+  const osTmp = os.tmpdir();
+  let realOsTmp = osTmp;
+  try {
+    realOsTmp = fs.realpathSync(osTmp);
+  } catch {
+  }
+  const isAllowedPath = (p2) => {
+    if (root === path.resolve("/")) return true;
+    return isPathInside(root, p2) || isPathInside(osTmp, p2) || isPathInside(realOsTmp, p2);
+  };
+  const segments = targetPath.split(/[/\\]/);
+  if (segments.includes("..")) {
+    if (!isAllowedPath(absolutePath)) {
+      throw new SecurityError(
+        "E_ACCESS_DENIED",
+        `Access denied: '${targetPath}' attempts directory traversal outside permitted directories.`,
+        `Configure OMBRIX_ROOT environment variable if access to '${absolutePath}' is intended.`
+      );
+    }
+  }
+  if (options.forWrite) {
+    if (!isAllowedPath(absolutePath)) {
+      throw new SecurityError(
+        "E_ACCESS_DENIED",
+        `Access denied: '${targetPath}' resolves outside permitted root directory '${root}'.`,
+        `Configure OMBRIX_ROOT environment variable if access to '${absolutePath}' is intended.`
+      );
+    }
+    const ext = path.extname(absolutePath).toLowerCase();
+    if (!ext || !ALLOWED_OUTPUT_EXTENSIONS.has(ext)) {
+      throw new SecurityError(
+        "E_INVALID_EXTENSION",
+        `Output file extension '${ext || "none"}' is not permitted. Permitted extensions: ${Array.from(ALLOWED_OUTPUT_EXTENSIONS).join(", ")}`
+      );
+    }
+    if (fs.existsSync(absolutePath) && !options.overwrite) {
+      throw new SecurityError(
+        "E_FILE_EXISTS",
+        `File already exists at '${absolutePath}'. Set overwrite: true to allow replacing existing files.`,
+        'Pass { "overwrite": true } in tool options if you wish to overwrite this file.'
+      );
+    }
+  } else {
+    if (fs.existsSync(absolutePath)) {
+      if (!isAllowedPath(absolutePath)) {
+        throw new SecurityError(
+          "E_ACCESS_DENIED",
+          `Access denied: '${targetPath}' resolves outside permitted root directory '${root}'.`,
+          `Configure OMBRIX_ROOT environment variable if access to '${absolutePath}' is intended.`
+        );
+      }
+      const base2 = path.basename(absolutePath);
+      if (base2.startsWith(".") && base2 !== ".png") {
+        throw new SecurityError(
+          "E_ACCESS_DENIED",
+          `Access to hidden system/configuration file '${base2}' is restricted.`
+        );
+      }
+      try {
+        const real = fs.realpathSync(absolutePath);
+        if (!isAllowedPath(real)) {
+          throw new SecurityError(
+            "E_ACCESS_DENIED",
+            `Symlink traversal denied: '${targetPath}' points outside permitted directory.`
+          );
+        }
+      } catch (err) {
+        if (err instanceof SecurityError) throw err;
+      }
+    }
+  }
+  const base = path.basename(absolutePath);
+  if (base.startsWith(".") && base !== ".png") {
+    throw new SecurityError(
+      "E_ACCESS_DENIED",
+      `Access to hidden system/configuration file '${base}' is restricted.`
+    );
+  }
+  return absolutePath;
+}
+function isPrivateOrLoopbackIp(ip) {
+  if (!net.isIP(ip)) return false;
+  if (net.isIPv4(ip)) {
+    const parts = ip.split(".").map(Number);
+    const [a2, b2] = parts;
+    if (a2 === void 0 || b2 === void 0) return false;
+    if (a2 === 127) return true;
+    if (a2 === 0) return true;
+    if (a2 === 10) return true;
+    if (a2 === 172 && b2 >= 16 && b2 <= 31) return true;
+    if (a2 === 192 && b2 === 168) return true;
+    if (a2 === 169 && b2 === 254) return true;
+    if (a2 === 100 && b2 >= 64 && b2 <= 127) return true;
+    if (ip === "255.255.255.255") return true;
+    return false;
+  }
+  const clean = ip.toLowerCase();
+  if (clean === "::1" || clean === "0:0:0:0:0:0:0:1") return true;
+  if (clean === "::" || clean === "0:0:0:0:0:0:0:0") return true;
+  if (clean.startsWith("fc") || clean.startsWith("fd")) return true;
+  if (clean.startsWith("fe8") || clean.startsWith("fe9") || clean.startsWith("fea") || clean.startsWith("feb"))
+    return true;
+  if (clean.startsWith("::ffff:")) {
+    const v4 = clean.replace("::ffff:", "");
+    return isPrivateOrLoopbackIp(v4);
+  }
+  return false;
+}
+async function safeFetchUrl(urlStr, options = {}) {
+  const maxBytes = options.maxBytes ?? 25 * 1024 * 1024;
+  const timeoutMs = options.timeoutMs ?? 1e4;
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(urlStr);
+  } catch {
+    throw new SecurityError("E_INVALID_URL", `Malformed URL provided: ${urlStr}`);
+  }
+  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+    throw new SecurityError(
+      "E_INVALID_PROTOCOL",
+      `Unsupported protocol '${parsedUrl.protocol}'. Only http: and https: URLs are permitted.`
+    );
+  }
+  const hostname = parsedUrl.hostname;
+  if (!hostname || hostname.toLowerCase() === "localhost") {
+    throw new SecurityError(
+      "E_SSRF_BLOCKED",
+      `Access to localhost or loopback domain '${hostname}' is blocked.`
+    );
+  }
+  try {
+    const lookupResult = await dns.lookup(hostname, { all: true });
+    for (const record of lookupResult) {
+      if (isPrivateOrLoopbackIp(record.address)) {
+        throw new SecurityError(
+          "E_SSRF_BLOCKED",
+          `Access to private/internal IP address '${record.address}' for host '${hostname}' is blocked.`,
+          "OMBRIX MCP forbids connecting to internal network, link-local, or cloud metadata services."
+        );
+      }
+    }
+  } catch (err) {
+    if (err instanceof SecurityError) throw err;
+    throw new SecurityError(
+      "E_DNS_FAILED",
+      `DNS lookup failed for host '${hostname}': ${err.message}`
+    );
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(parsedUrl.toString(), {
+      signal: controller.signal,
+      redirect: "follow",
+      // Fetch handles redirect; we validate response
+      headers: {
+        "User-Agent": "OMBRIX-MCP-Stego/0.1.5 (+https://github.com/SanthaKumar-K-2004/OMBRIX)",
+        Accept: "image/png,image/*;q=0.9,*/*;q=0.1"
+      }
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP fetch failed with status ${res.status} ${res.statusText}`);
+    }
+    const reader = res.body?.getReader();
+    if (!reader) {
+      const buf = await res.arrayBuffer();
+      if (buf.byteLength > maxBytes) {
+        throw new SecurityError(
+          "E_FILE_TOO_LARGE",
+          `Downloaded image exceeds maximum size limit of ${maxBytes} bytes.`
+        );
+      }
+      return new Uint8Array(buf);
+    }
+    const chunks = [];
+    let receivedBytes = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        receivedBytes += value.length;
+        if (receivedBytes > maxBytes) {
+          reader.cancel();
+          throw new SecurityError(
+            "E_FILE_TOO_LARGE",
+            `Downloaded image exceeds maximum size limit of ${maxBytes} bytes (${receivedBytes} bytes received).`
+          );
+        }
+        chunks.push(value);
+      }
+    }
+    const out = new Uint8Array(receivedBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      out.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return out;
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new SecurityError("E_TIMEOUT", `Image fetch timed out after ${timeoutMs}ms: ${urlStr}`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // packages/mcp-server/src/code-mode.ts
 var cryptoReady = false;
 async function ensureCryptoInitialized() {
@@ -8939,21 +9275,25 @@ function createOmbrixSandboxApi(logs) {
     },
     ombrix: {
       load(filePath) {
-        const resolved = path.resolve(filePath);
-        if (!fs.existsSync(resolved)) {
+        const resolved = validatePathConfinement(filePath, { paramName: "filePath" });
+        if (!fs2.existsSync(resolved)) {
           throw new Error(`Carrier image not found: ${resolved}`);
         }
-        const bytes = new Uint8Array(fs.readFileSync(resolved));
+        const bytes = new Uint8Array(fs2.readFileSync(resolved));
         return decodePng(bytes);
       },
       save(carrier, outputPath) {
-        const resolved = path.resolve(outputPath);
+        const resolved = validatePathConfinement(outputPath, {
+          forWrite: true,
+          overwrite: true,
+          paramName: "outputPath"
+        });
         const encoded = encodePng(carrier);
-        const dir = path.dirname(resolved);
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
+        const dir = path2.dirname(resolved);
+        if (!fs2.existsSync(dir)) {
+          fs2.mkdirSync(dir, { recursive: true });
         }
-        fs.writeFileSync(resolved, encoded);
+        fs2.writeFileSync(resolved, encoded);
         return resolved;
       },
       createCarrier(width, height, fillRgba = [128, 128, 128, 255]) {
@@ -8974,8 +9314,8 @@ function createOmbrixSandboxApi(logs) {
         let carrier;
         let filePath;
         if (typeof carrierOrPath === "string") {
-          filePath = path.resolve(carrierOrPath);
-          const bytes = new Uint8Array(fs.readFileSync(filePath));
+          filePath = validatePathConfinement(carrierOrPath, { paramName: "carrierPath" });
+          const bytes = new Uint8Array(fs2.readFileSync(filePath));
           carrier = decodePng(bytes);
         } else {
           carrier = carrierOrPath;
@@ -9004,8 +9344,8 @@ function createOmbrixSandboxApi(logs) {
       async embed(carrierOrPath, payload, options = {}) {
         let carrier;
         if (typeof carrierOrPath === "string") {
-          const resolved = path.resolve(carrierOrPath);
-          const bytes = new Uint8Array(fs.readFileSync(resolved));
+          const resolved = path2.resolve(carrierOrPath);
+          const bytes = new Uint8Array(fs2.readFileSync(resolved));
           carrier = decodePng(bytes);
         } else {
           carrier = carrierOrPath;
@@ -9047,11 +9387,11 @@ function createOmbrixSandboxApi(logs) {
         }
         let writtenPath;
         if (options.outputPath) {
-          const resolved = path.resolve(options.outputPath);
+          const resolved = path2.resolve(options.outputPath);
           const encoded = encodePng(stegoCarrier);
-          const dir = path.dirname(resolved);
-          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-          fs.writeFileSync(resolved, encoded);
+          const dir = path2.dirname(resolved);
+          if (!fs2.existsSync(dir)) fs2.mkdirSync(dir, { recursive: true });
+          fs2.writeFileSync(resolved, encoded);
           writtenPath = resolved;
         }
         return {
@@ -9065,8 +9405,8 @@ function createOmbrixSandboxApi(logs) {
       async extract(stegoOrPath, options = {}) {
         let carrier;
         if (typeof stegoOrPath === "string") {
-          const resolved = path.resolve(stegoOrPath);
-          const bytes = new Uint8Array(fs.readFileSync(resolved));
+          const resolved = path2.resolve(stegoOrPath);
+          const bytes = new Uint8Array(fs2.readFileSync(resolved));
           carrier = decodePng(bytes);
         } else {
           carrier = stegoOrPath;
@@ -9125,10 +9465,10 @@ function createOmbrixSandboxApi(logs) {
         }
         let writtenPath;
         if (options.outputPath) {
-          const resolved = path.resolve(options.outputPath);
-          const dir = path.dirname(resolved);
-          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-          fs.writeFileSync(resolved, decryptedBytes);
+          const resolved = path2.resolve(options.outputPath);
+          const dir = path2.dirname(resolved);
+          if (!fs2.existsSync(dir)) fs2.mkdirSync(dir, { recursive: true });
+          fs2.writeFileSync(resolved, decryptedBytes);
           writtenPath = resolved;
         }
         let text = "";
@@ -9151,8 +9491,8 @@ function createOmbrixSandboxApi(logs) {
       scan(carrierOrPath) {
         let carrier;
         if (typeof carrierOrPath === "string") {
-          const resolved = path.resolve(carrierOrPath);
-          const bytes = new Uint8Array(fs.readFileSync(resolved));
+          const resolved = path2.resolve(carrierOrPath);
+          const bytes = new Uint8Array(fs2.readFileSync(resolved));
           carrier = decodePng(bytes);
         } else {
           carrier = carrierOrPath;
@@ -9162,8 +9502,8 @@ function createOmbrixSandboxApi(logs) {
       async benchmark(carrierOrPath, payload) {
         let carrier;
         if (typeof carrierOrPath === "string") {
-          const resolved = path.resolve(carrierOrPath);
-          const bytes = new Uint8Array(fs.readFileSync(resolved));
+          const resolved = path2.resolve(carrierOrPath);
+          const bytes = new Uint8Array(fs2.readFileSync(resolved));
           carrier = decodePng(bytes);
         } else {
           carrier = carrierOrPath;
@@ -9215,30 +9555,115 @@ function createOmbrixSandboxApi(logs) {
         };
       },
       read(filePath, asText = true) {
-        const resolved = path.resolve(filePath);
-        if (!fs.existsSync(resolved)) throw new Error(`File not found: ${resolved}`);
-        const buf = fs.readFileSync(resolved);
+        const resolved = validatePathConfinement(filePath, { paramName: "filePath" });
+        if (!fs2.existsSync(resolved)) throw new Error(`File not found: ${resolved}`);
+        const buf = fs2.readFileSync(resolved);
         return asText ? buf.toString("utf8") : new Uint8Array(buf);
       },
       write(filePath, data) {
-        const resolved = path.resolve(filePath);
-        const dir = path.dirname(resolved);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        const resolved = validatePathConfinement(filePath, {
+          forWrite: true,
+          overwrite: true,
+          paramName: "filePath"
+        });
+        const dir = path2.dirname(resolved);
+        if (!fs2.existsSync(dir)) fs2.mkdirSync(dir, { recursive: true });
         if (typeof data === "string") {
-          fs.writeFileSync(resolved, data, "utf8");
+          fs2.writeFileSync(resolved, data, "utf8");
         } else {
-          fs.writeFileSync(resolved, data);
+          fs2.writeFileSync(resolved, data);
         }
         return resolved;
       },
       exists(filePath) {
-        return fs.existsSync(path.resolve(filePath));
+        try {
+          const resolved = validatePathConfinement(filePath, { paramName: "filePath" });
+          return fs2.existsSync(resolved);
+        } catch {
+          return false;
+        }
       }
     }
   };
 }
 async function executeCodeMode(code, timeoutMs = 15e3) {
   const startTime = Date.now();
+  const root = getOmbrixRoot();
+  try {
+    const currentDir = path2.dirname(new URL(import.meta.url).pathname);
+    let runnerPath = path2.resolve(currentDir, "code-runner.js");
+    if (!fs2.existsSync(runnerPath)) {
+      const distRunner = path2.resolve(currentDir, "../dist/code-runner.js");
+      if (fs2.existsSync(distRunner)) {
+        runnerPath = distRunner;
+      }
+    }
+    if (fs2.existsSync(runnerPath)) {
+      return await new Promise((resolve3) => {
+        const logs2 = [];
+        const worker = new Worker(runnerPath, {
+          workerData: { code, root }
+        });
+        let settled = false;
+        const timer = setTimeout(async () => {
+          if (!settled) {
+            settled = true;
+            try {
+              await worker.terminate();
+            } catch {
+            }
+            resolve3({
+              status: "error",
+              error: `Code execution timed out after ${timeoutMs}ms`,
+              logs: logs2,
+              executionTimeMs: Date.now() - startTime
+            });
+          }
+        }, timeoutMs);
+        worker.on(
+          "message",
+          (msg) => {
+            if (!settled) {
+              settled = true;
+              clearTimeout(timer);
+              resolve3({
+                status: msg.status,
+                result: msg.result,
+                error: msg.error,
+                logs: msg.logs || logs2,
+                executionTimeMs: Date.now() - startTime
+              });
+            }
+          }
+        );
+        worker.on("error", (err) => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
+            resolve3({
+              status: "error",
+              error: err.message || String(err),
+              logs: logs2,
+              executionTimeMs: Date.now() - startTime
+            });
+          }
+        });
+        worker.on("exit", () => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
+            resolve3({
+              status: "error",
+              error: "Worker process exited unexpectedly",
+              logs: logs2,
+              executionTimeMs: Date.now() - startTime
+            });
+          }
+        });
+      });
+    }
+  } catch {
+  }
   const logs = [];
   const api = createOmbrixSandboxApi(logs);
   const sandbox = {
@@ -9411,12 +9836,13 @@ function resolvePasskey(args) {
     return envVal;
   }
   if (args.passkeyFile && typeof args.passkeyFile === "string") {
-    if (!fs2.existsSync(args.passkeyFile)) {
+    if (!fs3.existsSync(args.passkeyFile)) {
       throw new Error(
         `E_PASSKEY_FILE_NOT_FOUND: Passkey file not found: ${args.passkeyFile}. Hint: Verify the file path.`
       );
     }
-    const fileVal = fs2.readFileSync(args.passkeyFile, "utf8").trim();
+    const resolvedPath = validatePathConfinement(args.passkeyFile, { paramName: "passkeyFile" });
+    const fileVal = fs3.readFileSync(resolvedPath, "utf8").trim();
     if (!fileVal) {
       throw new Error(
         `E_PASSKEY_FILE_EMPTY: Passkey file is empty: ${args.passkeyFile}. Hint: Ensure the file contains your secret passphrase.`
@@ -9436,26 +9862,20 @@ async function loadInputImage(params) {
     const rawB64 = params.base64.replace(/^data:image\/[a-zA-Z]+;base64,/, "").trim();
     bytes = new Uint8Array(Buffer.from(rawB64, "base64"));
   } else if (params.url) {
-    const res = await fetch(params.url);
-    if (!res.ok) {
+    bytes = await safeFetchUrl(params.url);
+  } else if (params.path) {
+    if (params.path.startsWith("/mnt/user-data/") || params.path.startsWith("/mnt/data/")) {
       throw new Error(
-        `E_FETCH_FAILED: Failed to fetch image from URL (${res.status} ${res.statusText}): ${params.url}`
+        `E_CARRIER_NOT_FOUND: ${name} path '${params.path}' is an internal cloud container path in Claude web. The OMBRIX MCP server cannot access Claude web containers directly. Hint: To use local files, run Claude Desktop with OMBRIX MCP configured locally on your computer, or provide an image URL via ${name}Url, or a Base64 string via ${name}Base64.`
       );
     }
-    const arrayBuf = await res.arrayBuffer();
-    bytes = new Uint8Array(arrayBuf);
-  } else if (params.path) {
-    if (!fs2.existsSync(params.path)) {
-      if (params.path.startsWith("/mnt/user-data/") || params.path.startsWith("/mnt/data/")) {
-        throw new Error(
-          `E_CARRIER_NOT_FOUND: ${name} path '${params.path}' is an internal cloud container path in Claude web. The OMBRIX MCP server cannot access Claude web containers directly. Hint: To use local files, run Claude Desktop with OMBRIX MCP configured locally on your computer, or provide an image URL via ${name}Url, or a Base64 string via ${name}Base64.`
-        );
-      }
+    if (!fs3.existsSync(params.path)) {
       throw new Error(
         `E_CARRIER_NOT_FOUND: ${name} file not found on filesystem: ${params.path}. Hint: Use base64 or verify path.`
       );
     }
-    bytes = new Uint8Array(fs2.readFileSync(params.path));
+    const resolvedPath = validatePathConfinement(params.path, { paramName: `${name}Path` });
+    bytes = new Uint8Array(fs3.readFileSync(resolvedPath));
   } else {
     throw new Error(
       `E_MISSING_INPUT: Must provide either ${name}Path, ${name}Base64, or ${name}Url.`
@@ -9566,6 +9986,10 @@ var MCP_TOOLS = [
         outputPath: {
           type: "string",
           description: "Optional filesystem path to save output stego PNG."
+        },
+        overwrite: {
+          type: "boolean",
+          description: "Allow replacing an existing file at outputPath (defaults to false)."
         }
       },
       required: ["message"]
@@ -9645,6 +10069,10 @@ var MCP_TOOLS = [
         outputPath: {
           type: "string",
           description: "Filesystem path where generated stego PNG will be saved."
+        },
+        overwrite: {
+          type: "boolean",
+          description: "Allow replacing an existing file at outputPath (defaults to false)."
         }
       }
     }
@@ -9694,6 +10122,10 @@ var MCP_TOOLS = [
         outputPath: {
           type: "string",
           description: "Optional path to write the extracted payload bytes directly to a file."
+        },
+        overwrite: {
+          type: "boolean",
+          description: "Allow replacing an existing file at outputPath (defaults to false)."
         }
       }
     }
@@ -9870,17 +10302,21 @@ async function executeTool(name, args) {
         method = "hyper-matrix",
         channel = "whatsapp-document",
         outputPath,
+        overwrite = false,
         includeBase64
       } = args;
       const secretText = message !== void 0 ? message : payload;
       let rawBytes;
       if (payloadFilePath) {
-        if (!fs2.existsSync(payloadFilePath)) {
+        if (!fs3.existsSync(payloadFilePath)) {
           throw new Error(
-            `E_PAYLOAD_NOT_FOUND: Payload file not found on filesystem: ${payloadFilePath}`
+            `E_PAYLOAD_NOT_FOUND: Payload file not found on filesystem: ${payloadFilePath}. Hint: Verify the file path.`
           );
         }
-        rawBytes = new Uint8Array(fs2.readFileSync(payloadFilePath));
+        const resolvedPayload = validatePathConfinement(payloadFilePath, {
+          paramName: "payloadFilePath"
+        });
+        rawBytes = new Uint8Array(fs3.readFileSync(resolvedPayload));
       } else if (secretText !== void 0) {
         rawBytes = new TextEncoder().encode(String(secretText));
       } else {
@@ -9951,15 +10387,23 @@ async function executeTool(name, args) {
       const outB64 = Buffer.from(encodedPng).toString("base64");
       let resolvedOut;
       if (outputPath) {
-        fs2.writeFileSync(outputPath, encodedPng);
-        resolvedOut = path2.resolve(outputPath);
+        resolvedOut = validatePathConfinement(outputPath, {
+          forWrite: true,
+          overwrite: Boolean(overwrite),
+          paramName: "outputPath"
+        });
+        fs3.writeFileSync(resolvedOut, encodedPng);
       } else if (carrierPath) {
-        const autoOut = path2.join(
-          path2.dirname(carrierPath),
-          `${path2.basename(carrierPath, path2.extname(carrierPath))}-stego.png`
+        const autoOut = path3.join(
+          path3.dirname(carrierPath),
+          `${path3.basename(carrierPath, path3.extname(carrierPath))}-stego.png`
         );
-        fs2.writeFileSync(autoOut, encodedPng);
-        resolvedOut = path2.resolve(autoOut);
+        resolvedOut = validatePathConfinement(autoOut, {
+          forWrite: true,
+          overwrite: true,
+          paramName: "autoOut"
+        });
+        fs3.writeFileSync(resolvedOut, encodedPng);
       }
       const fidelity = computeFidelity(carrier, stegoCarrier);
       const isLargeBase64 = outB64.length > 65536;
@@ -9994,7 +10438,8 @@ async function executeTool(name, args) {
         passkeyEnv,
         passkeyFile,
         method = "auto",
-        outputPath
+        outputPath,
+        overwrite = false
       } = args;
       const carrier = await loadInputImage({
         path: stegoPath,
@@ -10096,8 +10541,13 @@ async function executeTool(name, args) {
       }
       let writtenFile;
       if (outputPath) {
-        fs2.writeFileSync(outputPath, finalBytes);
-        writtenFile = path2.resolve(outputPath);
+        const resolvedOut = validatePathConfinement(outputPath, {
+          forWrite: true,
+          overwrite: Boolean(overwrite),
+          paramName: "outputPath"
+        });
+        fs3.writeFileSync(resolvedOut, finalBytes);
+        writtenFile = resolvedOut;
       }
       const text = new TextDecoder().decode(finalBytes);
       const isUtf8 = !text.includes("\uFFFD");
@@ -10381,7 +10831,7 @@ async function handleJsonRpc(request) {
         },
         serverInfo: {
           name: "ombrix-mcp",
-          version: "0.1.4",
+          version: "0.1.5",
           description: "Zero-knowledge undetectable steganography and visual forensics suite.",
           icons: [
             {
@@ -10425,9 +10875,15 @@ async function handleJsonRpc(request) {
       let code = "E_TOOL_FAILED";
       let message = errMsg;
       let hint = "Verify tool arguments, carrier image validity, and passkey.";
-      const codeMatch = errMsg.match(/^(E_[A-Z0-9_]+):\s*(.*)/);
+      if (err && typeof err === "object" && "code" in err && typeof err.code === "string") {
+        code = err.code;
+        if ("hint" in err && typeof err.hint === "string") {
+          hint = err.hint;
+        }
+      }
+      const codeMatch = errMsg.match(/^(E_[A-Z0-9_]+):\s*([\s\S]*)/);
       if (codeMatch) {
-        code = codeMatch[1] ?? "E_TOOL_FAILED";
+        code = codeMatch[1] ?? code;
         const rest = codeMatch[2] ?? "";
         const hintSplit = rest.split(/\s*Hint:\s*/i);
         message = hintSplit[0]?.trim() ?? rest;
@@ -10612,15 +11068,19 @@ var ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fi
   <circle cx="64" cy="448" r="3" fill="#06B6D4" opacity="0.6" />
   <circle cx="448" cy="448" r="3" fill="#A855F7" opacity="0.6" />
 </svg>`;
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
 function getLandingPageHtml(host) {
+  const safeHost = escapeHtml(host);
   const toolsHtml = MCP_TOOLS.map(
     (t2) => `
     <div class="tool-card">
       <div class="tool-header">
-        <span class="tool-name">${t2.name}</span>
+        <span class="tool-name">${escapeHtml(t2.name)}</span>
         <span class="tool-badge">MCP Tool</span>
       </div>
-      <p class="tool-desc">${t2.description}</p>
+      <p class="tool-desc">${escapeHtml(t2.description)}</p>
     </div>
   `
   ).join("");
@@ -10735,7 +11195,7 @@ function getLandingPageHtml(host) {
       <p style="color: var(--text-muted); margin-bottom: 0.75rem; font-size: 0.95rem;">
         Paste this direct URL into your AI agent's remote MCP configuration:
       </p>
-      <pre>https://${host}/sse</pre>
+      <pre>https://${safeHost}/sse</pre>
     </div>
 
     <div class="card">
@@ -10746,7 +11206,7 @@ function getLandingPageHtml(host) {
       <pre>{
   "mcpServers": {
     "ombrix": {
-      "url": "https://${host}/sse"
+      "url": "https://${safeHost}/sse"
     }
   }
 }</pre>
@@ -10766,11 +11226,17 @@ function getLandingPageHtml(host) {
 </body>
 </html>`;
 }
-function startSseServer(port = 7860) {
+function startSseServer(port = 7860, host = process.env.OMBRIX_HOST || "127.0.0.1") {
   const sessions = /* @__PURE__ */ new Map();
+  const authToken = process.env.OMBRIX_AUTH_TOKEN || process.env.AUTH_TOKEN;
   const server = http.createServer(async (req, res) => {
-    const rawHost = req.headers.host || `localhost:${port}`;
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+    } else {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+    }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept");
     if (req.method === "OPTIONS") {
@@ -10778,14 +11244,35 @@ function startSseServer(port = 7860) {
       res.end();
       return;
     }
-    const url = new URL(req.url ?? "/", `http://${rawHost}`);
+    const rawHost = req.headers.host || `${host}:${port}`;
+    let url;
+    try {
+      if (!/^[\w.-]+(:\d+)?$/.test(rawHost)) {
+        res.writeHead(400, { "Content-Type": "text/plain" });
+        res.end("Bad Request: Invalid Host header");
+        return;
+      }
+      url = new URL(req.url ?? "/", `http://${rawHost}`);
+    } catch {
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("Bad Request: Malformed URL or Host header");
+      return;
+    }
+    if (authToken && url.pathname !== "/health" && url.pathname !== "/icon.svg" && url.pathname !== "/favicon.ico") {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || authHeader !== `Bearer ${authToken}`) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized: valid Bearer token required" }));
+        return;
+      }
+    }
     if (url.pathname === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(
         JSON.stringify({
           status: "ok",
           transport: "sse",
-          version: "0.1.1",
+          version: "0.1.5",
           toolsCount: MCP_TOOLS.length,
           activeSessions: sessions.size
         })
@@ -10832,10 +11319,23 @@ data: /message?sessionId=${sessionId}
       }
       const sessionRes = sessions.get(sessionId);
       let body = "";
+      let bodySize = 0;
+      const MAX_BODY_BYTES = 10 * 1024 * 1024;
+      let exceeded = false;
       req.on("data", (chunk) => {
+        if (exceeded) return;
+        bodySize += chunk.length;
+        if (bodySize > MAX_BODY_BYTES) {
+          exceeded = true;
+          res.writeHead(413, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Payload Too Large: maximum body size is 10 MB" }));
+          req.destroy();
+          return;
+        }
         body += chunk;
       });
       req.on("end", async () => {
+        if (exceeded) return;
         try {
           const jsonRpc = JSON.parse(body);
           res.writeHead(202, { "Content-Type": "text/plain" });
@@ -10874,20 +11374,21 @@ data: ${JSON.stringify({
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("Not Found");
   });
-  server.listen(port, () => {
+  server.listen(port, host, () => {
     process.stderr.write(
-      `[OMBRIX MCP] Server-Sent Events (SSE) server listening on http://0.0.0.0:${port}
+      `[OMBRIX MCP] Server-Sent Events (SSE) server listening on http://${host}:${port}
 `
     );
-    process.stderr.write(`[OMBRIX MCP] Connect URL: http://0.0.0.0:${port}/sse
+    process.stderr.write(`[OMBRIX MCP] Connect URL: http://${host}:${port}/sse
 `);
   });
   return server;
 }
 
 // packages/mcp-server/src/index.ts
-if (process.argv[1] && !process.env.VITEST && (process.argv[1].endsWith("index.js") || process.argv[1].includes("ombrix-mcp") || process.argv[1].includes("mcp"))) {
-  const isSse = process.argv.includes("--sse") || process.env.MCP_TRANSPORT === "sse" || Boolean(process.env.PORT);
+var argv1 = process.argv[1] || "";
+if (argv1 && !process.env.VITEST && (argv1.endsWith("mcp-server/dist/index.js") || argv1.includes("ombrix-mcp-server") || argv1.endsWith("/bin/ombrix-mcp") || argv1.endsWith("spaces/huggingface/index.js"))) {
+  const isSse = process.argv.includes("--sse") || process.env.MCP_TRANSPORT === "sse" || Boolean(process.env.SPACE_ID);
   if (isSse) {
     const port = Number(process.env.PORT || 7860);
     startSseServer(port);

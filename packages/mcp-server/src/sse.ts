@@ -64,18 +64,28 @@ export const ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 51
   <circle cx="448" cy="448" r="3" fill="#A855F7" opacity="0.6" />
 </svg>`;
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /**
  * HTML Landing Page displayed on Hugging Face Spaces root (GET /)
  */
 function getLandingPageHtml(host: string): string {
+  const safeHost = escapeHtml(host);
   const toolsHtml = MCP_TOOLS.map(
     (t) => `
     <div class="tool-card">
       <div class="tool-header">
-        <span class="tool-name">${t.name}</span>
+        <span class="tool-name">${escapeHtml(t.name)}</span>
         <span class="tool-badge">MCP Tool</span>
       </div>
-      <p class="tool-desc">${t.description}</p>
+      <p class="tool-desc">${escapeHtml(t.description)}</p>
     </div>
   `,
   ).join('');
@@ -191,7 +201,7 @@ function getLandingPageHtml(host: string): string {
       <p style="color: var(--text-muted); margin-bottom: 0.75rem; font-size: 0.95rem;">
         Paste this direct URL into your AI agent's remote MCP configuration:
       </p>
-      <pre>https://${host}/sse</pre>
+      <pre>https://${safeHost}/sse</pre>
     </div>
 
     <div class="card">
@@ -202,7 +212,7 @@ function getLandingPageHtml(host: string): string {
       <pre>{
   "mcpServers": {
     "ombrix": {
-      "url": "https://${host}/sse"
+      "url": "https://${safeHost}/sse"
     }
   }
 }</pre>
@@ -225,15 +235,25 @@ function getLandingPageHtml(host: string): string {
 
 /**
  * Starts the Server-Sent Events (SSE) HTTP Server for remote hosting (e.g. Hugging Face Spaces).
+ * Hardened for security: binds to 127.0.0.1 by default, validates Host headers, enforces body limits,
+ * and supports Bearer token authentication via OMBRIX_AUTH_TOKEN.
  */
-export function startSseServer(port = 7860): http.Server {
+export function startSseServer(
+  port = 7860,
+  host = process.env.OMBRIX_HOST || '127.0.0.1',
+): http.Server {
   const sessions = new Map<string, http.ServerResponse>();
+  const authToken = process.env.OMBRIX_AUTH_TOKEN || process.env.AUTH_TOKEN;
 
   const server = http.createServer(async (req, res) => {
-    const rawHost = req.headers.host || `localhost:${port}`;
-
-    // Enable permissive CORS for AI client connectivity
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // 1. CORS Headers
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
 
@@ -243,7 +263,36 @@ export function startSseServer(port = 7860): http.Server {
       return;
     }
 
-    const url = new URL(req.url ?? '/', `http://${rawHost}`);
+    // 2. Host Validation and Safe URL Parsing (prevents crash on malformed Host headers)
+    const rawHost = req.headers.host || `${host}:${port}`;
+    let url: URL;
+    try {
+      if (!/^[\w.-]+(:\d+)?$/.test(rawHost)) {
+        res.writeHead(400, { 'Content-Type': 'text/plain' });
+        res.end('Bad Request: Invalid Host header');
+        return;
+      }
+      url = new URL(req.url ?? '/', `http://${rawHost}`);
+    } catch {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Bad Request: Malformed URL or Host header');
+      return;
+    }
+
+    // 3. Bearer Token Authentication (optional pre-shared secret)
+    if (
+      authToken &&
+      url.pathname !== '/health' &&
+      url.pathname !== '/icon.svg' &&
+      url.pathname !== '/favicon.ico'
+    ) {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || authHeader !== `Bearer ${authToken}`) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unauthorized: valid Bearer token required' }));
+        return;
+      }
+    }
 
     // Health check endpoint
     if (url.pathname === '/health') {
@@ -252,7 +301,7 @@ export function startSseServer(port = 7860): http.Server {
         JSON.stringify({
           status: 'ok',
           transport: 'sse',
-          version: '0.1.1',
+          version: '0.1.5',
           toolsCount: MCP_TOOLS.length,
           activeSessions: sessions.size,
         }),
@@ -310,10 +359,25 @@ export function startSseServer(port = 7860): http.Server {
       const sessionRes = sessions.get(sessionId)!;
 
       let body = '';
+      let bodySize = 0;
+      const MAX_BODY_BYTES = 10 * 1024 * 1024; // 10 MB limit
+      let exceeded = false;
+
       req.on('data', (chunk) => {
+        if (exceeded) return;
+        bodySize += chunk.length;
+        if (bodySize > MAX_BODY_BYTES) {
+          exceeded = true;
+          res.writeHead(413, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Payload Too Large: maximum body size is 10 MB' }));
+          req.destroy();
+          return;
+        }
         body += chunk;
       });
+
       req.on('end', async () => {
+        if (exceeded) return;
         try {
           const jsonRpc = JSON.parse(body);
 
@@ -354,11 +418,11 @@ export function startSseServer(port = 7860): http.Server {
     res.end('Not Found');
   });
 
-  server.listen(port, () => {
+  server.listen(port, host, () => {
     process.stderr.write(
-      `[OMBRIX MCP] Server-Sent Events (SSE) server listening on http://0.0.0.0:${port}\n`,
+      `[OMBRIX MCP] Server-Sent Events (SSE) server listening on http://${host}:${port}\n`,
     );
-    process.stderr.write(`[OMBRIX MCP] Connect URL: http://0.0.0.0:${port}/sse\n`);
+    process.stderr.write(`[OMBRIX MCP] Connect URL: http://${host}:${port}/sse\n`);
   });
 
   return server;

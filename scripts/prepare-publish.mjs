@@ -21,7 +21,7 @@ fs.mkdirSync(releasesDir, { recursive: true });
 fs.mkdirSync(stagingDir, { recursive: true });
 
 const commonMetadata = {
-  version: '0.1.4',
+  version: '0.1.5',
   type: 'module',
   author: 'SanthaKumar K <https://github.com/SanthaKumar-K-2004>',
   license: 'MIT',
@@ -41,6 +41,7 @@ const commonMetadata = {
 
 const cliDist = path.join(root, 'packages/cli/dist/bin.js');
 const mcpDist = path.join(root, 'packages/mcp-server/dist/index.js');
+const mcpRunnerDist = path.join(root, 'packages/mcp-server/dist/code-runner.js');
 const edgeSdkDist = path.join(root, 'packages/edge-sdk/dist/index.js');
 const edgeSdkDts = path.join(root, 'packages/edge-sdk/dist/index.d.ts');
 const forensicsDist = path.join(root, 'packages/stego-forensics/dist/index.js');
@@ -57,7 +58,7 @@ const packageConfigs = [
   // 1. Unscoped ombrix-cli (Universal, highly recommended)
   {
     targetName: 'ombrix-cli',
-    tarballOutput: 'ombrix-cli-0.1.4.tgz',
+    tarballOutput: 'ombrix-cli-0.1.5.tgz',
     manifest: {
       ...commonMetadata,
       name: 'ombrix-cli',
@@ -92,7 +93,7 @@ const packageConfigs = [
   // 2. Unscoped ombrix-mcp-server (Universal, highly recommended)
   {
     targetName: 'ombrix-mcp-server',
-    tarballOutput: 'ombrix-mcp-server-0.1.4.tgz',
+    tarballOutput: 'ombrix-mcp-server-0.1.5.tgz',
     manifest: {
       ...commonMetadata,
       name: 'ombrix-mcp-server',
@@ -120,6 +121,7 @@ const packageConfigs = [
     },
     files: [
       { from: mcpDist, to: 'dist/index.js' },
+      { from: mcpRunnerDist, to: 'dist/code-runner.js' },
       { from: mcpReadme, to: 'README.md' },
       { from: licenseFile, to: 'LICENSE' },
     ],
@@ -128,7 +130,7 @@ const packageConfigs = [
   // 3. Unscoped unified 'ombrix' package (CLI + MCP in one)
   {
     targetName: 'ombrix',
-    tarballOutput: 'ombrix-0.1.4.tgz',
+    tarballOutput: 'ombrix-0.1.5.tgz',
     manifest: {
       ...commonMetadata,
       name: 'ombrix',
@@ -154,6 +156,7 @@ const packageConfigs = [
     files: [
       { from: cliDist, to: 'dist/bin.js' },
       { from: mcpDist, to: 'dist/mcp.js' },
+      { from: mcpRunnerDist, to: 'dist/code-runner.js' },
       { from: rootReadme, to: 'README.md' },
       { from: licenseFile, to: 'LICENSE' },
     ],
@@ -162,7 +165,7 @@ const packageConfigs = [
   // 4. Scoped @ombrix/cli (For org publish)
   {
     targetName: '@ombrix/cli',
-    tarballOutput: 'ombrix-scoped-cli-0.1.4.tgz',
+    tarballOutput: 'ombrix-scoped-cli-0.1.5.tgz',
     manifest: {
       ...commonMetadata,
       name: '@ombrix/cli',
@@ -192,7 +195,7 @@ const packageConfigs = [
   // 5. Scoped @ombrix/mcp-server (For org publish)
   {
     targetName: '@ombrix/mcp-server',
-    tarballOutput: 'ombrix-scoped-mcp-server-0.1.4.tgz',
+    tarballOutput: 'ombrix-scoped-mcp-server-0.1.5.tgz',
     manifest: {
       ...commonMetadata,
       name: '@ombrix/mcp-server',
@@ -216,6 +219,7 @@ const packageConfigs = [
     },
     files: [
       { from: mcpDist, to: 'dist/index.js' },
+      { from: mcpRunnerDist, to: 'dist/code-runner.js' },
       { from: mcpReadme, to: 'README.md' },
       { from: licenseFile, to: 'LICENSE' },
     ],
@@ -224,7 +228,7 @@ const packageConfigs = [
   // 6. Scoped @ombrix/edge-sdk (Programmatic browser & Node SDK)
   {
     targetName: '@ombrix/edge-sdk',
-    tarballOutput: 'ombrix-scoped-edge-sdk-0.1.4.tgz',
+    tarballOutput: 'ombrix-scoped-edge-sdk-0.1.5.tgz',
     manifest: {
       ...commonMetadata,
       name: '@ombrix/edge-sdk',
@@ -262,7 +266,7 @@ const packageConfigs = [
   // 7. Scoped @ombrix/stego-forensics (Analytical and steganalysis suite)
   {
     targetName: '@ombrix/stego-forensics',
-    tarballOutput: 'ombrix-scoped-stego-forensics-0.1.4.tgz',
+    tarballOutput: 'ombrix-scoped-stego-forensics-0.1.5.tgz',
     manifest: {
       ...commonMetadata,
       name: '@ombrix/stego-forensics',

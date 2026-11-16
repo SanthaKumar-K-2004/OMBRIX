@@ -258,5 +258,23 @@ describe('Smart Passkey Generator & Derivation Engine', () => {
       expect(bufA).toEqual(new Uint8Array(3));
       expect(bufB).toEqual(new Uint8Array(3));
     });
+
+    it('encrypts and decrypts with V3 stealth headerless mode for plausible deniability', () => {
+      const passkey = 'aurora-zenith-matrix-pulse';
+      const secret = new TextEncoder().encode('Plausible deniability secret payload');
+      const stealthEncrypted = encryptWithPasskey(secret, passkey, 3);
+
+      // Must NOT contain OMBPASS magic header
+      expect(isPasskeyEncrypted(stealthEncrypted)).toBe(false);
+      // Length is 16B salt + 24B nonce + payload + 16B MAC
+      expect(stealthEncrypted.length).toBe(16 + 24 + secret.length + 16);
+
+      // Decrypts cleanly via AEAD trial decryption
+      const recovered = decryptWithPasskey(stealthEncrypted, passkey);
+      expect(new TextDecoder().decode(recovered)).toBe('Plausible deniability secret payload');
+
+      // Fails with wrong passkey
+      expect(() => decryptWithPasskey(stealthEncrypted, 'wrong-passkey')).toThrow();
+    });
   });
 });

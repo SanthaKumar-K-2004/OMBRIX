@@ -884,10 +884,16 @@ export const PASSKEY_MAGIC = PASSKEY_MAGIC_V2;
 export const PASSKEY_SALT_BYTES = 16;
 
 /**
- * Derives a 32-byte cryptographic key using memory-hard Argon2id (or BLAKE2b salt personalization fallback).
+ * Derives a 32-byte cryptographic key using memory-hard Argon2id.
  * This makes offline dictionary and GPU farm brute-force attacks mathematically and computationally infeasible.
+ * Throws InvalidKeyError if key derivation fails; never silently downgrades security.
  */
-export function derivePasskeyKey(passkey: string, salt: Uint8Array): Uint8Array {
+export function derivePasskeyKey(
+  passkey: string,
+  salt: Uint8Array,
+  opsLimit?: number,
+  memLimit?: number,
+): Uint8Array {
   const clean = normalizePasskeyInput(passkey);
   const sodium = getSodium();
   try {
@@ -895,19 +901,17 @@ export function derivePasskeyKey(passkey: string, salt: Uint8Array): Uint8Array 
       32,
       clean,
       salt,
-      sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE,
-      sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,
+      opsLimit ?? sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE,
+      memLimit ?? sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,
       sodium.crypto_pwhash_ALG_ARGON2ID13,
     );
-  } catch {
-    // Pure cryptographic fallback with BLAKE2b salt personalization
-    const enc = new TextEncoder().encode(clean);
-    return sodium.crypto_generichash(32, enc, salt);
+  } catch (err) {
+    throw new InvalidKeyError(`Argon2id key derivation failed: ${(err as Error).message}`);
   }
 }
 
 /**
- * Checks whether the given byte payload is encrypted with an OMBRIX Passkey / 32-Byte Token (V1 or V2).
+ * Checks whether the given byte payload is encrypted with an OMBRIX Passkey / 32-Byte Token (V1, V2, or trial-decryptable).
  */
 export function isPasskeyEncrypted(bytes: Uint8Array): boolean {
   if (bytes.length < 48) return false;
@@ -935,15 +939,19 @@ export function isPasskeyEncrypted(bytes: Uint8Array): boolean {
 
 /**
  * Encrypts arbitrary data with a high-entropy passkey, memorable words, photo key, or 32-byte token.
- * Uses Libsodium authenticated secretbox (XSalsa20-Poly1305) with Argon2id memory-hard salted derivation.
+ * Uses Libsodium authenticated secretbox (XSalsa20-Poly1305 / XChaCha20-Poly1305) with Argon2id memory-hard salted derivation.
  *
- * Container format V2: [8 bytes 'OMBPASS\x02'][16 bytes salt][24 bytes nonce][ciphertext + 16 bytes Poly1305 MAC tag]
+ * Container formats:
+ * - Version 2 (Default): [8 bytes 'OMBPASS\x02'][16 bytes salt][24 bytes nonce][ciphertext + 16 bytes Poly1305 MAC tag]
+ * - Version 3 (Stealth): [16 bytes salt][24 bytes nonce][ciphertext + 16 bytes Poly1305 MAC tag] (Plausible Deniability, no magic header)
+ * - Version 1 (Legacy): [8 bytes 'OMBPASS\x01'][24 bytes nonce][ciphertext + 16 bytes Poly1305 MAC tag]
+ *
  * Zeroes secret key memory buffer immediately upon completion to prevent RAM forensics leakage.
  */
 export function encryptWithPasskey(
   data: Uint8Array,
   passkey: string,
-  version: 1 | 2 = 2,
+  version: 1 | 2 | 3 = 2,
 ): Uint8Array {
   const clean = passkey.trim();
   if (!clean) {
@@ -967,7 +975,25 @@ export function encryptWithPasskey(
     }
   }
 
-  // Version 2: Argon2id Memory-Hard Salted Container (Military-Grade Anti-GPU/ASIC)
+  // Version 3: Stealth Headerless Container for Plausible Deniability (Zero Magic Bytes)
+  if (version === 3) {
+    const salt = sodium.randombytes_buf(PASSKEY_SALT_BYTES);
+    const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
+    const key32 = derivePasskeyKey(clean, salt);
+
+    try {
+      const ciphertext = sodium.crypto_secretbox_easy(data, nonce, key32);
+      const container = new Uint8Array(PASSKEY_SALT_BYTES + 24 + ciphertext.length);
+      container.set(salt, 0);
+      container.set(nonce, PASSKEY_SALT_BYTES);
+      container.set(ciphertext, PASSKEY_SALT_BYTES + 24);
+      return container;
+    } finally {
+      zeroMemory(key32);
+    }
+  }
+
+  // Version 2 (Standard): Argon2id Memory-Hard Salted Container
   const salt = sodium.randombytes_buf(PASSKEY_SALT_BYTES);
   const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES); // 24 bytes
   const key32 = derivePasskeyKey(clean, salt);
@@ -987,52 +1013,77 @@ export function encryptWithPasskey(
 }
 
 /**
- * Decrypts a passkey-encrypted payload using the user's passkey or 32-byte token (supports both V1 and V2).
+ * Decrypts a passkey-encrypted payload using the user's passkey or 32-byte token.
+ * Supports V1, V2, and V3 (Headerless Stealth) containers via AEAD trial decryption.
  * Throws DecryptionFailedError if the passkey or token does not match or if the data was tampered with.
  * Zeroes secret key memory buffer in finally block to ensure zero RAM residue.
  */
 export function decryptWithPasskey(container: Uint8Array, passkey: string): Uint8Array {
-  if (!isPasskeyEncrypted(container)) {
-    throw new DecryptionFailedError('Data is not a valid OMBRIX passkey-encrypted container.');
-  }
   const clean = passkey.trim();
   if (!clean) {
     throw new InvalidKeyError('Passkey or token is required to decrypt this payload.');
   }
 
   const sodium = getSodium();
-  const isV2 = container[7] === 0x02;
+  const hasMagic = isPasskeyEncrypted(container);
 
-  let key32: Uint8Array;
-  let nonce: Uint8Array;
-  let ciphertext: Uint8Array;
+  if (hasMagic) {
+    const isV2 = container[7] === 0x02;
 
-  if (isV2) {
-    if (container.length < 8 + PASSKEY_SALT_BYTES + 24 + 16) {
-      throw new DecryptionFailedError('Corrupt V2 passkey container: insufficient payload length.');
+    let key32: Uint8Array;
+    let nonce: Uint8Array;
+    let ciphertext: Uint8Array;
+
+    if (isV2) {
+      if (container.length < 8 + PASSKEY_SALT_BYTES + 24 + 16) {
+        throw new DecryptionFailedError(
+          'Corrupt V2 passkey container: insufficient payload length.',
+        );
+      }
+      const salt = container.subarray(8, 8 + PASSKEY_SALT_BYTES);
+      nonce = container.subarray(8 + PASSKEY_SALT_BYTES, 8 + PASSKEY_SALT_BYTES + 24);
+      ciphertext = container.subarray(8 + PASSKEY_SALT_BYTES + 24);
+      key32 = derivePasskeyKey(clean, salt);
+    } else {
+      // V1 backward compatibility
+      nonce = container.subarray(8, 32);
+      ciphertext = container.subarray(32);
+      key32 = parseAnyKey32(clean);
     }
-    const salt = container.subarray(8, 8 + PASSKEY_SALT_BYTES);
-    nonce = container.subarray(8 + PASSKEY_SALT_BYTES, 8 + PASSKEY_SALT_BYTES + 24);
-    ciphertext = container.subarray(8 + PASSKEY_SALT_BYTES + 24);
-    key32 = derivePasskeyKey(clean, salt);
-  } else {
-    // V1 backward compatibility
-    nonce = container.subarray(8, 32);
-    ciphertext = container.subarray(32);
-    key32 = parseAnyKey32(clean);
+
+    try {
+      const plaintext = sodium.crypto_secretbox_open_easy(ciphertext, nonce, key32);
+      if (!plaintext) {
+        throw new Error('MAC verification failed');
+      }
+      return plaintext;
+    } catch (_err) {
+      throw new DecryptionFailedError(
+        'Decryption failed: incorrect passkey, token mismatch, or corrupted ciphertext.',
+      );
+    } finally {
+      zeroMemory(key32);
+    }
   }
 
-  try {
-    const plaintext = sodium.crypto_secretbox_open_easy(ciphertext, nonce, key32);
-    if (!plaintext) {
-      throw new Error('MAC verification failed');
+  // Version 3: Trial Decryption for Headerless Stealth Containers (length >= 16 + 24 + 16 = 56 B)
+  if (container.length >= PASSKEY_SALT_BYTES + 24 + 16) {
+    const salt = container.subarray(0, PASSKEY_SALT_BYTES);
+    const nonce = container.subarray(PASSKEY_SALT_BYTES, PASSKEY_SALT_BYTES + 24);
+    const ciphertext = container.subarray(PASSKEY_SALT_BYTES + 24);
+    const key32 = derivePasskeyKey(clean, salt);
+
+    try {
+      const plaintext = sodium.crypto_secretbox_open_easy(ciphertext, nonce, key32);
+      if (plaintext) {
+        return plaintext;
+      }
+    } catch {
+      // Trial decryption failed
+    } finally {
+      zeroMemory(key32);
     }
-    return plaintext;
-  } catch (_err) {
-    throw new DecryptionFailedError(
-      'Decryption failed: incorrect passkey, token mismatch, or corrupted ciphertext.',
-    );
-  } finally {
-    zeroMemory(key32);
   }
+
+  throw new DecryptionFailedError('Data is not a valid OMBRIX passkey-encrypted container.');
 }

@@ -23,6 +23,7 @@ import { pngLsbMatching } from '@ombrix/stego-lab';
 import { pngLsbSequential } from '@ombrix/stego-png-lsb';
 import { executeCodeMode, getCodeModeApiDocs } from './code-mode.js';
 import { decodePng, encodePng } from './png.js';
+import { safeFetchUrl, validatePathConfinement } from './security.js';
 
 export interface McpToolAnnotations {
   /** If true, the tool does not modify its environment. Default: false */
@@ -87,7 +88,8 @@ function resolvePasskey(args: {
         `E_PASSKEY_FILE_NOT_FOUND: Passkey file not found: ${args.passkeyFile}. Hint: Verify the file path.`,
       );
     }
-    const fileVal = fs.readFileSync(args.passkeyFile, 'utf8').trim();
+    const resolvedPath = validatePathConfinement(args.passkeyFile, { paramName: 'passkeyFile' });
+    const fileVal = fs.readFileSync(resolvedPath, 'utf8').trim();
     if (!fileVal) {
       throw new Error(
         `E_PASSKEY_FILE_EMPTY: Passkey file is empty: ${args.passkeyFile}. Hint: Ensure the file contains your secret passphrase.`,
@@ -117,26 +119,20 @@ async function loadInputImage(params: {
     const rawB64 = params.base64.replace(/^data:image\/[a-zA-Z]+;base64,/, '').trim();
     bytes = new Uint8Array(Buffer.from(rawB64, 'base64'));
   } else if (params.url) {
-    const res = await fetch(params.url);
-    if (!res.ok) {
+    bytes = await safeFetchUrl(params.url);
+  } else if (params.path) {
+    if (params.path.startsWith('/mnt/user-data/') || params.path.startsWith('/mnt/data/')) {
       throw new Error(
-        `E_FETCH_FAILED: Failed to fetch image from URL (${res.status} ${res.statusText}): ${params.url}`,
+        `E_CARRIER_NOT_FOUND: ${name} path '${params.path}' is an internal cloud container path in Claude web. The OMBRIX MCP server cannot access Claude web containers directly. Hint: To use local files, run Claude Desktop with OMBRIX MCP configured locally on your computer, or provide an image URL via ${name}Url, or a Base64 string via ${name}Base64.`,
       );
     }
-    const arrayBuf = await res.arrayBuffer();
-    bytes = new Uint8Array(arrayBuf);
-  } else if (params.path) {
     if (!fs.existsSync(params.path)) {
-      if (params.path.startsWith('/mnt/user-data/') || params.path.startsWith('/mnt/data/')) {
-        throw new Error(
-          `E_CARRIER_NOT_FOUND: ${name} path '${params.path}' is an internal cloud container path in Claude web. The OMBRIX MCP server cannot access Claude web containers directly. Hint: To use local files, run Claude Desktop with OMBRIX MCP configured locally on your computer, or provide an image URL via ${name}Url, or a Base64 string via ${name}Base64.`,
-        );
-      }
       throw new Error(
         `E_CARRIER_NOT_FOUND: ${name} file not found on filesystem: ${params.path}. Hint: Use base64 or verify path.`,
       );
     }
-    bytes = new Uint8Array(fs.readFileSync(params.path));
+    const resolvedPath = validatePathConfinement(params.path, { paramName: `${name}Path` });
+    bytes = new Uint8Array(fs.readFileSync(resolvedPath));
   } else {
     throw new Error(
       `E_MISSING_INPUT: Must provide either ${name}Path, ${name}Base64, or ${name}Url.`,
@@ -258,6 +254,10 @@ export const MCP_TOOLS: McpToolDefinition[] = [
           type: 'string',
           description: 'Optional filesystem path to save output stego PNG.',
         },
+        overwrite: {
+          type: 'boolean',
+          description: 'Allow replacing an existing file at outputPath (defaults to false).',
+        },
       },
       required: ['message'],
     },
@@ -341,6 +341,10 @@ export const MCP_TOOLS: McpToolDefinition[] = [
           type: 'string',
           description: 'Filesystem path where generated stego PNG will be saved.',
         },
+        overwrite: {
+          type: 'boolean',
+          description: 'Allow replacing an existing file at outputPath (defaults to false).',
+        },
       },
     },
   },
@@ -391,6 +395,10 @@ export const MCP_TOOLS: McpToolDefinition[] = [
         outputPath: {
           type: 'string',
           description: 'Optional path to write the extracted payload bytes directly to a file.',
+        },
+        overwrite: {
+          type: 'boolean',
+          description: 'Allow replacing an existing file at outputPath (defaults to false).',
         },
       },
     },
@@ -585,6 +593,7 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         method = 'hyper-matrix',
         channel = 'whatsapp-document',
         outputPath,
+        overwrite = false,
         includeBase64,
       } = args as {
         carrierPath?: string;
@@ -599,6 +608,7 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         method?: string;
         channel?: string;
         outputPath?: string;
+        overwrite?: boolean;
         includeBase64?: boolean;
       };
 
@@ -608,10 +618,13 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
       if (payloadFilePath) {
         if (!fs.existsSync(payloadFilePath)) {
           throw new Error(
-            `E_PAYLOAD_NOT_FOUND: Payload file not found on filesystem: ${payloadFilePath}`,
+            `E_PAYLOAD_NOT_FOUND: Payload file not found on filesystem: ${payloadFilePath}. Hint: Verify the file path.`,
           );
         }
-        rawBytes = new Uint8Array(fs.readFileSync(payloadFilePath));
+        const resolvedPayload = validatePathConfinement(payloadFilePath, {
+          paramName: 'payloadFilePath',
+        });
+        rawBytes = new Uint8Array(fs.readFileSync(resolvedPayload));
       } else if (secretText !== undefined) {
         rawBytes = new TextEncoder().encode(String(secretText));
       } else {
@@ -694,15 +707,23 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
 
       let resolvedOut: string | undefined;
       if (outputPath) {
-        fs.writeFileSync(outputPath, encodedPng);
-        resolvedOut = path.resolve(outputPath);
+        resolvedOut = validatePathConfinement(outputPath, {
+          forWrite: true,
+          overwrite: Boolean(overwrite),
+          paramName: 'outputPath',
+        });
+        fs.writeFileSync(resolvedOut, encodedPng);
       } else if (carrierPath) {
         const autoOut = path.join(
           path.dirname(carrierPath),
           `${path.basename(carrierPath, path.extname(carrierPath))}-stego.png`,
         );
-        fs.writeFileSync(autoOut, encodedPng);
-        resolvedOut = path.resolve(autoOut);
+        resolvedOut = validatePathConfinement(autoOut, {
+          forWrite: true,
+          overwrite: true,
+          paramName: 'autoOut',
+        });
+        fs.writeFileSync(resolvedOut, encodedPng);
       }
 
       const fidelity = computeFidelity(carrier, stegoCarrier);
@@ -746,6 +767,7 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         passkeyFile,
         method = 'auto',
         outputPath,
+        overwrite = false,
       } = args as {
         stegoPath?: string;
         stegoBase64?: string;
@@ -755,6 +777,7 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         passkeyFile?: string;
         method?: string;
         outputPath?: string;
+        overwrite?: boolean;
       };
 
       const carrier = await loadInputImage({
@@ -877,8 +900,13 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
 
       let writtenFile: string | undefined;
       if (outputPath) {
-        fs.writeFileSync(outputPath, finalBytes);
-        writtenFile = path.resolve(outputPath);
+        const resolvedOut = validatePathConfinement(outputPath, {
+          forWrite: true,
+          overwrite: Boolean(overwrite),
+          paramName: 'outputPath',
+        });
+        fs.writeFileSync(resolvedOut, finalBytes);
+        writtenFile = resolvedOut;
       }
 
       const text = new TextDecoder().decode(finalBytes);

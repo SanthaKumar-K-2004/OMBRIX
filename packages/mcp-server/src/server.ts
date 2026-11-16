@@ -44,7 +44,7 @@ export async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcRes
         },
         serverInfo: {
           name: 'ombrix-mcp',
-          version: '0.1.4',
+          version: '0.1.5',
           description: 'Zero-knowledge undetectable steganography and visual forensics suite.',
           icons: [
             {
@@ -92,9 +92,21 @@ export async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcRes
       let message = errMsg;
       let hint = 'Verify tool arguments, carrier image validity, and passkey.';
 
-      const codeMatch = errMsg.match(/^(E_[A-Z0-9_]+):\s*(.*)/);
+      if (
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        typeof (err as { code?: unknown }).code === 'string'
+      ) {
+        code = (err as { code: string }).code;
+        if ('hint' in err && typeof (err as { hint?: unknown }).hint === 'string') {
+          hint = (err as { hint: string }).hint;
+        }
+      }
+
+      const codeMatch = errMsg.match(/^(E_[A-Z0-9_]+):\s*([\s\S]*)/);
       if (codeMatch) {
-        code = codeMatch[1] ?? 'E_TOOL_FAILED';
+        code = codeMatch[1] ?? code;
         const rest = codeMatch[2] ?? '';
         const hintSplit = rest.split(/\s*Hint:\s*/i);
         message = hintSplit[0]?.trim() ?? rest;

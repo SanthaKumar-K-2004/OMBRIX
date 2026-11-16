@@ -24,10 +24,10 @@ if (!fs.existsSync(releasesDir)) {
   process.exit(1);
 }
 
-const tgzFiles = fs.readdirSync(releasesDir).filter((f) => f.endsWith('-0.1.4.tgz'));
+const tgzFiles = fs.readdirSync(releasesDir).filter((f) => f.endsWith('-0.1.5.tgz'));
 if (tgzFiles.length === 0) {
   console.error(
-    '❌ No -0.1.4.tgz tarballs found in releases/. Please run node scripts/prepare-publish.mjs first.',
+    '❌ No -0.1.5.tgz tarballs found in releases/. Please run node scripts/prepare-publish.mjs first.',
   );
   process.exit(1);
 }
@@ -36,13 +36,13 @@ for (const file of tgzFiles) {
   const filePath = path.join(releasesDir, file);
   console.log(`📦 Publishing ${file}...`);
 
-  const args = ['-y', 'npm@10.9.2', 'publish', filePath, '--access', 'public'];
+  const args = ['publish', filePath, '--access', 'public'];
   if (otp) {
     args.push(`--otp=${otp}`);
   }
 
   try {
-    const out = execFileSync('npx', args, {
+    const out = execFileSync('npm', args, {
       cwd: root,
       encoding: 'utf8',
       stdio: ['inherit', 'pipe', 'pipe'],

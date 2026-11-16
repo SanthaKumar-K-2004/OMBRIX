@@ -31,7 +31,7 @@ export interface CliResult {
   stderr: string;
 }
 
-const VERSION = '0.1.4';
+const VERSION = '0.1.5';
 
 const HELP_BANNER = `
   ██████╗ ███╗   ███╗██████╗ ██████╗ ██╗██╗  ██╗
@@ -101,8 +101,6 @@ function resolveMethod(name?: string): StegoMethod {
       return haarDwtStego;
     case 'dct':
       return jpegDctStego;
-    case 'hyper-matrix':
-    case 'hypermatrix':
     default:
       return hyperMatrixMethod;
   }
@@ -155,6 +153,7 @@ export async function runCli(args: string[]): Promise<CliResult> {
         let payloadStr: string | undefined;
         let filePath: string | undefined;
         let methodStr = 'hyper-matrix';
+        let explicitMethod = false;
         let outputPath: string | undefined;
         let passkey: string | undefined;
         let recipientKey: string | undefined;
@@ -169,7 +168,8 @@ export async function runCli(args: string[]): Promise<CliResult> {
           } else if ((arg === '-k' || arg === '--passkey') && i + 1 < cmdArgs.length) {
             passkey = cmdArgs[++i];
           } else if ((arg === '-m' || arg === '--method') && i + 1 < cmdArgs.length) {
-            methodStr = cmdArgs[++i] ?? 'lsb';
+            methodStr = cmdArgs[++i] ?? 'hyper-matrix';
+            explicitMethod = true;
           } else if ((arg === '-o' || arg === '--output') && i + 1 < cmdArgs.length) {
             outputPath = cmdArgs[++i];
           } else if (arg === '--recipient-key' && i + 1 < cmdArgs.length) {
@@ -177,6 +177,10 @@ export async function runCli(args: string[]): Promise<CliResult> {
           } else if (arg === '--signing-key' && i + 1 < cmdArgs.length) {
             signingKey = cmdArgs[++i];
           }
+        }
+
+        if ((recipientKey || signingKey) && !explicitMethod) {
+          methodStr = 'lsb';
         }
 
         let payloadBytes: Uint8Array;
@@ -305,18 +309,33 @@ export async function runCli(args: string[]): Promise<CliResult> {
           isSigned = res.isSigned;
           signatureVerified = res.signatureVerified ?? false;
         } else {
-          // Auto-detection: try hyper-matrix first, then fallback to Ombrix.extract
-          try {
-            extractedBytes = await hyperMatrixMethod.extract(stegoCarrier);
-          } catch {
-            const res = await Ombrix.extract(stegoCarrier, {
-              recipientPrivateKey: recipientKey,
-              senderSigningPublicKey: senderKey,
-            });
-            extractedBytes = res.payload;
-            isEncrypted = res.isEncrypted;
-            isSigned = res.isSigned;
-            signatureVerified = res.signatureVerified ?? false;
+          // Auto-detection: if recipientKey or senderKey is provided, try Ombrix.extract first
+          if (recipientKey || senderKey) {
+            try {
+              const res = await Ombrix.extract(stegoCarrier, {
+                recipientPrivateKey: recipientKey,
+                senderSigningPublicKey: senderKey,
+              });
+              extractedBytes = res.payload;
+              isEncrypted = res.isEncrypted;
+              isSigned = res.isSigned;
+              signatureVerified = res.signatureVerified ?? false;
+            } catch {
+              extractedBytes = await hyperMatrixMethod.extract(stegoCarrier);
+            }
+          } else {
+            try {
+              extractedBytes = await hyperMatrixMethod.extract(stegoCarrier);
+            } catch {
+              const res = await Ombrix.extract(stegoCarrier, {
+                recipientPrivateKey: recipientKey,
+                senderSigningPublicKey: senderKey,
+              });
+              extractedBytes = res.payload;
+              isEncrypted = res.isEncrypted;
+              isSigned = res.isSigned;
+              signatureVerified = res.signatureVerified ?? false;
+            }
           }
         }
 

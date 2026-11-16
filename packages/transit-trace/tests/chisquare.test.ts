@@ -25,7 +25,7 @@ describe('Transit & Trace: Chi-Square Steganalysis', () => {
 
     expect(report.sampleCount).toBe(width * height * 3);
     expect(report.degreesOfFreedom).toBeGreaterThan(0);
-    // Unaltered carrier with natural variance produces low p-value / clean
+    // Unaltered carrier with natural variance produces clean report
     expect(report.confidence).toBe('CLEAN');
     expect(report.anomalyDetected).toBe(false);
   });
@@ -57,5 +57,8 @@ describe('Transit & Trace: Chi-Square Steganalysis', () => {
     expect(report.sampleCount).toBe(width * height * 3);
     expect(report.degreesOfFreedom).toBeGreaterThan(0);
     expect(report.topDeviatingPairs.length).toBeGreaterThan(0);
+    // The localized PoV scan detects the equalized pairs in the embedded region!
+    expect(report.anomalyDetected).toBe(true);
+    expect(report.pValue).toBeGreaterThanOrEqual(0.7);
   });
 });

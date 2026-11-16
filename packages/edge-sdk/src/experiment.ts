@@ -1,6 +1,7 @@
 import { analyzeConsensus } from '@ombrix/stego-forensics';
 import type { CarrierImage, StegoMethod } from '@ombrix/stego-interface';
 import { calculateDistortion } from '@ombrix/stego-lab';
+import { OMBRIX_VERSION } from './version.js';
 
 export interface OmbrixExperimentV1 {
   schemaVersion: 'OMBRIX_EXPERIMENT_V1';
@@ -120,7 +121,7 @@ export async function runAutomatedExperiment(
     schemaVersion: 'OMBRIX_EXPERIMENT_V1',
     experimentId,
     timestamp: new Date().toISOString(),
-    ombrixVersion: '0.1.4',
+    ombrixVersion: OMBRIX_VERSION,
     metadata: {
       title: options.title ?? `Benchmark: ${method.name}`,
       description: options.description,

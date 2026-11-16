@@ -83,37 +83,25 @@ function logGamma(z: number): number {
 }
 
 /**
- * Performs Westfeld & Pfitzmann (1999) Chi-Square attack across Pairs of Values (PoVs).
+ * Calculates Chi-Square statistic and degrees of freedom for a sample histogram across 128 Pairs of Values {2k, 2k+1}.
  */
-export function analyzeChiSquare(carrier: CarrierImage): ChiSquareReport {
-  const data = carrier.data;
-  const pixelCount = carrier.width * carrier.height;
-
-  // Build histogram of pixel values across RGB channels (0..255)
-  const hist = new Uint32Array(256);
-  let sampleCount = 0;
-
-  for (let i = 0; i < pixelCount; i++) {
-    const idx = i * 4;
-    for (let c = 0; c < 3; c++) {
-      const val = data[idx + c] ?? 0;
-      hist[val] = (hist[val] ?? 0) + 1;
-      sampleCount++;
-    }
-  }
-
-  // Examine 128 Pairs of Values {2k, 2k+1}
-  const pairs: PairOfValuesDistribution[] = [];
+function computePoVChiSquare(hist: Uint32Array): {
+  chiSquare: number;
+  degreesOfFreedom: number;
+  pValue: number;
+  pairs: PairOfValuesDistribution[];
+} {
   let chiSquareTotal = 0;
-  let activePairsCount = 0;
+  let activePairs = 0;
+  const pairs: PairOfValuesDistribution[] = [];
 
   for (let k = 0; k < 128; k++) {
     const countEven = hist[2 * k] ?? 0;
     const countOdd = hist[2 * k + 1] ?? 0;
     const pairSum = countEven + countOdd;
 
-    if (pairSum > 5) {
-      activePairsCount++;
+    if (pairSum > 4) {
+      activePairs++;
       const expected = pairSum / 2;
       const diff = countEven - expected;
       const chiContribution = (diff * diff) / expected;
@@ -129,40 +117,98 @@ export function analyzeChiSquare(carrier: CarrierImage): ChiSquareReport {
     }
   }
 
-  const degreesOfFreedom = Math.max(1, activePairsCount - 1);
-
-  // In Westfeld PoV analysis:
-  // pValue is the probability of the null hypothesis H0 (equalized pair frequencies):
-  // p = Q(df / 2, chiSquare / 2)
+  const degreesOfFreedom = Math.max(1, activePairs - 1);
   const pValue = Math.max(
     0,
     Math.min(1, regularizedGammaQ(degreesOfFreedom / 2, chiSquareTotal / 2)),
   );
 
-  let confidence: 'HIGH' | 'MEDIUM' | 'LOW' | 'CLEAN' = 'CLEAN';
-  let anomalyDetected = false;
-
-  if (pValue >= 0.9) {
-    anomalyDetected = true;
-    confidence = 'HIGH';
-  } else if (pValue >= 0.7) {
-    anomalyDetected = true;
-    confidence = 'MEDIUM';
-  } else if (pValue >= 0.5) {
-    anomalyDetected = true;
-    confidence = 'LOW';
-  }
-
-  // Sort pairs by chiSquareContribution descending to highlight top anomalies
-  pairs.sort((a, b) => b.chiSquareContribution - a.chiSquareContribution);
-
   return {
     chiSquare: Math.round(chiSquareTotal * 100) / 100,
     degreesOfFreedom,
     pValue: Math.round(pValue * 1000) / 1000,
+    pairs,
+  };
+}
+
+/**
+ * Performs Westfeld & Pfitzmann (1999) Chi-Square attack across Pairs of Values (PoVs).
+ * Evaluates both whole-image histogram and localized sliding blocks to detect partial/sequential LSB embeds.
+ */
+export function analyzeChiSquare(carrier: CarrierImage): ChiSquareReport {
+  const data = carrier.data;
+  const pixelCount = carrier.width * carrier.height;
+  const totalSamples = pixelCount * 3;
+
+  // Extract all RGB samples
+  const samples = new Uint8Array(totalSamples);
+  let sampleIdx = 0;
+  for (let i = 0; i < pixelCount; i++) {
+    const base = i * 4;
+    samples[sampleIdx++] = data[base] ?? 0;
+    samples[sampleIdx++] = data[base + 1] ?? 0;
+    samples[sampleIdx++] = data[base + 2] ?? 0;
+  }
+
+  // 1. Global histogram across full image
+  const globalHist = new Uint32Array(256);
+  for (let i = 0; i < totalSamples; i++) {
+    globalHist[samples[i]!] = (globalHist[samples[i]!] ?? 0) + 1;
+  }
+  const globalResult = computePoVChiSquare(globalHist);
+
+  // 2. Localized sliding block scan (Westfeld PoV block analysis)
+  // Essential for catching payloads that only occupy the first rows/fraction of an image
+  const blockSize = Math.min(2048, Math.max(512, Math.floor(totalSamples / 16)));
+  let peakLocalPValue = 0;
+  let anomalousBlocksCount = 0;
+  const totalBlocks = Math.max(1, Math.floor(totalSamples / blockSize));
+
+  for (let b = 0; b < totalBlocks; b++) {
+    const start = b * blockSize;
+    const end = Math.min(start + blockSize, totalSamples);
+    const blockHist = new Uint32Array(256);
+    for (let i = start; i < end; i++) {
+      blockHist[samples[i]!] = (blockHist[samples[i]!] ?? 0) + 1;
+    }
+    const blockResult = computePoVChiSquare(blockHist);
+    if (blockResult.degreesOfFreedom >= 8) {
+      if (blockResult.pValue > peakLocalPValue) {
+        peakLocalPValue = blockResult.pValue;
+      }
+      if (blockResult.pValue >= 0.7) {
+        anomalousBlocksCount++;
+      }
+    }
+  }
+
+  // Final effective pValue is the maximum of global and localized block detections
+  const effectivePValue = Math.max(globalResult.pValue, peakLocalPValue);
+
+  let confidence: 'HIGH' | 'MEDIUM' | 'LOW' | 'CLEAN' = 'CLEAN';
+  let anomalyDetected = false;
+
+  if (effectivePValue >= 0.85 || anomalousBlocksCount >= 2) {
+    anomalyDetected = true;
+    confidence = 'HIGH';
+  } else if (effectivePValue >= 0.65 || anomalousBlocksCount >= 1) {
+    anomalyDetected = true;
+    confidence = 'MEDIUM';
+  } else if (effectivePValue >= 0.45) {
+    anomalyDetected = true;
+    confidence = 'LOW';
+  }
+
+  // Sort pairs by chiSquareContribution descending
+  globalResult.pairs.sort((a, b) => b.chiSquareContribution - a.chiSquareContribution);
+
+  return {
+    chiSquare: globalResult.chiSquare,
+    degreesOfFreedom: globalResult.degreesOfFreedom,
+    pValue: effectivePValue,
     anomalyDetected,
     confidence,
-    sampleCount,
-    topDeviatingPairs: pairs.slice(0, 10),
+    sampleCount: totalSamples,
+    topDeviatingPairs: globalResult.pairs.slice(0, 10),
   };
 }

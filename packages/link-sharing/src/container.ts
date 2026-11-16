@@ -61,13 +61,15 @@ export async function createLinkContainer(options: CreateLinkOptions): Promise<L
     hasPassphrase: Boolean(options.passphrase && options.passphrase.length > 0),
     burnAfterReading: options.burnAfterReading ?? false,
     senderFingerprint: options.senderFingerprint,
+    opsLimit: options.passphrase ? (options.opsLimit ?? DEFAULT_OPS_LIMIT) : undefined,
+    memLimit: options.passphrase ? (options.memLimit ?? DEFAULT_MEM_LIMIT) : undefined,
   };
 
   if (metadata.hasPassphrase && options.passphrase) {
     const salt = sodium.randombytes_buf(sodium.crypto_pwhash_SALTBYTES);
     const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
-    const opsLimit = options.opsLimit ?? DEFAULT_OPS_LIMIT;
-    const memLimit = options.memLimit ?? DEFAULT_MEM_LIMIT;
+    const opsLimit = metadata.opsLimit ?? DEFAULT_OPS_LIMIT;
+    const memLimit = metadata.memLimit ?? DEFAULT_MEM_LIMIT;
 
     const derivedKey = deriveKeyArgon2id(options.passphrase, salt, opsLimit, memLimit);
 
@@ -131,7 +133,9 @@ export async function openLinkContainer(
     const salt = fromBase64(container.salt);
     const nonce = fromBase64(container.nonce);
     const ciphertext = fromBase64(container.ciphertext);
-    const derivedKey = deriveKeyArgon2id(options.passphrase, salt);
+    const opsLimit = container.metadata.opsLimit ?? DEFAULT_OPS_LIMIT;
+    const memLimit = container.metadata.memLimit ?? DEFAULT_MEM_LIMIT;
+    const derivedKey = deriveKeyArgon2id(options.passphrase, salt, opsLimit, memLimit);
 
     try {
       const decrypted = sodium.crypto_secretbox_open_easy(ciphertext, nonce, derivedKey);

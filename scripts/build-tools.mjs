@@ -12,6 +12,8 @@ const target = process.argv[2] || 'all';
 async function buildMcp() {
   const mcpIn = path.join(root, 'packages/mcp-server/src/index.ts');
   const mcpOut = path.join(root, 'packages/mcp-server/dist/index.js');
+  const runnerIn = path.join(root, 'packages/mcp-server/src/code-runner.ts');
+  const runnerOut = path.join(root, 'packages/mcp-server/dist/code-runner.js');
   fs.mkdirSync(path.join(root, 'packages/mcp-server/dist'), { recursive: true });
 
   await esbuild.build({
@@ -24,9 +26,19 @@ async function buildMcp() {
   });
   fs.chmodSync(mcpOut, 0o755);
 
+  await esbuild.build({
+    entryPoints: [runnerIn],
+    bundle: true,
+    platform: 'node',
+    target: 'node20',
+    format: 'esm',
+    outfile: runnerOut,
+  });
+
   const hfSpaceDir = path.join(root, 'spaces/huggingface');
   if (fs.existsSync(hfSpaceDir)) {
     fs.copyFileSync(mcpOut, path.join(hfSpaceDir, 'index.js'));
+    fs.copyFileSync(runnerOut, path.join(hfSpaceDir, 'code-runner.js'));
   }
 }
 

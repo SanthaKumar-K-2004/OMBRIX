@@ -8,6 +8,8 @@ export interface LinkMetadata {
   readonly hasPassphrase: boolean;
   readonly burnAfterReading?: boolean;
   readonly senderFingerprint?: string;
+  readonly opsLimit?: number;
+  readonly memLimit?: number;
 }
 
 export interface LinkContainer {

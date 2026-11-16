@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vm from 'node:vm';
+import { Worker } from 'node:worker_threads';
 import {
   decryptWithPasskey,
   encryptWithPasskey,
@@ -23,6 +24,7 @@ import type { CarrierImage } from '@ombrix/stego-interface';
 import { pngLsbMatching } from '@ombrix/stego-lab';
 import { pngLsbSequential } from '@ombrix/stego-png-lsb';
 import { decodePng, encodePng } from './png.js';
+import { getOmbrixRoot, validatePathConfinement } from './security.js';
 
 export interface CodeModeResult {
   status: 'success' | 'error';
@@ -93,7 +95,7 @@ export function createOmbrixSandboxApi(logs: string[]) {
     },
     ombrix: {
       load(filePath: string): CarrierImage {
-        const resolved = path.resolve(filePath);
+        const resolved = validatePathConfinement(filePath, { paramName: 'filePath' });
         if (!fs.existsSync(resolved)) {
           throw new Error(`Carrier image not found: ${resolved}`);
         }
@@ -102,7 +104,11 @@ export function createOmbrixSandboxApi(logs: string[]) {
       },
 
       save(carrier: CarrierImage, outputPath: string): string {
-        const resolved = path.resolve(outputPath);
+        const resolved = validatePathConfinement(outputPath, {
+          forWrite: true,
+          overwrite: true,
+          paramName: 'outputPath',
+        });
         const encoded = encodePng(carrier);
         const dir = path.dirname(resolved);
         if (!fs.existsSync(dir)) {
@@ -136,7 +142,7 @@ export function createOmbrixSandboxApi(logs: string[]) {
         let filePath: string | undefined;
 
         if (typeof carrierOrPath === 'string') {
-          filePath = path.resolve(carrierOrPath);
+          filePath = validatePathConfinement(carrierOrPath, { paramName: 'carrierPath' });
           const bytes = new Uint8Array(fs.readFileSync(filePath));
           carrier = decodePng(bytes);
         } else {
@@ -413,14 +419,18 @@ export function createOmbrixSandboxApi(logs: string[]) {
       },
 
       read(filePath: string, asText = true): string | Uint8Array {
-        const resolved = path.resolve(filePath);
+        const resolved = validatePathConfinement(filePath, { paramName: 'filePath' });
         if (!fs.existsSync(resolved)) throw new Error(`File not found: ${resolved}`);
         const buf = fs.readFileSync(resolved);
         return asText ? buf.toString('utf8') : new Uint8Array(buf);
       },
 
       write(filePath: string, data: string | Uint8Array): string {
-        const resolved = path.resolve(filePath);
+        const resolved = validatePathConfinement(filePath, {
+          forWrite: true,
+          overwrite: true,
+          paramName: 'filePath',
+        });
         const dir = path.dirname(resolved);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         if (typeof data === 'string') {
@@ -432,7 +442,12 @@ export function createOmbrixSandboxApi(logs: string[]) {
       },
 
       exists(filePath: string): boolean {
-        return fs.existsSync(path.resolve(filePath));
+        try {
+          const resolved = validatePathConfinement(filePath, { paramName: 'filePath' });
+          return fs.existsSync(resolved);
+        } catch {
+          return false;
+        }
       },
     },
   };
@@ -443,8 +458,98 @@ export function createOmbrixSandboxApi(logs: string[]) {
  */
 export async function executeCodeMode(code: string, timeoutMs = 15000): Promise<CodeModeResult> {
   const startTime = Date.now();
-  const logs: string[] = [];
+  const root = getOmbrixRoot();
 
+  // 1. Try using Worker thread for hard process-level isolation and async loop termination
+  try {
+    const currentDir = path.dirname(new URL(import.meta.url).pathname);
+    let runnerPath = path.resolve(currentDir, 'code-runner.js');
+    if (!fs.existsSync(runnerPath)) {
+      const distRunner = path.resolve(currentDir, '../dist/code-runner.js');
+      if (fs.existsSync(distRunner)) {
+        runnerPath = distRunner;
+      }
+    }
+    if (fs.existsSync(runnerPath)) {
+      return await new Promise<CodeModeResult>((resolve) => {
+        const logs: string[] = [];
+        const worker = new Worker(runnerPath, {
+          workerData: { code, root },
+        });
+
+        let settled = false;
+        const timer = setTimeout(async () => {
+          if (!settled) {
+            settled = true;
+            try {
+              await worker.terminate();
+            } catch {
+              // ignore
+            }
+            resolve({
+              status: 'error',
+              error: `Code execution timed out after ${timeoutMs}ms`,
+              logs,
+              executionTimeMs: Date.now() - startTime,
+            });
+          }
+        }, timeoutMs);
+
+        worker.on(
+          'message',
+          (msg: {
+            status: 'success' | 'error';
+            result?: unknown;
+            error?: string;
+            logs?: string[];
+          }) => {
+            if (!settled) {
+              settled = true;
+              clearTimeout(timer);
+              resolve({
+                status: msg.status,
+                result: msg.result,
+                error: msg.error,
+                logs: msg.logs || logs,
+                executionTimeMs: Date.now() - startTime,
+              });
+            }
+          },
+        );
+
+        worker.on('error', (err) => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
+            resolve({
+              status: 'error',
+              error: err.message || String(err),
+              logs,
+              executionTimeMs: Date.now() - startTime,
+            });
+          }
+        });
+
+        worker.on('exit', () => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
+            resolve({
+              status: 'error',
+              error: 'Worker process exited unexpectedly',
+              logs,
+              executionTimeMs: Date.now() - startTime,
+            });
+          }
+        });
+      });
+    }
+  } catch {
+    // Fallback to in-process sandbox
+  }
+
+  // 2. Fallback in-process execution (for testing / development without separate runner binary)
+  const logs: string[] = [];
   const api = createOmbrixSandboxApi(logs);
 
   // Contextual sandbox without access to process, child_process, network, or require

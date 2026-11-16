@@ -112,4 +112,28 @@ describe('@ombrix/link-sharing - Container Lifecycle & Policies', () => {
       'Confidential steganographic message for OMBRIX',
     );
   });
+
+  it('persists and honors custom Argon2id KDF parameters (opsLimit & memLimit)', async () => {
+    // Custom non-default KDF limits
+    const customOps = 3;
+    const customMem = 128 * 1024 * 1024; // 128 MB
+
+    const container = await createLinkContainer({
+      expiresInSeconds: 3600,
+      carrierBytes: dummyCarrier,
+      payloadBytes: dummyPayload,
+      passphrase: 'custom-kdf-passphrase-2026',
+      opsLimit: customOps,
+      memLimit: customMem,
+    });
+
+    expect(container.metadata.opsLimit).toBe(customOps);
+    expect(container.metadata.memLimit).toBe(customMem);
+
+    // Decryption must successfully open using the persisted limits
+    const opened = await openLinkContainer(container, {
+      passphrase: 'custom-kdf-passphrase-2026',
+    });
+    expect(opened.payloadBytes).toEqual(dummyPayload);
+  });
 });
