@@ -35,6 +35,12 @@ if (tgzFiles.length === 0) {
   process.exit(1);
 }
 
+const npmBin =
+  process.env.npm_execpath ||
+  (fs.existsSync(path.join(path.dirname(process.execPath), 'npm'))
+    ? path.join(path.dirname(process.execPath), 'npm')
+    : 'npm');
+
 for (const file of tgzFiles) {
   const filePath = path.join(releasesDir, file);
   console.log(`📦 Publishing ${file}...`);
@@ -45,7 +51,7 @@ for (const file of tgzFiles) {
   }
 
   try {
-    const out = execFileSync('npm', args, {
+    const out = execFileSync(npmBin, args, {
       cwd: root,
       encoding: 'utf8',
       stdio: ['inherit', 'pipe', 'pipe'],
