@@ -39,7 +39,7 @@ jobs:
 
       - name: Publish to npm Registry
         run: |
-          for tgz in releases/*.tgz; do
+          for tgz in ./releases/*.tgz; do
             echo "Publishing $tgz..."
             npm publish "$tgz" --access public --tag "${{ github.event.inputs.tag || 'latest' }}"
           done
