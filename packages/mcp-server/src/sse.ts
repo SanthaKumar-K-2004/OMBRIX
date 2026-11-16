@@ -301,7 +301,7 @@ export function startSseServer(
         JSON.stringify({
           status: 'ok',
           transport: 'sse',
-          version: '0.1.6',
+          version: '0.1.7',
           toolsCount: MCP_TOOLS.length,
           activeSessions: sessions.size,
         }),

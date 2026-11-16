@@ -6,11 +6,11 @@ var __require = /* @__PURE__ */ ((x2) => typeof require !== "undefined" ? requir
   throw Error('Dynamic require of "' + x2 + '" is not supported');
 });
 
-// ../mcp-server/src/tools.ts
+// packages/mcp-server/src/tools.ts
 import * as fs4 from "node:fs";
 import * as path4 from "node:path";
 
-// ../crypto-adapter/src/errors.ts
+// packages/crypto-adapter/src/errors.ts
 var CryptoError = class extends Error {
   constructor(message) {
     super(message);
@@ -36,7 +36,7 @@ var SodiumNotReadyError = class extends CryptoError {
   }
 };
 
-// ../../node_modules/.pnpm/libsodium-sumo@0.8.4/node_modules/libsodium-sumo/dist/modules-sumo-esm/libsodium-sumo.mjs
+// node_modules/.pnpm/libsodium-sumo@0.8.4/node_modules/libsodium-sumo/dist/modules-sumo-esm/libsodium-sumo.mjs
 async function A(A3 = {}) {
   var I2, g2 = A3, C2 = !!globalThis.window, B2 = !!globalThis.WorkerGlobalScope, Q2 = (globalThis.process?.versions?.node && globalThis.process, import.meta.url);
   if (C2 || B2) {
@@ -233,7 +233,7 @@ async function A(A3 = {}) {
 }
 var libsodium_sumo_default = A;
 
-// ../../node_modules/.pnpm/libsodium-wrappers-sumo@0.8.4/node_modules/libsodium-wrappers-sumo/dist/modules-sumo-esm/libsodium-wrappers.mjs
+// node_modules/.pnpm/libsodium-wrappers-sumo@0.8.4/node_modules/libsodium-wrappers-sumo/dist/modules-sumo-esm/libsodium-wrappers.mjs
 var r;
 var t = {};
 if (void 0 === globalThis.crypto || "function" != typeof globalThis.crypto.getRandomValues) throw new Error("globalThis.crypto.getRandomValues is not available. The ESM build of libsodium requires a secure random source (available in all browsers and Node.js 19+).");
@@ -3462,7 +3462,7 @@ B.prototype.to_Uint8Array = function() {
 }, t.add = o, t.base64_variants = m, t.compare = l, t.from_base64 = x, t.from_hex = b, t.from_string = v, t.increment = p, t.is_zero = h, t.memcmp = i, t.memzero = y, t.output_formats = T, t.pad = u, t.unpad = d, t.ready = s, t.symbols = c, t.to_base64 = E, t.to_hex = f, t.to_string = g;
 var libsodium_wrappers_default = t;
 
-// ../crypto-adapter/src/sodium.ts
+// packages/crypto-adapter/src/sodium.ts
 var isInitialized = false;
 async function initCrypto() {
   if (!isInitialized) {
@@ -3478,12 +3478,12 @@ function getSodium() {
   return libsodium_wrappers_default;
 }
 
-// ../crypto-adapter/src/memory.ts
+// packages/crypto-adapter/src/memory.ts
 function zeroMemory(buffer) {
   buffer.fill(0);
 }
 
-// ../crypto-adapter/src/fingerprint.ts
+// packages/crypto-adapter/src/fingerprint.ts
 function computeFingerprint(publicKey) {
   if (publicKey.length !== 32) {
     throw new InvalidKeyError(`Expected 32-byte public key, received ${publicKey.length} bytes.`);
@@ -3576,7 +3576,7 @@ function parseAnyKey32(input) {
   }
 }
 
-// ../crypto-adapter/src/box.ts
+// packages/crypto-adapter/src/box.ts
 function generateEncryptionKeyPair() {
   const sodium = getSodium();
   const pair = sodium.crypto_box_keypair();
@@ -3632,7 +3632,7 @@ function openSeal(ciphertext, recipientPublicKey, recipientPrivateKey) {
   }
 }
 
-// ../crypto-adapter/src/sign.ts
+// packages/crypto-adapter/src/sign.ts
 function generateSigningKeyPair() {
   const sodium = getSodium();
   const pair = sodium.crypto_sign_keypair();
@@ -3686,7 +3686,7 @@ function buildSignDoc(params) {
   return doc;
 }
 
-// ../crypto-adapter/src/vault.ts
+// packages/crypto-adapter/src/vault.ts
 var DEFAULT_OPS_LIMIT = 2;
 var DEFAULT_MEM_LIMIT = 67108864;
 function deriveKeyArgon2id(passphrase, salt, opsLimit = DEFAULT_OPS_LIMIT, memLimit = DEFAULT_MEM_LIMIT) {
@@ -3708,7 +3708,7 @@ function deriveKeyArgon2id(passphrase, salt, opsLimit = DEFAULT_OPS_LIMIT, memLi
   return derivedKey;
 }
 
-// ../crypto-adapter/src/passkey.ts
+// packages/crypto-adapter/src/passkey.ts
 var DICEWARE_WORDLIST = [
   "amber",
   "anchor",
@@ -4593,7 +4593,7 @@ function decryptWithPasskey(container, passkey) {
   throw new DecryptionFailedError("Data is not a valid OMBRIX passkey-encrypted container.");
 }
 
-// ../crypto-adapter/src/perceptualHash.ts
+// packages/crypto-adapter/src/perceptualHash.ts
 function computePerceptualHashFromRgba(width, height, rgba) {
   if (width <= 0 || height <= 0 || rgba.length < width * height * 4) {
     throw new Error("Invalid image dimensions or RGBA buffer length for perceptual hashing.");
@@ -4674,7 +4674,7 @@ function computePerceptualHashFromRgba(width, height, rgba) {
   }
 }
 
-// ../image-validation/src/crc32.ts
+// packages/image-validation/src/crc32.ts
 var CRC_TABLE = new Uint32Array(256);
 for (let i2 = 0; i2 < 256; i2++) {
   let c2 = i2;
@@ -4699,7 +4699,7 @@ function crc32(buffer, start = 0, end = buffer.length) {
   return (crc ^ 4294967295) >>> 0;
 }
 
-// ../image-validation/src/png.ts
+// packages/image-validation/src/png.ts
 var PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 var DEFAULT_PNG_LIMITS = {
   maxFileSize: 15 * 1024 * 1024,
@@ -4719,7 +4719,7 @@ function isPng(buffer) {
   return true;
 }
 
-// ../payload-protocol/src/crc32.ts
+// packages/payload-protocol/src/crc32.ts
 var CRC_TABLE2 = new Uint32Array(256);
 (() => {
   for (let i2 = 0; i2 < 256; i2++) {
@@ -4743,7 +4743,7 @@ function crc322(buffer, start = 0, end = buffer.length) {
   return (crc ^ 4294967295) >>> 0;
 }
 
-// ../payload-protocol/src/errors.ts
+// packages/payload-protocol/src/errors.ts
 var PayloadProtocolError = class extends Error {
   code;
   constructor(message, code) {
@@ -4790,7 +4790,7 @@ var MalformedEnvelopeError = class extends PayloadProtocolError {
   }
 };
 
-// ../payload-protocol/src/envelope.ts
+// packages/payload-protocol/src/envelope.ts
 var OMB1_MAGIC = new Uint8Array([79, 77, 66, 49]);
 var CURRENT_PROTOCOL_VERSION = 1;
 var MAX_PAYLOAD_BYTES = 16777216;
@@ -4983,7 +4983,7 @@ function parseEnvelope(buffer, options) {
   };
 }
 
-// ../stego-interface/src/errors.ts
+// packages/stego-interface/src/errors.ts
 var StegoError = class extends Error {
   code;
   constructor(message, code) {
@@ -5018,7 +5018,7 @@ var StegoAbortError = class extends StegoError {
   }
 };
 
-// ../carrier-lens/src/bitplane.ts
+// packages/carrier-lens/src/bitplane.ts
 function extractBitplane(carrier, options) {
   const { channel, bitIndex, invert = false } = options;
   if (bitIndex < 0 || bitIndex > 7) {
@@ -5051,7 +5051,7 @@ function extractBitplane(carrier, options) {
   };
 }
 
-// ../carrier-lens/src/histogram.ts
+// packages/carrier-lens/src/histogram.ts
 function computeHistogram(carrier) {
   const r2 = new Uint32Array(256);
   const g2 = new Uint32Array(256);
@@ -5075,7 +5075,7 @@ function computeHistogram(carrier) {
   return { r: r2, g: g2, b: b2, a: a2, luminance };
 }
 
-// ../stego-lab/src/metrics.ts
+// packages/stego-lab/src/metrics.ts
 function calculateDistortion(original, stego) {
   if (original.width !== stego.width || original.height !== stego.height) {
     throw new Error(
@@ -5142,7 +5142,7 @@ function calculateDistortion(original, stego) {
   };
 }
 
-// ../stego-lab/src/lsbMatching.ts
+// packages/stego-lab/src/lsbMatching.ts
 var HEADER_BIT_LENGTH = 32;
 var PngLsbMatchingMethod = class {
   id = "png-lsb-matching";
@@ -5286,7 +5286,7 @@ var PngLsbMatchingMethod = class {
 };
 var pngLsbMatching = new PngLsbMatchingMethod();
 
-// ../stego-lab/src/benchmark.ts
+// packages/stego-lab/src/benchmark.ts
 async function runStegoBenchmark(carrier, payload, methods) {
   const results = [];
   for (const method of methods) {
@@ -5319,7 +5319,7 @@ async function runStegoBenchmark(carrier, payload, methods) {
   return results;
 }
 
-// ../transit-trace/src/transit.ts
+// packages/transit-trace/src/transit.ts
 function simulateJpegCompression(carrier, quality = 80) {
   const q2 = Math.max(1, Math.min(100, quality));
   const scale = q2 < 50 ? Math.floor(5e3 / q2) : 200 - q2 * 2;
@@ -5477,7 +5477,7 @@ async function runTransitSimulation(stegoCarrier, stegoMethod, transformType, op
   }
 }
 
-// ../transit-trace/src/chisquare.ts
+// packages/transit-trace/src/chisquare.ts
 function regularizedGammaQ(s2, x2) {
   if (x2 < 0 || s2 <= 0) return 0;
   if (x2 === 0) return 1;
@@ -5637,7 +5637,7 @@ function analyzeChiSquare(carrier) {
   };
 }
 
-// ../link-sharing/src/errors.ts
+// packages/link-sharing/src/errors.ts
 var LinkSharingError = class extends Error {
   constructor(message) {
     super(message);
@@ -5689,7 +5689,7 @@ var InvalidLinkFormatError = class extends LinkSharingError {
   }
 };
 
-// ../link-sharing/src/container.ts
+// packages/link-sharing/src/container.ts
 async function computeCarrierHash(carrierBytes) {
   await initCrypto();
   const sodium = getSodium();
@@ -5805,7 +5805,7 @@ async function openLinkContainer(container, options) {
   };
 }
 
-// ../link-sharing/src/uri.ts
+// packages/link-sharing/src/uri.ts
 function toUrlSafeBase64(str) {
   const bytes = new TextEncoder().encode(str);
   let binary = "";
@@ -5860,7 +5860,7 @@ function deserializeLinkUri(uri) {
   }
 }
 
-// ../batch-pipeline/src/errors.ts
+// packages/batch-pipeline/src/errors.ts
 var BatchPipelineError = class extends Error {
   constructor(message) {
     super(message);
@@ -5887,7 +5887,7 @@ var ChunkReassemblyError = class extends BatchPipelineError {
   }
 };
 
-// ../batch-pipeline/src/audit.ts
+// packages/batch-pipeline/src/audit.ts
 function calculateCarrierLsbCapacity(width, height) {
   const totalChannels = width * height * 3;
   const availableBits = totalChannels - 32;
@@ -5966,7 +5966,7 @@ function auditBatchCarriers(carriers) {
   };
 }
 
-// ../batch-pipeline/src/chunker.ts
+// packages/batch-pipeline/src/chunker.ts
 var CHUNK_MAGIC = new Uint8Array([79, 77, 66, 95]);
 var CHUNK_HEADER_SIZE = 12;
 function createChunkEnvelope(chunkIndex, totalChunks, data) {
@@ -6097,7 +6097,7 @@ function reassembleChunkedPayload(chunkBuffers) {
   return combined;
 }
 
-// ../stego-png-lsb/src/lsb.ts
+// packages/stego-png-lsb/src/lsb.ts
 var HEADER_BIT_COUNT = 32;
 var CANCEL_CHECK_INTERVAL = 4096;
 var PngLsbSequentialMethod = class {
@@ -6283,10 +6283,10 @@ function yieldMicrotask() {
   return new Promise((resolve4) => queueMicrotask(resolve4));
 }
 
-// ../stego-png-lsb/src/index.ts
+// packages/stego-png-lsb/src/index.ts
 var pngLsbSequential = new PngLsbSequentialMethod();
 
-// ../batch-pipeline/src/pipeline.ts
+// packages/batch-pipeline/src/pipeline.ts
 async function executeBatchEmbed(tasks, options) {
   const results = [];
   const concurrency = Math.max(1, options?.concurrency ?? 2);
@@ -6400,7 +6400,7 @@ async function executeBatchExtract(tasks, options) {
   return results;
 }
 
-// ../stego-advanced/src/dct.ts
+// packages/stego-advanced/src/dct.ts
 var JPEG_Q50 = [
   16,
   11,
@@ -6808,7 +6808,7 @@ var JpegDctStegoMethod = class {
 };
 var jpegDctStego = new JpegDctStegoMethod();
 
-// ../stego-advanced/src/dwt.ts
+// packages/stego-advanced/src/dwt.ts
 function forwardHaar2x2(p00, p01, p10, p11) {
   const l0 = Math.floor((p00 + p01) / 2);
   const h0 = p00 - p01;
@@ -7029,7 +7029,7 @@ var HaarDwtStegoMethod = class {
 };
 var haarDwtStego = new HaarDwtStegoMethod();
 
-// ../stego-advanced/src/pvd.ts
+// packages/stego-advanced/src/pvd.ts
 var PVD_RANGES = [
   { lower: 0, upper: 7, bits: 3 },
   { lower: 8, upper: 15, bits: 3 },
@@ -7231,7 +7231,7 @@ var PvdStegoMethod = class {
 };
 var pvdStego = new PvdStegoMethod();
 
-// ../stego-advanced/src/stealthCrypto.ts
+// packages/stego-advanced/src/stealthCrypto.ts
 var K2 = new Uint32Array([
   1116352408,
   1899447441,
@@ -7492,7 +7492,7 @@ function normalizePasskeyInput2(input) {
   return cleaned;
 }
 
-// ../stego-advanced/src/stealthMatrix.ts
+// packages/stego-advanced/src/stealthMatrix.ts
 var DEFAULT_STEALTH_SEED = "OMBRIX_STEALTH_V2_CORE_2026_SANDBOX";
 var HEADER_OVERHEAD_BYTES = 16;
 var CANCEL_CHECK_INTERVAL2 = 4096;
@@ -7720,7 +7720,7 @@ var StealthMatrixMethod = class {
 };
 var stealthMatrixMethod = new StealthMatrixMethod();
 
-// ../stego-advanced/src/robustResilient.ts
+// packages/stego-advanced/src/robustResilient.ts
 var ROBUST_SYNC_MARKER = 1028414111;
 var FEC_REPETITION_FACTOR = 5;
 var MODULATION_MARGIN = 16;
@@ -8170,7 +8170,7 @@ var RobustResilientStegoMethod = class {
 };
 var robustResilientStego = new RobustResilientStegoMethod();
 
-// ../stego-advanced/src/hyperMatrix.ts
+// packages/stego-advanced/src/hyperMatrix.ts
 var HYPER_MATRIX_MAGIC = new Uint8Array([72, 89, 80, 82]);
 var DEFAULT_HYPER_SEED = "OMBRIX_HYPER_MATRIX_OMNI_STEALTH_2026";
 var HEADER_OVERHEAD_BYTES2 = 16;
@@ -8384,7 +8384,7 @@ var HyperMatrixMethod = class {
 };
 var hyperMatrixMethod = new HyperMatrixMethod();
 
-// ../stego-forensics/src/noiseResidual.ts
+// packages/stego-forensics/src/noiseResidual.ts
 function computeNoiseResidual(carrier) {
   const width = carrier.width;
   const height = carrier.height;
@@ -8463,7 +8463,7 @@ function computeNoiseResidual(carrier) {
   };
 }
 
-// ../stego-forensics/src/rsSteganalysis.ts
+// packages/stego-forensics/src/rsSteganalysis.ts
 function f1(x2) {
   return x2 ^ 1;
 }
@@ -8613,7 +8613,7 @@ function analyzeRsSteganalysis(carrier) {
   };
 }
 
-// ../stego-forensics/src/samplePairAnalysis.ts
+// packages/stego-forensics/src/samplePairAnalysis.ts
 function analyzeSamplePairs(carrier) {
   const data = carrier.data;
   const width = carrier.width;
@@ -8706,7 +8706,7 @@ function analyzeSamplePairs(carrier) {
   };
 }
 
-// ../stego-forensics/src/consensus.ts
+// packages/stego-forensics/src/consensus.ts
 function analyzeConsensus(carrier) {
   const rs = analyzeRsSteganalysis(carrier);
   const spa = analyzeSamplePairs(carrier);
@@ -8779,10 +8779,10 @@ function analyzeConsensus(carrier) {
   };
 }
 
-// ../edge-sdk/src/version.ts
+// packages/edge-sdk/src/version.ts
 var OMBRIX_VERSION = "0.1.6";
 
-// ../edge-sdk/src/experiment.ts
+// packages/edge-sdk/src/experiment.ts
 async function runAutomatedExperiment(carrier, payload, method, options = {}) {
   const totalPixels = carrier.width * carrier.height;
   const capacity = method.calculateCapacity(carrier);
@@ -8878,7 +8878,7 @@ function parseExperiment(jsonString) {
   return parsed;
 }
 
-// ../edge-sdk/src/facade.ts
+// packages/edge-sdk/src/facade.ts
 async function init() {
   await initCrypto();
 }
@@ -9058,13 +9058,13 @@ var Ombrix = {
   parseExperiment
 };
 
-// ../mcp-server/src/code-mode.ts
+// packages/mcp-server/src/code-mode.ts
 import * as fs2 from "node:fs";
 import * as path2 from "node:path";
 import * as vm from "node:vm";
 import { Worker } from "node:worker_threads";
 
-// ../mcp-server/src/png.ts
+// packages/mcp-server/src/png.ts
 import { deflateSync, inflateSync } from "node:zlib";
 var PNG_SIGNATURE2 = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 function writeUint32BE(target, offset, value) {
@@ -9234,7 +9234,7 @@ function decodePng(buffer) {
   };
 }
 
-// ../mcp-server/src/security.ts
+// packages/mcp-server/src/security.ts
 import * as dns from "node:dns/promises";
 import * as fs from "node:fs";
 import * as net from "node:net";
@@ -9444,7 +9444,7 @@ async function safeFetchUrl(urlStr, options = {}) {
       redirect: "follow",
       // Fetch handles redirect; we validate response
       headers: {
-        "User-Agent": "OMBRIX-MCP-Stego/0.1.6 (+https://github.com/SanthaKumar-K-2004/OMBRIX)",
+        "User-Agent": "OMBRIX-MCP-Stego/0.1.7 (+https://github.com/SanthaKumar-K-2004/OMBRIX)",
         Accept: "image/png,image/*;q=0.9,*/*;q=0.1"
       }
     });
@@ -9496,7 +9496,7 @@ async function safeFetchUrl(urlStr, options = {}) {
   }
 }
 
-// ../mcp-server/src/code-mode.ts
+// packages/mcp-server/src/code-mode.ts
 var cryptoReady = false;
 async function ensureCryptoInitialized() {
   if (!cryptoReady) {
@@ -10105,7 +10105,7 @@ declare namespace ombrix {
 `;
 }
 
-// ../mcp-server/src/file-dialog.ts
+// packages/mcp-server/src/file-dialog.ts
 import { execFile, execFileSync } from "node:child_process";
 import * as fs3 from "node:fs";
 import * as os2 from "node:os";
@@ -10295,7 +10295,7 @@ function isCommandAvailable(cmd) {
   }
 }
 
-// ../mcp-server/src/tools.ts
+// packages/mcp-server/src/tools.ts
 var cryptoInitialized = false;
 async function ensureCrypto() {
   if (!cryptoInitialized) {
@@ -11680,7 +11680,7 @@ async function executeTool(name, args) {
   }
 }
 
-// ../mcp-server/src/server.ts
+// packages/mcp-server/src/server.ts
 async function handleJsonRpc(request) {
   const { id, method, params } = request;
   if (method === "notifications/initialized") {
@@ -11700,7 +11700,7 @@ async function handleJsonRpc(request) {
         },
         serverInfo: {
           name: "ombrix-mcp",
-          version: "0.1.6",
+          version: "0.1.7",
           description: "Zero-knowledge undetectable steganography and visual forensics suite.",
           icons: [
             {
@@ -11874,7 +11874,7 @@ function startMcpServer() {
   process.stderr.write("[OMBRIX MCP] Server started on stdio. Ready for AI agent tool calls.\n");
 }
 
-// ../mcp-server/src/sse.ts
+// packages/mcp-server/src/sse.ts
 import * as crypto2 from "node:crypto";
 import * as http from "node:http";
 var ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
@@ -12141,7 +12141,7 @@ function startSseServer(port = 7860, host = process.env.OMBRIX_HOST || "127.0.0.
         JSON.stringify({
           status: "ok",
           transport: "sse",
-          version: "0.1.6",
+          version: "0.1.7",
           toolsCount: MCP_TOOLS.length,
           activeSessions: sessions.size
         })
@@ -12254,7 +12254,7 @@ data: ${JSON.stringify({
   return server;
 }
 
-// ../mcp-server/src/index.ts
+// packages/mcp-server/src/index.ts
 var argv1 = process.argv[1] || "";
 if (argv1 && !process.env.VITEST && (argv1.endsWith("mcp-server/dist/index.js") || argv1.includes("ombrix-mcp-server") || argv1.endsWith("/bin/ombrix-mcp") || argv1.endsWith("spaces/huggingface/index.js"))) {
   const isSse = process.argv.includes("--sse") || process.env.MCP_TRANSPORT === "sse" || Boolean(process.env.SPACE_ID);
