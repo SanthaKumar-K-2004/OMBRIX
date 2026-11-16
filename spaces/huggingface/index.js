@@ -3512,6 +3512,10 @@ function fromBase64(b64) {
   const sodium = getSodium();
   return sodium.from_base64(b64, sodium.base64_variants.ORIGINAL);
 }
+function toHex(bytes) {
+  const sodium = getSodium();
+  return sodium.to_hex(bytes);
+}
 function fromHex(hex) {
   const sodium = getSodium();
   return sodium.from_hex(hex);
@@ -3527,6 +3531,10 @@ function normalizePasskeyInput(input) {
       groups.push(upper.slice(i2, i2 + 4));
     }
     return groups.join("-");
+  }
+  const words = cleaned.split(/[\s\-_]+/);
+  if (words.length >= 3 && words.length <= 12 && words.every((w2) => /^[a-zA-Z]{3,}$/.test(w2))) {
+    return words.map((w2) => w2.toLowerCase()).join("-");
   }
   return cleaned;
 }
@@ -4300,6 +4308,157 @@ function generateRandomPasskey32(format = "formatted") {
   }
   return groups.join("-");
 }
+function deriveKeyFromImage(imageBytes) {
+  if (imageBytes.length === 0) {
+    throw new InvalidKeyError("Cannot derive key from empty image data.");
+  }
+  try {
+    const sodium = getSodium();
+    return sodium.crypto_generichash(32, imageBytes, null);
+  } catch {
+    return sha256Pure(imageBytes);
+  }
+}
+function sha256Pure(data) {
+  const K3 = [
+    1116352408,
+    1899447441,
+    3049323471,
+    3921009573,
+    961987163,
+    1508970993,
+    2453635748,
+    2870763221,
+    3624381080,
+    310598401,
+    607225278,
+    1426881987,
+    1925078388,
+    2162078206,
+    2614888103,
+    3248222580,
+    3835390401,
+    4022224774,
+    264347078,
+    604807628,
+    770255983,
+    1249150122,
+    1555081692,
+    1996064986,
+    2554220882,
+    2821834349,
+    2952996808,
+    3210313671,
+    3336571891,
+    3584528711,
+    113926993,
+    338241895,
+    666307205,
+    773529912,
+    1294757372,
+    1396182291,
+    1695183700,
+    1986661051,
+    2177026350,
+    2456956037,
+    2730485921,
+    2820302411,
+    3259730800,
+    3345764771,
+    3516065817,
+    3600352804,
+    4094571909,
+    275423344,
+    430227734,
+    506948616,
+    659060556,
+    883997877,
+    958139571,
+    1322822218,
+    1537002063,
+    1747873779,
+    1955562222,
+    2024104815,
+    2227730452,
+    2361852424,
+    2428436474,
+    2756734187,
+    3204031479,
+    3329325298
+  ];
+  let h0 = 1779033703;
+  let h1 = 3144134277;
+  let h2 = 1013904242;
+  let h3 = 2773480762;
+  let h4 = 1359893119;
+  let h5 = 2600822924;
+  let h6 = 528734635;
+  let h7 = 1541459225;
+  const bitLength = data.length * 8;
+  const paddingLength = data.length % 64 < 56 ? 56 - data.length % 64 : 120 - data.length % 64;
+  const totalLength = data.length + paddingLength + 8;
+  const padded = new Uint8Array(totalLength);
+  padded.set(data);
+  padded[data.length] = 128;
+  const view = new DataView(padded.buffer);
+  view.setUint32(totalLength - 4, bitLength >>> 0, false);
+  view.setUint32(totalLength - 8, Math.floor(bitLength / 4294967296), false);
+  const W2 = new Int32Array(64);
+  const rotr2 = (x2, n2) => x2 >>> n2 | x2 << 32 - n2;
+  for (let i2 = 0; i2 < totalLength; i2 += 64) {
+    for (let t2 = 0; t2 < 16; t2++) {
+      W2[t2] = view.getInt32(i2 + t2 * 4, false);
+    }
+    for (let t2 = 16; t2 < 64; t2++) {
+      const s0 = rotr2(W2[t2 - 15] ?? 0, 7) ^ rotr2(W2[t2 - 15] ?? 0, 18) ^ (W2[t2 - 15] ?? 0) >>> 3;
+      const s1 = rotr2(W2[t2 - 2] ?? 0, 17) ^ rotr2(W2[t2 - 2] ?? 0, 19) ^ (W2[t2 - 2] ?? 0) >>> 10;
+      W2[t2] = ((W2[t2 - 16] ?? 0) + s0 | 0) + ((W2[t2 - 7] ?? 0) + s1 | 0);
+    }
+    let a2 = h0;
+    let b2 = h1;
+    let c2 = h2;
+    let d2 = h3;
+    let e = h4;
+    let f2 = h5;
+    let g2 = h6;
+    let h8 = h7;
+    for (let t2 = 0; t2 < 64; t2++) {
+      const S1 = rotr2(e, 6) ^ rotr2(e, 11) ^ rotr2(e, 25);
+      const ch = e & f2 ^ ~e & g2;
+      const temp1 = (h8 + S1 | 0) + ((ch + (K3[t2] ?? 0) | 0) + (W2[t2] ?? 0)) | 0 | 0;
+      const S0 = rotr2(a2, 2) ^ rotr2(a2, 13) ^ rotr2(a2, 22);
+      const maj = a2 & b2 ^ a2 & c2 ^ b2 & c2;
+      const temp2 = S0 + maj | 0;
+      h8 = g2;
+      g2 = f2;
+      f2 = e;
+      e = d2 + temp1 | 0;
+      d2 = c2;
+      c2 = b2;
+      b2 = a2;
+      a2 = temp1 + temp2 | 0;
+    }
+    h0 = h0 + a2 | 0;
+    h1 = h1 + b2 | 0;
+    h2 = h2 + c2 | 0;
+    h3 = h3 + d2 | 0;
+    h4 = h4 + e | 0;
+    h5 = h5 + f2 | 0;
+    h6 = h6 + g2 | 0;
+    h7 = h7 + h8 | 0;
+  }
+  const result = new Uint8Array(32);
+  const resView = new DataView(result.buffer);
+  resView.setInt32(0, h0, false);
+  resView.setInt32(4, h1, false);
+  resView.setInt32(8, h2, false);
+  resView.setInt32(12, h3, false);
+  resView.setInt32(16, h4, false);
+  resView.setInt32(20, h5, false);
+  resView.setInt32(24, h6, false);
+  resView.setInt32(28, h7, false);
+  return result;
+}
 var PASSKEY_MAGIC_V1 = new Uint8Array([79, 77, 66, 80, 65, 83, 83, 1]);
 var PASSKEY_MAGIC_V2 = new Uint8Array([79, 77, 66, 80, 65, 83, 83, 2]);
 var PASSKEY_SALT_BYTES = 16;
@@ -4432,6 +4591,87 @@ function decryptWithPasskey(container, passkey) {
     }
   }
   throw new DecryptionFailedError("Data is not a valid OMBRIX passkey-encrypted container.");
+}
+
+// packages/crypto-adapter/src/perceptualHash.ts
+function computePerceptualHashFromRgba(width, height, rgba) {
+  if (width <= 0 || height <= 0 || rgba.length < width * height * 4) {
+    throw new Error("Invalid image dimensions or RGBA buffer length for perceptual hashing.");
+  }
+  const GRID_SIZE = 8;
+  const cellW = width / GRID_SIZE;
+  const cellH = height / GRID_SIZE;
+  const blockMeans = new Float32Array(GRID_SIZE * GRID_SIZE);
+  let totalLum = 0;
+  for (let by = 0; by < GRID_SIZE; by++) {
+    const y0 = Math.floor(by * cellH);
+    const y1 = Math.min(height, Math.floor((by + 1) * cellH));
+    for (let bx = 0; bx < GRID_SIZE; bx++) {
+      const x0 = Math.floor(bx * cellW);
+      const x1 = Math.min(width, Math.floor((bx + 1) * cellW));
+      let sum = 0;
+      let count = 0;
+      for (let y2 = y0; y2 < y1; y2++) {
+        for (let x2 = x0; x2 < x1; x2++) {
+          const idx = (y2 * width + x2) * 4;
+          const r2 = rgba[idx] ?? 0;
+          const g2 = rgba[idx + 1] ?? 0;
+          const b2 = rgba[idx + 2] ?? 0;
+          sum += 0.2126 * r2 + 0.7152 * g2 + 0.0722 * b2;
+          count++;
+        }
+      }
+      const mean = count > 0 ? sum / count : 0;
+      blockMeans[by * GRID_SIZE + bx] = mean;
+      totalLum += mean;
+    }
+  }
+  const globalMean = totalLum / (GRID_SIZE * GRID_SIZE);
+  const meanBits = new Uint8Array(8);
+  for (let i2 = 0; i2 < 64; i2++) {
+    const bit = (blockMeans[i2] ?? 0) >= globalMean ? 1 : 0;
+    const byteIdx = Math.floor(i2 / 8);
+    const bitOffset = 7 - i2 % 8;
+    meanBits[byteIdx] = (meanBits[byteIdx] ?? 0) | bit << bitOffset;
+  }
+  const horizBits = new Uint8Array(8);
+  let hCursor = 0;
+  for (let by = 0; by < GRID_SIZE; by++) {
+    for (let bx = 0; bx < GRID_SIZE - 1; bx++) {
+      const left = blockMeans[by * GRID_SIZE + bx] ?? 0;
+      const right = blockMeans[by * GRID_SIZE + (bx + 1)] ?? 0;
+      const bit = right >= left ? 1 : 0;
+      const byteIdx = Math.floor(hCursor / 8);
+      const bitOffset = 7 - hCursor % 8;
+      horizBits[byteIdx] = (horizBits[byteIdx] ?? 0) | bit << bitOffset;
+      hCursor++;
+    }
+  }
+  const vertBits = new Uint8Array(8);
+  let vCursor = 0;
+  for (let by = 0; by < GRID_SIZE - 1; by++) {
+    for (let bx = 0; bx < GRID_SIZE; bx++) {
+      const top = blockMeans[by * GRID_SIZE + bx] ?? 0;
+      const bottom = blockMeans[(by + 1) * GRID_SIZE + bx] ?? 0;
+      const bit = bottom >= top ? 1 : 0;
+      const byteIdx = Math.floor(vCursor / 8);
+      const bitOffset = 7 - vCursor % 8;
+      vertBits[byteIdx] = (vertBits[byteIdx] ?? 0) | bit << bitOffset;
+      vCursor++;
+    }
+  }
+  const salt = new TextEncoder().encode("OMBRIX_PERCEPTUAL_VISUAL_KEY_V2");
+  const combined = new Uint8Array(salt.length + 24);
+  combined.set(salt, 0);
+  combined.set(meanBits, salt.length);
+  combined.set(horizBits, salt.length + 8);
+  combined.set(vertBits, salt.length + 16);
+  try {
+    const sodium = getSodium();
+    return sodium.crypto_generichash(32, combined, null);
+  } catch {
+    return sha256Pure(combined);
+  }
 }
 
 // packages/image-validation/src/crc32.ts
@@ -9264,6 +9504,31 @@ async function ensureCryptoInitialized() {
     cryptoReady = true;
   }
 }
+function toHex2(bytes) {
+  return Buffer.from(bytes).toString("hex").toUpperCase();
+}
+function resolveKeyImageInput(keyImage, mode = "perceptual") {
+  if (typeof keyImage === "string") {
+    const resolved = validatePathConfinement(keyImage, { paramName: "keyImage" });
+    if (!fs2.existsSync(resolved)) {
+      throw new Error(`Key image file not found: ${resolved}`);
+    }
+    if (mode === "raw") {
+      const fileBytes2 = new Uint8Array(fs2.readFileSync(resolved));
+      return toHex2(deriveKeyFromImage(fileBytes2));
+    }
+    const fileBytes = new Uint8Array(fs2.readFileSync(resolved));
+    const carrier = decodePng(fileBytes);
+    const hash2 = computePerceptualHashFromRgba(carrier.width, carrier.height, carrier.data);
+    return toHex2(hash2);
+  }
+  if (mode === "raw") {
+    const encoded = encodePng(keyImage);
+    return toHex2(deriveKeyFromImage(encoded));
+  }
+  const hash = computePerceptualHashFromRgba(keyImage.width, keyImage.height, keyImage.data);
+  return toHex2(hash);
+}
 function createOmbrixSandboxApi(logs) {
   const logCapture = (...args) => {
     const formatted = args.map((a2) => typeof a2 === "object" ? JSON.stringify(a2) : String(a2)).join(" ");
@@ -9359,11 +9624,12 @@ function createOmbrixSandboxApi(logs) {
         } else {
           payloadBytes = payload;
         }
+        const effectivePasskey = options.passkey ?? (options.keyImage ? resolveKeyImageInput(options.keyImage, options.photoKeyMode) : void 0);
         let encrypted = false;
         let finalPayload = payloadBytes;
-        if (options.passkey) {
+        if (effectivePasskey) {
           await ensureCryptoInitialized();
-          finalPayload = encryptWithPasskey(payloadBytes, options.passkey);
+          finalPayload = encryptWithPasskey(payloadBytes, effectivePasskey);
           encrypted = true;
         }
         const method = (options.method ?? "hyper-matrix").toLowerCase();
@@ -9414,6 +9680,7 @@ function createOmbrixSandboxApi(logs) {
         } else {
           carrier = stegoOrPath;
         }
+        const effectivePasskey = options.passkey ?? (options.keyImage ? resolveKeyImageInput(options.keyImage, options.photoKeyMode) : void 0);
         const method = (options.method ?? "auto").toLowerCase();
         let rawExtracted;
         let isSigned = false;
@@ -9421,11 +9688,11 @@ function createOmbrixSandboxApi(logs) {
         let signatureVerified = void 0;
         if (method === "hyper-matrix" || method === "hypermatrix") {
           rawExtracted = await hyperMatrixMethod.extract(carrier, {
-            passphrase: options.passkey
+            passphrase: effectivePasskey
           });
         } else if (method === "robust-resilient" || method === "robust") {
           rawExtracted = await robustResilientStego.extract(carrier, {
-            passphrase: options.passkey
+            passphrase: effectivePasskey
           });
         } else if (method === "dwt") {
           rawExtracted = await haarDwtStego.extract(carrier);
@@ -9447,12 +9714,12 @@ function createOmbrixSandboxApi(logs) {
         } else {
           try {
             rawExtracted = await hyperMatrixMethod.extract(carrier, {
-              passphrase: options.passkey
+              passphrase: effectivePasskey
             });
           } catch {
             try {
               rawExtracted = await robustResilientStego.extract(carrier, {
-                passphrase: options.passkey
+                passphrase: effectivePasskey
               });
             } catch {
               const res = await Ombrix.extract(carrier, {
@@ -9469,13 +9736,13 @@ function createOmbrixSandboxApi(logs) {
         let decryptedBytes = rawExtracted;
         let passkeyDecrypted = false;
         if (isPasskeyEncrypted(rawExtracted)) {
-          if (!options.passkey) {
+          if (!effectivePasskey) {
             throw new Error(
               "Payload is encrypted with an Argon2id passkey. Passkey parameter required to decrypt."
             );
           }
           await ensureCryptoInitialized();
-          decryptedBytes = decryptWithPasskey(rawExtracted, options.passkey);
+          decryptedBytes = decryptWithPasskey(rawExtracted, effectivePasskey);
           passkeyDecrypted = true;
         }
         let writtenPath;
@@ -9535,6 +9802,19 @@ function createOmbrixSandboxApi(logs) {
       },
       async keygen(type = "diceware", options = {}) {
         await ensureCryptoInitialized();
+        if (type === "photo") {
+          if (!options.imagePath) {
+            throw new Error('keygen with type "photo" requires options.imagePath');
+          }
+          const mode = options.photoMode ?? "perceptual";
+          const passkey = resolveKeyImageInput(options.imagePath, mode);
+          return {
+            type: "photo",
+            passkey,
+            photoMode: mode,
+            entropyBits: 256
+          };
+        }
         if (type === "crypto32") {
           const token = generateRandomPasskey32("formatted");
           return {
@@ -9840,7 +10120,27 @@ function areEqualBytes(a2, b2) {
   }
   return true;
 }
-function resolvePasskey(args) {
+async function resolvePasskey(args) {
+  const photoPath = args.keyImagePath ?? (args.passkey ? void 0 : args.imagePath);
+  const photoB64 = args.keyImageBase64 ?? (args.passkey ? void 0 : args.imageBase64);
+  const mode = args.photoKeyMode ?? args.photoMode ?? "perceptual";
+  if (photoPath || photoB64) {
+    const keyCarrier = await loadInputImage({
+      path: photoPath,
+      base64: photoB64,
+      paramName: "keyImage"
+    });
+    if (mode === "raw") {
+      const rawBytes = encodePng(keyCarrier);
+      return toHex(deriveKeyFromImage(rawBytes)).toUpperCase();
+    }
+    const percKey = computePerceptualHashFromRgba(
+      keyCarrier.width,
+      keyCarrier.height,
+      keyCarrier.data
+    );
+    return toHex(percKey).toUpperCase();
+  }
   if (args.passkeyEnv && typeof args.passkeyEnv === "string") {
     const envVal = process.env[args.passkeyEnv];
     if (!envVal) {
@@ -9992,6 +10292,20 @@ var MCP_TOOLS = [
           type: "string",
           description: "Filesystem path to a file containing the secret passkey."
         },
+        keyImagePath: {
+          type: "string",
+          description: "Optional path to photo file to derive 32-byte cryptographic passkey from (Photo as Key)."
+        },
+        keyImageBase64: {
+          type: "string",
+          description: "Optional Base64 data of image to derive passkey from."
+        },
+        photoKeyMode: {
+          type: "string",
+          enum: ["perceptual", "raw"],
+          default: "perceptual",
+          description: "Photo key mode: perceptual (channel-resilient) or raw byte entropy."
+        },
         channel: {
           type: "string",
           enum: ["whatsapp-document", "whatsapp-photo", "general"],
@@ -10036,6 +10350,20 @@ var MCP_TOOLS = [
         passkeyFile: {
           type: "string",
           description: "Filesystem path to a file containing the secret passkey."
+        },
+        keyImagePath: {
+          type: "string",
+          description: "Optional path to photo file to derive 32-byte cryptographic passkey from (Photo as Key)."
+        },
+        keyImageBase64: {
+          type: "string",
+          description: "Optional Base64 data of image to derive passkey from."
+        },
+        photoKeyMode: {
+          type: "string",
+          enum: ["perceptual", "raw"],
+          default: "perceptual",
+          description: "Photo key mode: perceptual (channel-resilient) or raw byte entropy."
         }
       }
     }
@@ -10074,6 +10402,20 @@ var MCP_TOOLS = [
         passkeyFile: {
           type: "string",
           description: "Filesystem path to a file containing the secret passkey."
+        },
+        keyImagePath: {
+          type: "string",
+          description: "Optional path to photo file to derive 32-byte cryptographic passkey from (Photo as Key)."
+        },
+        keyImageBase64: {
+          type: "string",
+          description: "Optional Base64 data of image to derive passkey from."
+        },
+        photoKeyMode: {
+          type: "string",
+          enum: ["perceptual", "raw"],
+          default: "perceptual",
+          description: "Photo key mode: perceptual (channel-resilient) or raw byte entropy."
         },
         method: {
           type: "string",
@@ -10118,6 +10460,20 @@ var MCP_TOOLS = [
         passkeyFile: {
           type: "string",
           description: "Filesystem path to a file containing the secret passkey."
+        },
+        keyImagePath: {
+          type: "string",
+          description: "Optional path to photo file to derive 32-byte cryptographic passkey from (Photo as Key)."
+        },
+        keyImageBase64: {
+          type: "string",
+          description: "Optional Base64 data of image to derive passkey from."
+        },
+        photoKeyMode: {
+          type: "string",
+          enum: ["perceptual", "raw"],
+          default: "perceptual",
+          description: "Photo key mode: perceptual (channel-resilient) or raw byte entropy."
         },
         method: {
           type: "string",
@@ -10183,7 +10539,7 @@ var MCP_TOOLS = [
   },
   {
     name: "stego_keygen",
-    description: "Generates cryptographically secure keys: Diceware 4-word human-memorable passphrases, 32-byte hex tokens, Libsodium X25519 encryption keypairs, or Ed25519 signing keypairs.",
+    description: "Generates cryptographically secure keys: Diceware 4-word human-memorable passphrases, 32-byte hex tokens, photo keys derived from image carriers, Libsodium X25519 encryption keypairs, or Ed25519 signing keypairs.",
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
@@ -10195,9 +10551,23 @@ var MCP_TOOLS = [
       properties: {
         type: {
           type: "string",
-          enum: ["diceware", "crypto32", "keypair", "signing"],
+          enum: ["diceware", "crypto32", "photo", "keypair", "signing"],
           default: "diceware",
           description: "Key type to generate."
+        },
+        keyImagePath: {
+          type: "string",
+          description: "Filesystem path to photo carrier for photo key generation."
+        },
+        keyImageBase64: {
+          type: "string",
+          description: "Base64 image data for photo key generation."
+        },
+        photoKeyMode: {
+          type: "string",
+          enum: ["perceptual", "raw"],
+          default: "perceptual",
+          description: "Photo key mode: perceptual (channel-resilient) or raw byte entropy."
         }
       }
     }
@@ -10314,6 +10684,9 @@ async function executeTool(name, args) {
         passkey,
         passkeyEnv,
         passkeyFile,
+        keyImagePath,
+        keyImageBase64,
+        photoKeyMode = "perceptual",
         method = "hyper-matrix",
         channel = "whatsapp-document",
         outputPath,
@@ -10341,7 +10714,14 @@ async function executeTool(name, args) {
       if (channel === "whatsapp-photo" && effectiveMethod === "hyper-matrix") {
         effectiveMethod = "robust-resilient";
       }
-      const resolvedKey = resolvePasskey({ passkey, passkeyEnv, passkeyFile });
+      const resolvedKey = await resolvePasskey({
+        passkey,
+        passkeyEnv,
+        passkeyFile,
+        keyImagePath,
+        keyImageBase64,
+        photoKeyMode
+      });
       let finalPayload = rawBytes;
       let encrypted = false;
       if (resolvedKey) {
@@ -10456,6 +10836,9 @@ async function executeTool(name, args) {
         passkey,
         passkeyEnv,
         passkeyFile,
+        keyImagePath,
+        keyImageBase64,
+        photoKeyMode = "perceptual",
         method = "auto",
         outputPath,
         overwrite = false
@@ -10466,7 +10849,14 @@ async function executeTool(name, args) {
         url: stegoUrl,
         paramName: "stego"
       });
-      const resolvedKey = resolvePasskey({ passkey, passkeyEnv, passkeyFile });
+      const resolvedKey = await resolvePasskey({
+        passkey,
+        passkeyEnv,
+        passkeyFile,
+        keyImagePath,
+        keyImageBase64,
+        photoKeyMode
+      });
       let extractedRaw = null;
       let detectedMethod = String(method).toLowerCase();
       if (detectedMethod === "auto") {
@@ -10770,6 +11160,46 @@ async function executeTool(name, args) {
           passkey: token,
           rawHex: token.replace(/-/g, "").toLowerCase(),
           description: "32-byte high-entropy hexadecimal cryptographic token."
+        };
+      }
+      if (type === "photo" || type === "image") {
+        const {
+          keyImagePath,
+          imagePath,
+          keyImageBase64,
+          imageBase64,
+          photoKeyMode,
+          photoMode = "perceptual"
+        } = args;
+        const resolvedPath = keyImagePath ?? imagePath;
+        const resolvedBase64 = keyImageBase64 ?? imageBase64;
+        const mode = photoKeyMode ?? photoMode ?? "perceptual";
+        if (!resolvedPath && !resolvedBase64) {
+          throw new Error(
+            "E_MISSING_KEY_IMAGE: Provide keyImagePath or keyImageBase64 for photo key generation."
+          );
+        }
+        const keyCarrier = await loadInputImage({
+          path: resolvedPath,
+          base64: resolvedBase64,
+          paramName: "keyImage"
+        });
+        let keyToken;
+        if (mode === "raw") {
+          keyToken = toHex(deriveKeyFromImage(encodePng(keyCarrier))).toUpperCase();
+        } else {
+          keyToken = toHex(
+            computePerceptualHashFromRgba(keyCarrier.width, keyCarrier.height, keyCarrier.data)
+          ).toUpperCase();
+        }
+        return {
+          status: "success",
+          ok: true,
+          type: "photo",
+          mode,
+          photoMode: mode,
+          passkey: keyToken,
+          description: "32-byte cryptographic token derived from photo carrier."
         };
       }
       if (type === "keypair") {

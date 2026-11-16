@@ -3,8 +3,10 @@ import {
   deriveBiometricKey,
   deriveKeyFromImage,
   estimatePasskeyStrength,
+  fromBase64,
   generateDicewarePassphrase,
   generateRandomPasskey32,
+  toBase64,
   toHex,
 } from '@ombrix/crypto-adapter';
 import {
@@ -174,8 +176,11 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
     [perceptualHexKey, rawHexKey, keyImageName, onChange],
   );
 
+  // Storage key for active biometric passkey credentials on this device
+  const BIO_CRED_STORAGE_KEY = 'ombrix_biometric_cred_id';
+
   // Method 4: Biometric / WebAuthn Hardware Passkey
-  const handleBiometricEnroll = useCallback(async () => {
+  const handleBiometricAuth = useCallback(async () => {
     setBiometricError(null);
     setIsBioEnrolling(true);
 
@@ -189,6 +194,56 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
         throw new Error('Biometric hardware (Touch ID / Face ID / Windows Hello) is not detected.');
       }
 
+      let storedCredId: string | null = null;
+      try {
+        storedCredId = localStorage.getItem(BIO_CRED_STORAGE_KEY);
+      } catch {
+        // Private browsing or restricted storage
+      }
+
+      // In decode mode with an existing credential on this device, re-authenticate via credentials.get()
+      if (mode === 'decode' && storedCredId) {
+        try {
+          const challenge = new Uint8Array(32);
+          crypto.getRandomValues(challenge);
+
+          const idBytes = fromBase64(storedCredId);
+          const credBuffer = idBytes.buffer.slice(
+            idBytes.byteOffset,
+            idBytes.byteOffset + idBytes.byteLength,
+          ) as ArrayBuffer;
+
+          const assertion = (await navigator.credentials.get({
+            publicKey: {
+              challenge,
+              allowCredentials: [
+                {
+                  id: credBuffer,
+                  type: 'public-key',
+                },
+              ],
+              userVerification: 'required',
+              timeout: 60000,
+            },
+          })) as PublicKeyCredential | null;
+
+          if (assertion) {
+            const rawIdBytes = new Uint8Array(assertion.rawId);
+            const derivedKey = deriveBiometricKey(rawIdBytes);
+            const hexKey = toHex(derivedKey).toUpperCase();
+            onChange(hexKey, {
+              type: 'biometric',
+              label: 'Device Biometric Passkey (Re-authenticated)',
+            });
+            setActiveTab('biometric');
+            return;
+          }
+        } catch (_assertionErr) {
+          // If assertion cancelled or expired, fall through to fresh enrollment or report error
+        }
+      }
+
+      // Encode mode or first-time setup on this device: enroll via credentials.create()
       const challenge = new Uint8Array(32);
       crypto.getRandomValues(challenge);
 
@@ -221,17 +276,23 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
       }
 
       const rawIdBytes = new Uint8Array(credential.rawId);
+      try {
+        localStorage.setItem(BIO_CRED_STORAGE_KEY, toBase64(rawIdBytes));
+      } catch {
+        // localStorage might be unavailable
+      }
+
       const derivedKey = deriveBiometricKey(rawIdBytes);
       const hexKey = toHex(derivedKey).toUpperCase();
 
       onChange(hexKey, { type: 'biometric', label: 'Device Biometric Passkey' });
       setActiveTab('biometric');
     } catch (err) {
-      setBiometricError(err instanceof Error ? err.message : 'Biometric enrollment failed.');
+      setBiometricError(err instanceof Error ? err.message : 'Biometric authentication failed.');
     } finally {
       setIsBioEnrolling(false);
     }
-  }, [onChange]);
+  }, [onChange, mode]);
 
   // Render optical transfer matrix on modal canvas
   useEffect(() => {
@@ -350,7 +411,7 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
 
           <button
             type="button"
-            onClick={handleBiometricEnroll}
+            onClick={handleBiometricAuth}
             disabled={isBioEnrolling}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
               activeTab === 'biometric'
@@ -360,7 +421,13 @@ export const SmartPasskeyAssistant: React.FC<SmartPasskeyAssistantProps> = ({
             title="Authenticate with Touch ID, Face ID, or Windows Hello for instant hardware-backed key"
           >
             <Fingerprint className="w-3 h-3 text-pink-400" />
-            <span>{isBioEnrolling ? 'Scanning...' : 'Device Biometrics'}</span>
+            <span>
+              {isBioEnrolling
+                ? 'Scanning...'
+                : mode === 'decode'
+                  ? 'Re-auth Biometrics'
+                  : 'Device Biometrics'}
+            </span>
           </button>
         </div>
       </div>

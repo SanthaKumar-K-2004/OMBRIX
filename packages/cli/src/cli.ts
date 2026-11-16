@@ -1,7 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
+  computePerceptualHashFromRgba,
   decryptWithPasskey,
+  deriveKeyFromImage,
   encryptWithPasskey,
   generateDicewarePassphrase,
   generateEncryptionKeyPair,
@@ -9,6 +11,7 @@ import {
   generateSigningKeyPair,
   initCrypto,
   isPasskeyEncrypted,
+  toHex,
 } from '@ombrix/crypto-adapter';
 import { Ombrix, type StegoMethod } from '@ombrix/edge-sdk';
 import { executeCodeMode, startMcpServer } from '@ombrix/mcp-server';
@@ -33,6 +36,34 @@ export interface CliResult {
 
 const VERSION = '0.1.5';
 
+/**
+ * Resolves a 32-byte cryptographic passkey from a carrier image or photo file.
+ */
+function resolvePhotoKey(imagePath: string, mode: 'perceptual' | 'raw' = 'perceptual'): string {
+  const resolved = path.resolve(imagePath);
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`Key image file not found: '${resolved}'`);
+  }
+  const bytes = new Uint8Array(fs.readFileSync(resolved));
+  if (bytes.length === 0) {
+    throw new Error(`Key image file is empty: '${resolved}'`);
+  }
+
+  if (mode === 'raw') {
+    return toHex(deriveKeyFromImage(bytes)).toUpperCase();
+  }
+
+  // Perceptual mode: survives lossy recompression & color adjustments
+  try {
+    const carrier = decodePng(bytes);
+    const keyBytes = computePerceptualHashFromRgba(carrier.width, carrier.height, carrier.data);
+    return toHex(keyBytes).toUpperCase();
+  } catch {
+    // If not a standard PNG (e.g. JPEG or raw file), fallback to deriveKeyFromImage
+    return toHex(deriveKeyFromImage(bytes)).toUpperCase();
+  }
+}
+
 const HELP_BANNER = `
   ██████╗ ███╗   ███╗██████╗ ██████╗ ██╗██╗  ██╗
  ██╔═══██╗████╗ ████║██╔══██╗██╔══██╗██║╚██╗██╔╝
@@ -51,7 +82,7 @@ COMMANDS:
   scan <imagePath> [options]          Run multi-detector forensic steganalysis
   inspect <imagePath>                 Analyze carrier capacity across 7 algorithms
   benchmark <carrierPath> [options]   Compare algorithms on carrier (PSNR, MSE, SSIM)
-  keygen [diceware|crypto32|keypair]  Generate cryptographic passkeys or keypairs
+  keygen [diceware|crypto32|photo|keypair] Generate cryptographic passkeys or keypairs
   eval <script>                       Execute sandboxed JavaScript/TypeScript Code Mode script
   run-script <scriptFile>             Run an OMBRIX Code Mode workflow script from file
   mcp <install|show|run> [target]     AI Agent Model Context Protocol (MCP) commands
@@ -64,6 +95,8 @@ EMBED OPTIONS:
   -p, --payload <text>        Plaintext string to hide
   -f, --file <filePath>       File to read payload from
   -k, --passkey <key>         Argon2id + XChaCha20-Poly1305 symmetric passkey
+  --key-image <path>          Use an image file as a 32-byte cryptographic passkey
+  --photo-mode <mode>         Photo key mode: perceptual (default) or raw
   -m, --method <name>         Algorithm: hyper-matrix (default), robust, lsb, matching, pvd, dwt, dct
   -o, --output <path>         Output stego PNG path
   --recipient-key <key>       X25519 public key (Base64) for authenticated encryption
@@ -71,6 +104,8 @@ EMBED OPTIONS:
 
 EXTRACT OPTIONS:
   -k, --passkey <key>         Secret passkey if payload is Argon2id encrypted
+  --key-image <path>          Unlock using the key image file (Photo Key)
+  --photo-mode <mode>         Photo key mode: perceptual (default) or raw
   -o, --output <path>         Write extracted payload to file (default: stdout)
   -m, --method <name>         Algorithm (or auto for smart detection)
   --recipient-key <key>       X25519 private key (Base64) for payload decryption
@@ -156,6 +191,8 @@ export async function runCli(args: string[]): Promise<CliResult> {
         let explicitMethod = false;
         let outputPath: string | undefined;
         let passkey: string | undefined;
+        let keyImagePath: string | undefined;
+        let photoMode: 'perceptual' | 'raw' = 'perceptual';
         let recipientKey: string | undefined;
         let signingKey: string | undefined;
 
@@ -167,6 +204,14 @@ export async function runCli(args: string[]): Promise<CliResult> {
             filePath = cmdArgs[++i];
           } else if ((arg === '-k' || arg === '--passkey') && i + 1 < cmdArgs.length) {
             passkey = cmdArgs[++i];
+          } else if (
+            (arg === '--key-image' || arg === '--photo-key' || arg === '--photo') &&
+            i + 1 < cmdArgs.length
+          ) {
+            keyImagePath = cmdArgs[++i];
+          } else if (arg === '--photo-mode' && i + 1 < cmdArgs.length) {
+            const m = cmdArgs[++i]?.toLowerCase();
+            if (m === 'raw' || m === 'perceptual') photoMode = m;
           } else if ((arg === '-m' || arg === '--method') && i + 1 < cmdArgs.length) {
             methodStr = cmdArgs[++i] ?? 'hyper-matrix';
             explicitMethod = true;
@@ -176,6 +221,18 @@ export async function runCli(args: string[]): Promise<CliResult> {
             recipientKey = cmdArgs[++i];
           } else if (arg === '--signing-key' && i + 1 < cmdArgs.length) {
             signingKey = cmdArgs[++i];
+          }
+        }
+
+        if (keyImagePath) {
+          try {
+            passkey = resolvePhotoKey(keyImagePath, photoMode);
+            log(
+              `\x1b[36m[Photo Key]\x1b[0m Derived 32-byte cryptographic key from ${path.basename(keyImagePath)} (${photoMode} mode)`,
+            );
+          } catch (e: unknown) {
+            err(`Error reading key image: ${(e as Error).message}`);
+            return { exitCode: 1, stdout, stderr };
           }
         }
 
@@ -260,6 +317,8 @@ export async function runCli(args: string[]): Promise<CliResult> {
         let outputPath: string | undefined;
         let methodStr: string | undefined;
         let passkey: string | undefined;
+        let keyImagePath: string | undefined;
+        let photoMode: 'perceptual' | 'raw' = 'perceptual';
         let recipientKey: string | undefined;
         let senderKey: string | undefined;
 
@@ -271,10 +330,30 @@ export async function runCli(args: string[]): Promise<CliResult> {
             methodStr = cmdArgs[++i];
           } else if ((arg === '-k' || arg === '--passkey') && i + 1 < cmdArgs.length) {
             passkey = cmdArgs[++i];
+          } else if (
+            (arg === '--key-image' || arg === '--photo-key' || arg === '--photo') &&
+            i + 1 < cmdArgs.length
+          ) {
+            keyImagePath = cmdArgs[++i];
+          } else if (arg === '--photo-mode' && i + 1 < cmdArgs.length) {
+            const m = cmdArgs[++i]?.toLowerCase();
+            if (m === 'raw' || m === 'perceptual') photoMode = m;
           } else if (arg === '--recipient-key' && i + 1 < cmdArgs.length) {
             recipientKey = cmdArgs[++i];
           } else if (arg === '--sender-key' && i + 1 < cmdArgs.length) {
             senderKey = cmdArgs[++i];
+          }
+        }
+
+        if (keyImagePath) {
+          try {
+            passkey = resolvePhotoKey(keyImagePath, photoMode);
+            log(
+              `\x1b[36m[Photo Key]\x1b[0m Derived 32-byte cryptographic key from ${path.basename(keyImagePath)} (${photoMode} mode)`,
+            );
+          } catch (e: unknown) {
+            err(`Error reading key image: ${(e as Error).message}`);
+            return { exitCode: 1, stdout, stderr };
           }
         }
 
@@ -481,6 +560,27 @@ export async function runCli(args: string[]): Promise<CliResult> {
           log(`  Public Key:   \x1b[32m${pubB64}\x1b[0m`);
           log(`  Private Key:  \x1b[33m${privB64}\x1b[0m (KEEP SECRET)`);
           log('  Usage:        ombrix embed carrier.png -p "msg" --recipient-key <publicKey>\n');
+        } else if (sub === 'photo' || sub === 'image') {
+          const imgPath = cmdArgs[1];
+          if (!imgPath || imgPath.startsWith('-')) {
+            err(
+              'Error: Missing <imagePath> for photo keygen. Usage: ombrix keygen photo <imagePath> [--raw]',
+            );
+            return { exitCode: 1, stdout, stderr };
+          }
+          const mode = cmdArgs.includes('--raw') ? 'raw' : 'perceptual';
+          try {
+            const keyHex = resolvePhotoKey(imgPath, mode);
+            log(`\n\x1b[1mOMBRIX Photo Key\x1b[0m (Derived from ${path.basename(imgPath)})`);
+            log(
+              `  Mode:        ${mode === 'perceptual' ? 'Perceptual Visual Hash (Lossy-Channel Resilient)' : 'Raw File Byte Entropy (Lossless)'}`,
+            );
+            log(`  Passkey:     \x1b[32m${keyHex}\x1b[0m (256-bit cryptographic token)`);
+            log(`  Usage:       ombrix embed carrier.png -p "secret" --key-image ${imgPath}\n`);
+          } catch (e: unknown) {
+            err(`Error deriving photo key: ${(e as Error).message}`);
+            return { exitCode: 1, stdout, stderr };
+          }
         } else if (sub === 'signing' || sub === 'ed25519') {
           const kp = generateSigningKeyPair();
           const pubB64 = Buffer.from(kp.publicKey).toString('base64');

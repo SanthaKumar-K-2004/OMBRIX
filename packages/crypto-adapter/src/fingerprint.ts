@@ -55,6 +55,8 @@ export function fromHex(hex: string): Uint8Array {
 export function normalizePasskeyInput(input: string): string {
   const cleaned = input.trim();
   if (!cleaned) return '';
+
+  // 1. Check for 64-character hexadecimal (32-byte key)
   const stripped = cleaned.replace(/[\s\-_:\n\r]/g, '');
   if (/^[0-9a-fA-F]{64}$/.test(stripped)) {
     const upper = stripped.toUpperCase();
@@ -64,6 +66,13 @@ export function normalizePasskeyInput(input: string): string {
     }
     return groups.join('-');
   }
+
+  // 2. Check for Diceware memorable words (3-12 alphabetic words separated by spaces, hyphens, or underscores)
+  const words = cleaned.split(/[\s\-_]+/);
+  if (words.length >= 3 && words.length <= 12 && words.every((w) => /^[a-zA-Z]{3,}$/.test(w))) {
+    return words.map((w) => w.toLowerCase()).join('-');
+  }
+
   return cleaned;
 }
 

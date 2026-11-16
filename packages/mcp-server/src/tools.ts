@@ -1,7 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
+  computePerceptualHashFromRgba,
   decryptWithPasskey,
+  deriveKeyFromImage,
   encryptWithPasskey,
   generateDicewarePassphrase,
   generateEncryptionKeyPair,
@@ -9,6 +11,7 @@ import {
   generateSigningKeyPair,
   initCrypto,
   isPasskeyEncrypted,
+  toHex,
 } from '@ombrix/crypto-adapter';
 import { Ombrix } from '@ombrix/edge-sdk';
 import {
@@ -68,11 +71,38 @@ function areEqualBytes(a: Uint8Array, b: Uint8Array): boolean {
  * passkeyFile (filesystem path), or direct passkey argument.
  * Protects passkeys from needing to travel through AI chat prompts.
  */
-function resolvePasskey(args: {
+async function resolvePasskey(args: {
   passkey?: string;
   passkeyEnv?: string;
   passkeyFile?: string;
-}): string | undefined {
+  keyImagePath?: string;
+  imagePath?: string;
+  keyImageBase64?: string;
+  imageBase64?: string;
+  photoKeyMode?: 'perceptual' | 'raw';
+  photoMode?: 'perceptual' | 'raw';
+}): Promise<string | undefined> {
+  const photoPath = args.keyImagePath ?? (args.passkey ? undefined : args.imagePath);
+  const photoB64 = args.keyImageBase64 ?? (args.passkey ? undefined : args.imageBase64);
+  const mode = args.photoKeyMode ?? args.photoMode ?? 'perceptual';
+
+  if (photoPath || photoB64) {
+    const keyCarrier = await loadInputImage({
+      path: photoPath,
+      base64: photoB64,
+      paramName: 'keyImage',
+    });
+    if (mode === 'raw') {
+      const rawBytes = encodePng(keyCarrier);
+      return toHex(deriveKeyFromImage(rawBytes)).toUpperCase();
+    }
+    const percKey = computePerceptualHashFromRgba(
+      keyCarrier.width,
+      keyCarrier.height,
+      keyCarrier.data,
+    );
+    return toHex(percKey).toUpperCase();
+  }
   if (args.passkeyEnv && typeof args.passkeyEnv === 'string') {
     const envVal = process.env[args.passkeyEnv];
     if (!envVal) {
@@ -243,6 +273,21 @@ export const MCP_TOOLS: McpToolDefinition[] = [
           type: 'string',
           description: 'Filesystem path to a file containing the secret passkey.',
         },
+        keyImagePath: {
+          type: 'string',
+          description:
+            'Optional path to photo file to derive 32-byte cryptographic passkey from (Photo as Key).',
+        },
+        keyImageBase64: {
+          type: 'string',
+          description: 'Optional Base64 data of image to derive passkey from.',
+        },
+        photoKeyMode: {
+          type: 'string',
+          enum: ['perceptual', 'raw'],
+          default: 'perceptual',
+          description: 'Photo key mode: perceptual (channel-resilient) or raw byte entropy.',
+        },
         channel: {
           type: 'string',
           enum: ['whatsapp-document', 'whatsapp-photo', 'general'],
@@ -291,6 +336,21 @@ export const MCP_TOOLS: McpToolDefinition[] = [
           type: 'string',
           description: 'Filesystem path to a file containing the secret passkey.',
         },
+        keyImagePath: {
+          type: 'string',
+          description:
+            'Optional path to photo file to derive 32-byte cryptographic passkey from (Photo as Key).',
+        },
+        keyImageBase64: {
+          type: 'string',
+          description: 'Optional Base64 data of image to derive passkey from.',
+        },
+        photoKeyMode: {
+          type: 'string',
+          enum: ['perceptual', 'raw'],
+          default: 'perceptual',
+          description: 'Photo key mode: perceptual (channel-resilient) or raw byte entropy.',
+        },
       },
     },
   },
@@ -330,6 +390,21 @@ export const MCP_TOOLS: McpToolDefinition[] = [
         passkeyFile: {
           type: 'string',
           description: 'Filesystem path to a file containing the secret passkey.',
+        },
+        keyImagePath: {
+          type: 'string',
+          description:
+            'Optional path to photo file to derive 32-byte cryptographic passkey from (Photo as Key).',
+        },
+        keyImageBase64: {
+          type: 'string',
+          description: 'Optional Base64 data of image to derive passkey from.',
+        },
+        photoKeyMode: {
+          type: 'string',
+          enum: ['perceptual', 'raw'],
+          default: 'perceptual',
+          description: 'Photo key mode: perceptual (channel-resilient) or raw byte entropy.',
         },
         method: {
           type: 'string',
@@ -376,6 +451,21 @@ export const MCP_TOOLS: McpToolDefinition[] = [
         passkeyFile: {
           type: 'string',
           description: 'Filesystem path to a file containing the secret passkey.',
+        },
+        keyImagePath: {
+          type: 'string',
+          description:
+            'Optional path to photo file to derive 32-byte cryptographic passkey from (Photo as Key).',
+        },
+        keyImageBase64: {
+          type: 'string',
+          description: 'Optional Base64 data of image to derive passkey from.',
+        },
+        photoKeyMode: {
+          type: 'string',
+          enum: ['perceptual', 'raw'],
+          default: 'perceptual',
+          description: 'Photo key mode: perceptual (channel-resilient) or raw byte entropy.',
         },
         method: {
           type: 'string',
@@ -444,7 +534,7 @@ export const MCP_TOOLS: McpToolDefinition[] = [
   {
     name: 'stego_keygen',
     description:
-      'Generates cryptographically secure keys: Diceware 4-word human-memorable passphrases, 32-byte hex tokens, Libsodium X25519 encryption keypairs, or Ed25519 signing keypairs.',
+      'Generates cryptographically secure keys: Diceware 4-word human-memorable passphrases, 32-byte hex tokens, photo keys derived from image carriers, Libsodium X25519 encryption keypairs, or Ed25519 signing keypairs.',
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
@@ -456,9 +546,23 @@ export const MCP_TOOLS: McpToolDefinition[] = [
       properties: {
         type: {
           type: 'string',
-          enum: ['diceware', 'crypto32', 'keypair', 'signing'],
+          enum: ['diceware', 'crypto32', 'photo', 'keypair', 'signing'],
           default: 'diceware',
           description: 'Key type to generate.',
+        },
+        keyImagePath: {
+          type: 'string',
+          description: 'Filesystem path to photo carrier for photo key generation.',
+        },
+        keyImageBase64: {
+          type: 'string',
+          description: 'Base64 image data for photo key generation.',
+        },
+        photoKeyMode: {
+          type: 'string',
+          enum: ['perceptual', 'raw'],
+          default: 'perceptual',
+          description: 'Photo key mode: perceptual (channel-resilient) or raw byte entropy.',
         },
       },
     },
@@ -590,6 +694,9 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         passkey,
         passkeyEnv,
         passkeyFile,
+        keyImagePath,
+        keyImageBase64,
+        photoKeyMode = 'perceptual',
         method = 'hyper-matrix',
         channel = 'whatsapp-document',
         outputPath,
@@ -605,6 +712,9 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         passkey?: string;
         passkeyEnv?: string;
         passkeyFile?: string;
+        keyImagePath?: string;
+        keyImageBase64?: string;
+        photoKeyMode?: 'perceptual' | 'raw';
         method?: string;
         channel?: string;
         outputPath?: string;
@@ -637,7 +747,14 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         effectiveMethod = 'robust-resilient';
       }
 
-      const resolvedKey = resolvePasskey({ passkey, passkeyEnv, passkeyFile });
+      const resolvedKey = await resolvePasskey({
+        passkey,
+        passkeyEnv,
+        passkeyFile,
+        keyImagePath,
+        keyImageBase64,
+        photoKeyMode,
+      });
 
       // Encrypt with passkey if provided
       let finalPayload = rawBytes;
@@ -769,6 +886,9 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         passkey,
         passkeyEnv,
         passkeyFile,
+        keyImagePath,
+        keyImageBase64,
+        photoKeyMode = 'perceptual',
         method = 'auto',
         outputPath,
         overwrite = false,
@@ -779,6 +899,9 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         passkey?: string;
         passkeyEnv?: string;
         passkeyFile?: string;
+        keyImagePath?: string;
+        keyImageBase64?: string;
+        photoKeyMode?: 'perceptual' | 'raw';
         method?: string;
         outputPath?: string;
         overwrite?: boolean;
@@ -791,7 +914,14 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         paramName: 'stego',
       });
 
-      const resolvedKey = resolvePasskey({ passkey, passkeyEnv, passkeyFile });
+      const resolvedKey = await resolvePasskey({
+        passkey,
+        passkeyEnv,
+        passkeyFile,
+        keyImagePath,
+        keyImageBase64,
+        photoKeyMode,
+      });
 
       let extractedRaw: Uint8Array | null = null;
       let detectedMethod = String(method).toLowerCase();
@@ -1141,6 +1271,54 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
           passkey: token,
           rawHex: token.replace(/-/g, '').toLowerCase(),
           description: '32-byte high-entropy hexadecimal cryptographic token.',
+        };
+      }
+
+      if (type === 'photo' || type === 'image') {
+        const {
+          keyImagePath,
+          imagePath,
+          keyImageBase64,
+          imageBase64,
+          photoKeyMode,
+          photoMode = 'perceptual',
+        } = args as {
+          keyImagePath?: string;
+          imagePath?: string;
+          keyImageBase64?: string;
+          imageBase64?: string;
+          photoKeyMode?: 'perceptual' | 'raw';
+          photoMode?: 'perceptual' | 'raw';
+        };
+        const resolvedPath = keyImagePath ?? imagePath;
+        const resolvedBase64 = keyImageBase64 ?? imageBase64;
+        const mode = photoKeyMode ?? photoMode ?? 'perceptual';
+        if (!resolvedPath && !resolvedBase64) {
+          throw new Error(
+            'E_MISSING_KEY_IMAGE: Provide keyImagePath or keyImageBase64 for photo key generation.',
+          );
+        }
+        const keyCarrier = await loadInputImage({
+          path: resolvedPath,
+          base64: resolvedBase64,
+          paramName: 'keyImage',
+        });
+        let keyToken: string;
+        if (mode === 'raw') {
+          keyToken = toHex(deriveKeyFromImage(encodePng(keyCarrier))).toUpperCase();
+        } else {
+          keyToken = toHex(
+            computePerceptualHashFromRgba(keyCarrier.width, keyCarrier.height, keyCarrier.data),
+          ).toUpperCase();
+        }
+        return {
+          status: 'success',
+          ok: true,
+          type: 'photo',
+          mode,
+          photoMode: mode,
+          passkey: keyToken,
+          description: '32-byte cryptographic token derived from photo carrier.',
         };
       }
 

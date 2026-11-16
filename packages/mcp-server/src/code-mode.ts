@@ -3,7 +3,9 @@ import * as path from 'node:path';
 import * as vm from 'node:vm';
 import { Worker } from 'node:worker_threads';
 import {
+  computePerceptualHashFromRgba,
   decryptWithPasskey,
+  deriveKeyFromImage,
   encryptWithPasskey,
   generateDicewarePassphrase,
   generateEncryptionKeyPair,
@@ -45,6 +47,8 @@ export interface EmbedOptions {
     | 'dct'
     | string;
   passkey?: string;
+  keyImage?: string | CarrierImage;
+  photoKeyMode?: 'perceptual' | 'raw';
   outputPath?: string;
   recipientKey?: string;
   signingKey?: string;
@@ -62,6 +66,8 @@ export interface ExtractOptions {
     | 'dct'
     | string;
   passkey?: string;
+  keyImage?: string | CarrierImage;
+  photoKeyMode?: 'perceptual' | 'raw';
   outputPath?: string;
   recipientKey?: string;
   senderKey?: string;
@@ -73,6 +79,36 @@ async function ensureCryptoInitialized(): Promise<void> {
     await initCrypto();
     cryptoReady = true;
   }
+}
+
+function toHex(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString('hex').toUpperCase();
+}
+
+function resolveKeyImageInput(
+  keyImage: string | CarrierImage,
+  mode: 'perceptual' | 'raw' = 'perceptual',
+): string {
+  if (typeof keyImage === 'string') {
+    const resolved = validatePathConfinement(keyImage, { paramName: 'keyImage' });
+    if (!fs.existsSync(resolved)) {
+      throw new Error(`Key image file not found: ${resolved}`);
+    }
+    if (mode === 'raw') {
+      const fileBytes = new Uint8Array(fs.readFileSync(resolved));
+      return toHex(deriveKeyFromImage(fileBytes));
+    }
+    const fileBytes = new Uint8Array(fs.readFileSync(resolved));
+    const carrier = decodePng(fileBytes);
+    const hash = computePerceptualHashFromRgba(carrier.width, carrier.height, carrier.data);
+    return toHex(hash);
+  }
+  if (mode === 'raw') {
+    const encoded = encodePng(keyImage);
+    return toHex(deriveKeyFromImage(encoded));
+  }
+  const hash = computePerceptualHashFromRgba(keyImage.width, keyImage.height, keyImage.data);
+  return toHex(hash);
 }
 
 /**
@@ -193,11 +229,17 @@ export function createOmbrixSandboxApi(logs: string[]) {
           payloadBytes = payload;
         }
 
+        const effectivePasskey =
+          options.passkey ??
+          (options.keyImage
+            ? resolveKeyImageInput(options.keyImage, options.photoKeyMode)
+            : undefined);
+
         let encrypted = false;
         let finalPayload = payloadBytes;
-        if (options.passkey) {
+        if (effectivePasskey) {
           await ensureCryptoInitialized();
-          finalPayload = encryptWithPasskey(payloadBytes, options.passkey);
+          finalPayload = encryptWithPasskey(payloadBytes, effectivePasskey);
           encrypted = true;
         }
 
@@ -254,6 +296,12 @@ export function createOmbrixSandboxApi(logs: string[]) {
           carrier = stegoOrPath;
         }
 
+        const effectivePasskey =
+          options.passkey ??
+          (options.keyImage
+            ? resolveKeyImageInput(options.keyImage, options.photoKeyMode)
+            : undefined);
+
         const method = (options.method ?? 'auto').toLowerCase();
         let rawExtracted: Uint8Array;
         let isSigned = false;
@@ -262,11 +310,11 @@ export function createOmbrixSandboxApi(logs: string[]) {
 
         if (method === 'hyper-matrix' || method === 'hypermatrix') {
           rawExtracted = await hyperMatrixMethod.extract(carrier, {
-            passphrase: options.passkey,
+            passphrase: effectivePasskey,
           });
         } else if (method === 'robust-resilient' || method === 'robust') {
           rawExtracted = await robustResilientStego.extract(carrier, {
-            passphrase: options.passkey,
+            passphrase: effectivePasskey,
           });
         } else if (method === 'dwt') {
           rawExtracted = await haarDwtStego.extract(carrier);
@@ -289,12 +337,12 @@ export function createOmbrixSandboxApi(logs: string[]) {
           // Auto-detection
           try {
             rawExtracted = await hyperMatrixMethod.extract(carrier, {
-              passphrase: options.passkey,
+              passphrase: effectivePasskey,
             });
           } catch {
             try {
               rawExtracted = await robustResilientStego.extract(carrier, {
-                passphrase: options.passkey,
+                passphrase: effectivePasskey,
               });
             } catch {
               const res = await Ombrix.extract(carrier, {
@@ -313,13 +361,13 @@ export function createOmbrixSandboxApi(logs: string[]) {
         let passkeyDecrypted = false;
 
         if (isPasskeyEncrypted(rawExtracted)) {
-          if (!options.passkey) {
+          if (!effectivePasskey) {
             throw new Error(
               'Payload is encrypted with an Argon2id passkey. Passkey parameter required to decrypt.',
             );
           }
           await ensureCryptoInitialized();
-          decryptedBytes = decryptWithPasskey(rawExtracted, options.passkey);
+          decryptedBytes = decryptWithPasskey(rawExtracted, effectivePasskey);
           passkeyDecrypted = true;
         }
 
@@ -387,10 +435,24 @@ export function createOmbrixSandboxApi(logs: string[]) {
       },
 
       async keygen(
-        type: 'diceware' | 'crypto32' | 'keypair' | 'signing' = 'diceware',
-        options: { words?: number } = {},
+        type: 'diceware' | 'crypto32' | 'keypair' | 'signing' | 'photo' = 'diceware',
+        options: { words?: number; imagePath?: string; photoMode?: 'perceptual' | 'raw' } = {},
       ) {
         await ensureCryptoInitialized();
+
+        if (type === 'photo') {
+          if (!options.imagePath) {
+            throw new Error('keygen with type "photo" requires options.imagePath');
+          }
+          const mode = options.photoMode ?? 'perceptual';
+          const passkey = resolveKeyImageInput(options.imagePath, mode);
+          return {
+            type: 'photo',
+            passkey,
+            photoMode: mode,
+            entropyBits: 256,
+          };
+        }
 
         if (type === 'crypto32') {
           const token = generateRandomPasskey32('formatted');
