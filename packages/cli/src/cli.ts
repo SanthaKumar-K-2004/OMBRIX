@@ -87,9 +87,9 @@ SCAN OPTIONS:
 
 function resolveMethod(name?: string): StegoMethod {
   switch (name?.toLowerCase()) {
-    case 'hyper-matrix':
-    case 'hypermatrix':
-      return hyperMatrixMethod;
+    case 'lsb':
+    case 'sequential':
+      return pngLsbSequential;
     case 'robust-resilient':
     case 'robust':
       return robustResilientStego;
@@ -101,8 +101,10 @@ function resolveMethod(name?: string): StegoMethod {
       return haarDwtStego;
     case 'dct':
       return jpegDctStego;
+    case 'hyper-matrix':
+    case 'hypermatrix':
     default:
-      return pngLsbSequential;
+      return hyperMatrixMethod;
   }
 }
 
@@ -152,7 +154,7 @@ export async function runCli(args: string[]): Promise<CliResult> {
 
         let payloadStr: string | undefined;
         let filePath: string | undefined;
-        let methodStr = 'lsb';
+        let methodStr = 'hyper-matrix';
         let outputPath: string | undefined;
         let passkey: string | undefined;
         let recipientKey: string | undefined;
@@ -692,7 +694,7 @@ export async function runCli(args: string[]): Promise<CliResult> {
         }
 
         let payloadStr = 'OMBRIX Standard Section 16.5 Experiment';
-        let methodStr = 'lsb';
+        let methodStr = 'hyper-matrix';
         let outputPath: string | undefined;
         let isJson = false;
 
@@ -750,11 +752,25 @@ export async function runCli(args: string[]): Promise<CliResult> {
         const carrier = decodePng(stegoBytes);
 
         try {
-          const extracted = await Ombrix.extract(carrier);
+          let payloadLen = 0;
+          let isEncrypted = false;
+          let isSigned = false;
+
+          try {
+            const hBytes = await hyperMatrixMethod.extract(carrier);
+            payloadLen = hBytes.length;
+            isEncrypted = isPasskeyEncrypted(hBytes);
+          } catch {
+            const extracted = await Ombrix.extract(carrier);
+            payloadLen = extracted.payload.length;
+            isEncrypted = extracted.isEncrypted;
+            isSigned = extracted.isSigned;
+          }
+
           log('\x1b[32m✔ Verified OMB1 steganographic container\x1b[0m');
-          log(`  Payload size: ${extracted.payload.length} bytes`);
-          log(`  Encrypted:    ${extracted.isEncrypted}`);
-          log(`  Signed:       ${extracted.isSigned}`);
+          log(`  Payload size: ${payloadLen} bytes`);
+          log(`  Encrypted:    ${isEncrypted}`);
+          log(`  Signed:       ${isSigned}`);
           return { exitCode: 0, stdout, stderr };
         } catch {
           log('\x1b[33mℹ Carrier is clean or contains no detectable OMB1 envelope\x1b[0m');

@@ -52,14 +52,15 @@ describe('OMBRIX CLI - Test Suite', () => {
     expect(res.stderr).toContain('Missing <carrierPath>');
   });
 
-  it('embeds and extracts message using default LSB', async () => {
-    const stegoPath = path.join(tmpDir, 'stego-lsb.png');
-    const secret = 'OMBRIX CLI LSB Secret Payload 2026';
+  it('embeds and extracts message using default Hyper-Matrix', async () => {
+    const stegoPath = path.join(tmpDir, 'stego-default.png');
+    const secret = 'OMBRIX CLI Secret Payload 2026';
 
     const embedRes = await runCli(['embed', carrierPath, '-p', secret, '-o', stegoPath]);
 
     expect(embedRes.exitCode).toBe(0);
     expect(embedRes.stdout).toContain('Payload embedded successfully');
+    expect(embedRes.stdout).toContain('HYPER-MATRIX');
     expect(fs.existsSync(stegoPath)).toBe(true);
 
     const extractRes = await runCli(['extract', stegoPath]);
@@ -116,7 +117,7 @@ describe('OMBRIX CLI - Test Suite', () => {
   });
 
   it('verifies stego image vs clean image', async () => {
-    const stegoPath = path.join(tmpDir, 'stego-lsb.png');
+    const stegoPath = path.join(tmpDir, 'stego-default.png');
     const verifyStego = await runCli(['verify', stegoPath]);
     expect(verifyStego.exitCode).toBe(0);
     expect(verifyStego.stdout).toContain('Verified OMB1 steganographic container');
