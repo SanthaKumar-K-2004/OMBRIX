@@ -8,9 +8,9 @@ OMBRIX is designed from the ground up for high-security, privacy-critical, zero-
 
 | Version | Supported | Status |
 | :--- | :---: | :--- |
-| `0.1.5` | ✅ | **Current Stable Production Release** |
-| `0.1.4` | ⚠️ | Superseded (Upgrade recommended) |
-| `< 0.1.4` | ❌ | End of Life |
+| `0.1.6` | ✅ | **Current Stable Production Release** |
+| `0.1.5` | ⚠️ | Superseded (Upgrade recommended) |
+| `< 0.1.5` | ❌ | End of Life |
 
 ---
 

@@ -16,6 +16,9 @@ if (otp) {
   console.log('🚀 Publishing OMBRIX packages to npm using auth token in ~/.npmrc...\n');
 }
 
+const rootPkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const currentVersion = rootPkg.version;
+
 const releasesDir = path.join(root, 'releases');
 if (!fs.existsSync(releasesDir)) {
   console.error(
@@ -24,10 +27,10 @@ if (!fs.existsSync(releasesDir)) {
   process.exit(1);
 }
 
-const tgzFiles = fs.readdirSync(releasesDir).filter((f) => f.endsWith('-0.1.5.tgz'));
+const tgzFiles = fs.readdirSync(releasesDir).filter((f) => f.endsWith(`-${currentVersion}.tgz`));
 if (tgzFiles.length === 0) {
   console.error(
-    '❌ No -0.1.5.tgz tarballs found in releases/. Please run node scripts/prepare-publish.mjs first.',
+    `❌ No -${currentVersion}.tgz tarballs found in releases/. Please run node scripts/prepare-publish.mjs first.`,
   );
   process.exit(1);
 }

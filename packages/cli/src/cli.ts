@@ -34,7 +34,7 @@ export interface CliResult {
   stderr: string;
 }
 
-const VERSION = '0.1.5';
+const VERSION = '0.1.6';
 
 /**
  * Resolves a 32-byte cryptographic passkey from a carrier image or photo file.

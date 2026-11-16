@@ -8779,7 +8779,7 @@ function analyzeConsensus(carrier) {
 }
 
 // packages/edge-sdk/src/version.ts
-var OMBRIX_VERSION = "0.1.5";
+var OMBRIX_VERSION = "0.1.6";
 
 // packages/edge-sdk/src/experiment.ts
 async function runAutomatedExperiment(carrier, payload, method, options = {}) {

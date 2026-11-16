@@ -43,7 +43,7 @@ describe('OMBRIX CLI - Test Suite', () => {
   it('prints version on --version or -v', async () => {
     const res = await runCli(['--version']);
     expect(res.exitCode).toBe(0);
-    expect(res.stdout).toContain('OMBRIX CLI v0.1.5');
+    expect(res.stdout).toContain('OMBRIX CLI v0.1.6');
   });
 
   it('fails gracefully when missing arguments', async () => {

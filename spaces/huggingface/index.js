@@ -8780,7 +8780,7 @@ function analyzeConsensus(carrier) {
 }
 
 // packages/edge-sdk/src/version.ts
-var OMBRIX_VERSION = "0.1.5";
+var OMBRIX_VERSION = "0.1.6";
 
 // packages/edge-sdk/src/experiment.ts
 async function runAutomatedExperiment(carrier, payload, method, options = {}) {
@@ -9444,7 +9444,7 @@ async function safeFetchUrl(urlStr, options = {}) {
       redirect: "follow",
       // Fetch handles redirect; we validate response
       headers: {
-        "User-Agent": "OMBRIX-MCP-Stego/0.1.5 (+https://github.com/SanthaKumar-K-2004/OMBRIX)",
+        "User-Agent": "OMBRIX-MCP-Stego/0.1.6 (+https://github.com/SanthaKumar-K-2004/OMBRIX)",
         Accept: "image/png,image/*;q=0.9,*/*;q=0.1"
       }
     });
@@ -11286,7 +11286,7 @@ async function handleJsonRpc(request) {
         },
         serverInfo: {
           name: "ombrix-mcp",
-          version: "0.1.5",
+          version: "0.1.6",
           description: "Zero-knowledge undetectable steganography and visual forensics suite.",
           icons: [
             {
@@ -11727,7 +11727,7 @@ function startSseServer(port = 7860, host = process.env.OMBRIX_HOST || "127.0.0.
         JSON.stringify({
           status: "ok",
           transport: "sse",
-          version: "0.1.5",
+          version: "0.1.6",
           toolsCount: MCP_TOOLS.length,
           activeSessions: sessions.size
         })

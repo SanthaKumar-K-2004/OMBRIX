@@ -304,7 +304,7 @@ export async function safeFetchUrl(
       signal: controller.signal,
       redirect: 'follow', // Fetch handles redirect; we validate response
       headers: {
-        'User-Agent': 'OMBRIX-MCP-Stego/0.1.5 (+https://github.com/SanthaKumar-K-2004/OMBRIX)',
+        'User-Agent': 'OMBRIX-MCP-Stego/0.1.6 (+https://github.com/SanthaKumar-K-2004/OMBRIX)',
         Accept: 'image/png,image/*;q=0.9,*/*;q=0.1',
       },
     });

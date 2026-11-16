@@ -61,7 +61,7 @@ describe('Phase 8 Integration: CLI Tooling, Experiment Engine & Offline PWA', ()
       expect(exp.schemaVersion).toBe('OMBRIX_EXPERIMENT_V1');
       expect(exp.experimentId).toMatch(/^exp_\d+_[a-z0-9]+/);
       expect(exp.timestamp).toBeDefined();
-      expect(exp.ombrixVersion).toBe('0.1.5');
+      expect(exp.ombrixVersion).toBe('0.1.6');
 
       // 2. Carrier Metadata
       expect(exp.carrier.width).toBe(64);
