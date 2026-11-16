@@ -111,26 +111,70 @@ ombrix keygen photo /path/to/key.jpg
 
 ### 3. Model Context Protocol (MCP 2.0) for AI Agents
 
-OMBRIX provides a local-first **Model Context Protocol (MCP 2.0)** server, allowing AI coding assistants (**Claude Desktop**, **Cursor**, **Antigravity**, **Windsurf**, **Open WebUI**) to embed, extract, inspect, and forensically analyze steganographic images.
+OMBRIX provides a production-hardened **Model Context Protocol (MCP 2.0)** server, allowing AI coding assistants (**Google Antigravity**, **Claude Desktop**, **Cursor IDE**, **Claude Code CLI**, **Windsurf IDE**) to embed, extract, inspect, and forensically analyze steganographic images.
 
-#### Connect to Claude Desktop
-Add to `~/.config/Claude/claude_desktop_config.json` (macOS/Linux) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+#### A. Automated One-Command Configuration (Recommended)
+OMBRIX includes an automated MCP client installer that scans your operating system, detects installed AI assistants, and safely injects the OMBRIX MCP configuration directly into each client's config file (with an automatic timestamped backup):
 
+```bash
+# Run auto-installer (zero installation required via npx):
+npx -y ombrix-cli mcp install
+
+# Or if ombrix-cli is installed globally:
+ombrix mcp install
+```
+
+The installer automatically detects and configures:
+- 🤖 **Google Antigravity**: `~/.gemini/antigravity/mcp_config.json`
+- 🖥️ **Claude Desktop**: 
+  - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+  - Linux: `~/.config/Claude/claude_desktop_config.json`
+  - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- 💻 **Cursor IDE**: `~/.cursor/mcp.json`
+- ⌨️ **Claude Code CLI**: `~/.claude.json`
+- 🌊 **Windsurf IDE**: `~/.codeium/windsurf/mcp_config.json`
+
+> [!TIP]
+> You can also target a specific client directly without prompts:
+> ```bash
+> ombrix mcp install antigravity   # Configure Google Antigravity
+> ombrix mcp install claude        # Configure Claude Desktop
+> ombrix mcp install cursor        # Configure Cursor IDE
+> ombrix mcp install claude_code   # Configure Claude Code CLI
+> ombrix mcp install windsurf      # Configure Windsurf IDE
+> ```
+
+#### B. Standalone Installation & CLI Inspection
+```bash
+# Install MCP server globally via npm:
+npm install -g ombrix-mcp-server
+
+# Print ready-to-copy JSON configuration blocks for all clients:
+ombrix mcp show
+
+# Run the MCP server directly over stdio:
+ombrix mcp run
+# Or standalone:
+npx -y ombrix-mcp-server
+```
+
+#### C. Remote Cloud MCP & Catbox.moe Workflow
+For cloud-hosted AI agents or remote containers (e.g. Hugging Face Spaces):
 ```json
 {
   "mcpServers": {
     "ombrix": {
-      "command": "npx",
-      "args": ["-y", "ombrix-mcp-server"]
+      "url": "https://<your-space>.hf.space/sse"
     }
   }
 }
 ```
 
-#### Connect to Cursor / Windsurf / Antigravity
-Configure a standard stdio command:
-- **Command:** `npx`
-- **Arguments:** `-y ombrix-mcp-server`
+> [!IMPORTANT]
+> **Why Catbox.moe for Remote MCP?**  
+> Cloud-hosted MCP servers cannot read local filesystem paths (`/home/...` or `C:\...`), and embedding large images as Base64 strings can quickly exhaust LLM context windows.  
+> Most consumer image hosts (Imgur, Discord, social media) secretly recompress or convert PNGs to lossy formats, destroying steganographic bits.  
+> **Catbox.moe** (`files.catbox.moe`) provides direct, unaltered, uncompressed PNG hosting. Upload your carrier to [Catbox.moe](https://catbox.moe) and pass the direct URL (`carrierUrl: "https://files.catbox.moe/xxxx.png"`) to `stego_embed` or `stego_extract`. The server will fetch and process the pristine bitstream without any local file limitations.
 
 #### 11 Production MCP Tools:
 | Tool Name | Scope & Functionality |
