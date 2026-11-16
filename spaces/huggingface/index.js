@@ -8499,7 +8499,7 @@ async function runAutomatedExperiment(carrier, payload, method, options = {}) {
     schemaVersion: "OMBRIX_EXPERIMENT_V1",
     experimentId,
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-    ombrixVersion: "0.1.0",
+    ombrixVersion: "0.1.4",
     metadata: {
       title: options.title ?? `Benchmark: ${method.name}`,
       description: options.description,
