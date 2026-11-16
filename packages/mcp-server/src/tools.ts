@@ -25,6 +25,12 @@ import type { CarrierImage } from '@ombrix/stego-interface';
 import { pngLsbMatching } from '@ombrix/stego-lab';
 import { pngLsbSequential } from '@ombrix/stego-png-lsb';
 import { executeCodeMode, getCodeModeApiDocs } from './code-mode.js';
+import {
+  findLatestCarrierImage,
+  hasGuiEnvironment,
+  openNativeFileDialog,
+  resolveFuzzyCarrierPath,
+} from './file-dialog.js';
 import { decodePng, encodePng } from './png.js';
 import { safeFetchUrl, validatePathConfinement } from './security.js';
 
@@ -133,40 +139,123 @@ async function resolvePasskey(args: {
   return undefined;
 }
 
+export interface LoadedCarrier extends CarrierImage {
+  sourcePath?: string;
+  selectionMethod?: 'explicit' | 'dialog' | 'latest' | 'fuzzy_match' | 'base64' | 'url';
+}
+
 /**
- * Loads and decodes an image from filesystem path, base64 data URL, or remote URL.
+ * Loads and decodes an image from filesystem path, base64 data URL, remote URL,
+ * native 1-click OS file dialog, or latest image auto-grab.
  */
 async function loadInputImage(params: {
   path?: string;
   base64?: string;
   url?: string;
+  useLatest?: boolean;
+  selectViaDialog?: boolean;
   paramName?: string;
-}): Promise<CarrierImage> {
+}): Promise<LoadedCarrier> {
   let bytes: Uint8Array | null = null;
   const name = params.paramName || 'image';
+  let resolvedFilePath: string | undefined;
+  let selectionMethod: LoadedCarrier['selectionMethod'] = 'explicit';
 
-  if (params.base64) {
+  // 1. Explicit native OS file picker dialog
+  if (params.selectViaDialog) {
+    const dialogPath = await openNativeFileDialog({
+      title: `Select ${name.charAt(0).toUpperCase() + name.slice(1)} PNG Image - OMBRIX`,
+    });
+    if (dialogPath) {
+      resolvedFilePath = dialogPath;
+      selectionMethod = 'dialog';
+    } else {
+      throw new Error(
+        'E_CANCELLED: Native file picker dialog was cancelled or no file was chosen.',
+      );
+    }
+  }
+
+  // 2. Latest image auto-detection
+  if (
+    !resolvedFilePath &&
+    (params.useLatest || params.path === 'latest' || params.path === ':latest')
+  ) {
+    const latestPath = findLatestCarrierImage();
+    if (latestPath) {
+      resolvedFilePath = latestPath;
+      selectionMethod = 'latest';
+    } else {
+      throw new Error(
+        'E_LATEST_NOT_FOUND: Could not locate any recent PNG images in Screenshots, Downloads, or Pictures folders.',
+      );
+    }
+  }
+
+  // 3. Base64
+  if (!resolvedFilePath && params.base64) {
     const rawB64 = params.base64.replace(/^data:image\/[a-zA-Z]+;base64,/, '').trim();
     bytes = new Uint8Array(Buffer.from(rawB64, 'base64'));
-  } else if (params.url) {
+    selectionMethod = 'base64';
+  }
+
+  // 4. Remote URL
+  if (!resolvedFilePath && !bytes && params.url) {
     bytes = await safeFetchUrl(params.url);
-  } else if (params.path) {
-    if (params.path.startsWith('/mnt/user-data/') || params.path.startsWith('/mnt/data/')) {
+    selectionMethod = 'url';
+  }
+
+  // 5. File path (with fuzzy resolution for Claude /mnt/data/... virtual paths and bare filenames)
+  if (!resolvedFilePath && !bytes && params.path) {
+    if (fs.existsSync(params.path)) {
+      resolvedFilePath = validatePathConfinement(params.path, { paramName: `${name}Path` });
+      selectionMethod = 'explicit';
+    } else {
+      const fuzzy = resolveFuzzyCarrierPath(params.path);
+      if (fuzzy) {
+        resolvedFilePath = validatePathConfinement(fuzzy, { paramName: `${name}Path` });
+        selectionMethod = 'fuzzy_match';
+      } else if (
+        params.path.startsWith('/mnt/user-data/') ||
+        params.path.startsWith('/mnt/data/')
+      ) {
+        const fname = path.basename(params.path);
+        throw new Error(
+          `E_CARRIER_NOT_FOUND: '${params.path}' is Claude Desktop's internal virtual container path. OMBRIX looked for '${fname}' across your Downloads, Pictures, and Desktop folders but could not find it. Hint: To select without typing paths, use the stego_pick_carrier tool, set selectViaDialog: true, or set useLatest: true.`,
+        );
+      } else {
+        throw new Error(
+          `E_CARRIER_NOT_FOUND: ${name} file not found on filesystem: ${params.path}. Hint: Use base64 or verify path. Use stego_pick_carrier, set selectViaDialog: true, or set useLatest: true.`,
+        );
+      }
+    }
+  }
+
+  // 6. Zero inputs provided, but host has desktop GUI -> automatically launch native file dialog!
+  if (!resolvedFilePath && !bytes) {
+    if (hasGuiEnvironment()) {
+      const dialogPath = await openNativeFileDialog({
+        title: `Select ${name.charAt(0).toUpperCase() + name.slice(1)} PNG Image - OMBRIX`,
+      });
+      if (dialogPath) {
+        resolvedFilePath = dialogPath;
+        selectionMethod = 'dialog';
+      } else {
+        throw new Error('E_CANCELLED: Native file picker dialog was cancelled.');
+      }
+    } else {
       throw new Error(
-        `E_CARRIER_NOT_FOUND: ${name} path '${params.path}' is an internal cloud container path in Claude web. The OMBRIX MCP server cannot access Claude web containers directly. Hint: To use local files, run Claude Desktop with OMBRIX MCP configured locally on your computer, or provide an image URL via ${name}Url, or a Base64 string via ${name}Base64.`,
+        `E_MISSING_INPUT: Must provide ${name}Path, useLatest: true, selectViaDialog: true, ${name}Base64, or ${name}Url.`,
       );
     }
-    if (!fs.existsSync(params.path)) {
-      throw new Error(
-        `E_CARRIER_NOT_FOUND: ${name} file not found on filesystem: ${params.path}. Hint: Use base64 or verify path.`,
-      );
-    }
-    const resolvedPath = validatePathConfinement(params.path, { paramName: `${name}Path` });
-    bytes = new Uint8Array(fs.readFileSync(resolvedPath));
-  } else {
-    throw new Error(
-      `E_MISSING_INPUT: Must provide either ${name}Path, ${name}Base64, or ${name}Url.`,
-    );
+  }
+
+  if (resolvedFilePath && !bytes) {
+    bytes = new Uint8Array(fs.readFileSync(resolvedFilePath));
+  }
+
+  if (!bytes) {
+    throw new Error(`E_EMPTY_CARRIER: Failed to load ${name} bytes.`);
   }
 
   // Check for JPEG magic signature [0xFF, 0xD8, 0xFF]
@@ -176,7 +265,10 @@ async function loadInputImage(params: {
     );
   }
 
-  return decodePng(bytes);
+  const carrier = decodePng(bytes) as LoadedCarrier;
+  carrier.sourcePath = resolvedFilePath;
+  carrier.selectionMethod = selectionMethod;
+  return carrier;
 }
 
 function computeFidelity(original: CarrierImage, stego: CarrierImage) {
@@ -230,6 +322,16 @@ export const MCP_TOOLS: McpToolDefinition[] = [
           type: 'string',
           description: 'Optional public HTTP/HTTPS URL of candidate cover PNG.',
         },
+        selectViaDialog: {
+          type: 'boolean',
+          description:
+            'If true, opens native OS file chooser dialog to pick the carrier PNG with 1 click.',
+        },
+        useLatest: {
+          type: 'boolean',
+          description:
+            'If true, automatically selects the newest PNG image found in Downloads or Screenshots.',
+        },
         withPasskey: {
           type: 'boolean',
           default: true,
@@ -259,6 +361,16 @@ export const MCP_TOOLS: McpToolDefinition[] = [
           description: 'Base64 data or data URL of cover PNG image.',
         },
         carrierUrl: { type: 'string', description: 'Public HTTP/HTTPS URL of cover PNG image.' },
+        selectViaDialog: {
+          type: 'boolean',
+          description:
+            'If true, opens native OS file chooser dialog to pick the carrier PNG with 1 click.',
+        },
+        useLatest: {
+          type: 'boolean',
+          description:
+            'If true, automatically selects the newest PNG image found in Downloads or Screenshots.',
+        },
         message: { type: 'string', description: 'Secret plaintext message to conceal.' },
         passkey: {
           type: 'string',
@@ -323,6 +435,16 @@ export const MCP_TOOLS: McpToolDefinition[] = [
         stegoPath: { type: 'string', description: 'Filesystem path to stego PNG image.' },
         stegoBase64: { type: 'string', description: 'Base64 data or data URL of stego PNG image.' },
         stegoUrl: { type: 'string', description: 'Public HTTP/HTTPS URL of stego PNG image.' },
+        selectViaDialog: {
+          type: 'boolean',
+          description:
+            'If true, opens native OS file chooser dialog to pick the stego PNG with 1 click.',
+        },
+        useLatest: {
+          type: 'boolean',
+          description:
+            'If true, automatically selects the newest PNG image found in Downloads or Screenshots.',
+        },
         passkey: {
           type: 'string',
           description: 'Secret passkey if the payload was encrypted during embedding.',
@@ -373,6 +495,16 @@ export const MCP_TOOLS: McpToolDefinition[] = [
           description: 'Base64 data or data URL of cover PNG image.',
         },
         carrierUrl: { type: 'string', description: 'Public HTTP/HTTPS URL of cover PNG image.' },
+        selectViaDialog: {
+          type: 'boolean',
+          description:
+            'If true, opens native OS file chooser dialog to pick the carrier PNG with 1 click.',
+        },
+        useLatest: {
+          type: 'boolean',
+          description:
+            'If true, automatically selects the newest PNG image found in Downloads or Screenshots.',
+        },
         payload: { type: 'string', description: 'Secret plaintext message string to conceal.' },
         payloadFilePath: {
           type: 'string',
@@ -439,6 +571,16 @@ export const MCP_TOOLS: McpToolDefinition[] = [
         stegoPath: { type: 'string', description: 'Filesystem path to the stego PNG image.' },
         stegoBase64: { type: 'string', description: 'Base64 data or data URL of stego PNG image.' },
         stegoUrl: { type: 'string', description: 'Public HTTP/HTTPS URL of stego PNG image.' },
+        selectViaDialog: {
+          type: 'boolean',
+          description:
+            'If true, opens native OS file chooser dialog to pick the stego PNG with 1 click.',
+        },
+        useLatest: {
+          type: 'boolean',
+          description:
+            'If true, automatically selects the newest PNG image found in Downloads or Screenshots.',
+        },
         passkey: {
           type: 'string',
           description: 'Secret passkey if the payload was encrypted during embedding.',
@@ -509,6 +651,16 @@ export const MCP_TOOLS: McpToolDefinition[] = [
         imagePath: { type: 'string', description: 'Filesystem path to candidate image.' },
         imageBase64: { type: 'string', description: 'Base64 data or data URL of candidate image.' },
         imageUrl: { type: 'string', description: 'Public HTTP/HTTPS URL of candidate image.' },
+        selectViaDialog: {
+          type: 'boolean',
+          description:
+            'If true, opens native OS file chooser dialog to pick the image with 1 click.',
+        },
+        useLatest: {
+          type: 'boolean',
+          description:
+            'If true, automatically selects the newest PNG image found in Downloads or Screenshots.',
+        },
       },
     },
   },
@@ -527,6 +679,16 @@ export const MCP_TOOLS: McpToolDefinition[] = [
       properties: {
         carrierPath: { type: 'string', description: 'Filesystem path to the cover PNG image.' },
         carrierBase64: { type: 'string', description: 'Base64 data or data URL of cover image.' },
+        selectViaDialog: {
+          type: 'boolean',
+          description:
+            'If true, opens native OS file chooser dialog to pick the carrier PNG with 1 click.',
+        },
+        useLatest: {
+          type: 'boolean',
+          description:
+            'If true, automatically selects the newest PNG image found in Downloads or Screenshots.',
+        },
         payload: { type: 'string', description: 'Optional sample payload text for benchmarking.' },
       },
     },
@@ -582,6 +744,16 @@ export const MCP_TOOLS: McpToolDefinition[] = [
       properties: {
         imagePath: { type: 'string', description: 'Filesystem path to the PNG image to inspect.' },
         imageBase64: { type: 'string', description: 'Base64 data or data URL of PNG image.' },
+        selectViaDialog: {
+          type: 'boolean',
+          description:
+            'If true, opens native OS file chooser dialog to pick the image with 1 click.',
+        },
+        useLatest: {
+          type: 'boolean',
+          description:
+            'If true, automatically selects the newest PNG image found in Downloads or Screenshots.',
+        },
       },
     },
   },
@@ -623,6 +795,35 @@ export const MCP_TOOLS: McpToolDefinition[] = [
       properties: {},
     },
   },
+  {
+    name: 'stego_pick_carrier',
+    description:
+      'Pops up a native OS 1-click file browser dialog (macOS Finder, Windows Explorer, or Linux File Chooser) or automatically selects the latest screenshot/download, allowing the user to select an image with 1 click without typing file paths or uploading to public servers. Zero cloud leaks, 100% private.',
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        useLatest: {
+          type: 'boolean',
+          description:
+            'If true, automatically selects the newest PNG image in Downloads or Screenshots without popping up a dialog window.',
+        },
+        title: {
+          type: 'string',
+          description: 'Optional custom window title prompt for the native file dialog.',
+        },
+        startDir: {
+          type: 'string',
+          description: 'Optional initial directory path to open.',
+        },
+      },
+    },
+  },
 ];
 
 export async function executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
@@ -635,12 +836,20 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
       const totalNeeded = payloadLen + passkeyOverhead;
 
       let carrier: CarrierImage | null = null;
-      if (args.carrierPath || args.carrierBase64 || args.carrierUrl) {
+      if (
+        args.carrierPath ||
+        args.carrierBase64 ||
+        args.carrierUrl ||
+        args.selectViaDialog ||
+        args.useLatest
+      ) {
         try {
           carrier = await loadInputImage({
             path: args.carrierPath as string,
             base64: args.carrierBase64 as string,
             url: args.carrierUrl as string,
+            selectViaDialog: args.selectViaDialog as boolean,
+            useLatest: args.useLatest as boolean,
             paramName: 'carrier',
           });
         } catch {
@@ -688,6 +897,8 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         carrierPath,
         carrierBase64,
         carrierUrl,
+        selectViaDialog,
+        useLatest,
         payload,
         payloadFilePath,
         message,
@@ -706,6 +917,8 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         carrierPath?: string;
         carrierBase64?: string;
         carrierUrl?: string;
+        selectViaDialog?: boolean;
+        useLatest?: boolean;
         payload?: string;
         payloadFilePath?: string;
         message?: string;
@@ -769,6 +982,8 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         path: carrierPath,
         base64: carrierBase64,
         url: carrierUrl,
+        selectViaDialog,
+        useLatest,
         paramName: 'carrier',
       });
 
@@ -834,6 +1049,17 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
           paramName: 'outputPath',
         });
         fs.writeFileSync(resolvedOut, encodedPng);
+      } else if (carrier.sourcePath) {
+        const autoOut = path.join(
+          path.dirname(carrier.sourcePath),
+          `${path.basename(carrier.sourcePath, path.extname(carrier.sourcePath))}-stego.png`,
+        );
+        resolvedOut = validatePathConfinement(autoOut, {
+          forWrite: true,
+          overwrite: true,
+          paramName: 'autoOut',
+        });
+        fs.writeFileSync(resolvedOut, encodedPng);
       } else if (carrierPath) {
         const autoOut = path.join(
           path.dirname(carrierPath),
@@ -883,6 +1109,8 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         stegoPath,
         stegoBase64,
         stegoUrl,
+        selectViaDialog,
+        useLatest,
         passkey,
         passkeyEnv,
         passkeyFile,
@@ -896,6 +1124,8 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         stegoPath?: string;
         stegoBase64?: string;
         stegoUrl?: string;
+        selectViaDialog?: boolean;
+        useLatest?: boolean;
         passkey?: string;
         passkeyEnv?: string;
         passkeyFile?: string;
@@ -911,6 +1141,8 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         path: stegoPath,
         base64: stegoBase64,
         url: stegoUrl,
+        selectViaDialog,
+        useLatest,
         paramName: 'stego',
       });
 
@@ -1073,16 +1305,20 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
     }
 
     case 'stego_scan': {
-      const { imagePath, imageBase64, imageUrl } = args as {
+      const { imagePath, imageBase64, imageUrl, selectViaDialog, useLatest } = args as {
         imagePath?: string;
         imageBase64?: string;
         imageUrl?: string;
+        selectViaDialog?: boolean;
+        useLatest?: boolean;
       };
 
       const carrier = await loadInputImage({
         path: imagePath,
         base64: imageBase64,
         url: imageUrl,
+        selectViaDialog,
+        useLatest,
         paramName: 'image',
       });
 
@@ -1125,16 +1361,22 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
       const {
         carrierPath,
         carrierBase64,
+        selectViaDialog,
+        useLatest,
         payload = 'OMBRIX Benchmark Test Vector',
       } = args as {
         carrierPath?: string;
         carrierBase64?: string;
+        selectViaDialog?: boolean;
+        useLatest?: boolean;
         payload?: string;
       };
 
       const carrier = await loadInputImage({
         path: carrierPath,
         base64: carrierBase64,
+        selectViaDialog,
+        useLatest,
         paramName: 'carrier',
       });
 
@@ -1193,10 +1435,17 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
     }
 
     case 'stego_inspect': {
-      const { imagePath, imageBase64 } = args as { imagePath?: string; imageBase64?: string };
+      const { imagePath, imageBase64, selectViaDialog, useLatest } = args as {
+        imagePath?: string;
+        imageBase64?: string;
+        selectViaDialog?: boolean;
+        useLatest?: boolean;
+      };
       const carrier = await loadInputImage({
         path: imagePath,
         base64: imageBase64,
+        selectViaDialog,
+        useLatest,
         paramName: 'image',
       });
 
@@ -1356,6 +1605,60 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         type: 'diceware',
         passphrase: phrase,
         description: '4-word high-entropy human-memorable Diceware passphrase.',
+      };
+    }
+
+    case 'stego_pick_carrier': {
+      const { useLatest, title, startDir } = args as {
+        useLatest?: boolean;
+        title?: string;
+        startDir?: string;
+      };
+
+      let selectedPath: string | null = null;
+      let selectionMethod: 'latest' | 'dialog' = 'dialog';
+
+      if (useLatest) {
+        selectedPath = findLatestCarrierImage({
+          searchDirs: startDir ? [startDir] : undefined,
+        });
+        selectionMethod = 'latest';
+        if (!selectedPath) {
+          throw new Error(
+            'E_LATEST_NOT_FOUND: Could not locate any recent PNG images in Screenshots, Downloads, or Pictures folders.',
+          );
+        }
+      } else {
+        selectedPath = await openNativeFileDialog({ title, startDir });
+        selectionMethod = 'dialog';
+        if (!selectedPath) {
+          throw new Error(
+            'E_CANCELLED: Native file picker dialog was cancelled or no file was chosen.',
+          );
+        }
+      }
+
+      const bytes = new Uint8Array(fs.readFileSync(selectedPath));
+      const carrier = decodePng(bytes);
+      const cap = hyperMatrixMethod.calculateCapacity(carrier).usableBytes;
+
+      return {
+        status: 'success',
+        ok: true,
+        path: selectedPath,
+        filename: path.basename(selectedPath),
+        selectionMethod,
+        dimensions: {
+          width: carrier.width,
+          height: carrier.height,
+        },
+        sizeBytes: bytes.length,
+        capacity: {
+          usableBytes: cap,
+          maxPlaintextBytes: cap,
+          maxWithPasskeyBytes: Math.max(0, cap - 48),
+        },
+        hint: `Carrier selected: ${path.basename(selectedPath)}. You can now pass this path as carrierPath to stego_embed, stego_hide, stego_inspect, or stego_scan.`,
       };
     }
 

@@ -77,7 +77,7 @@ describe('OMBRIX MCP Server', () => {
     });
 
     const listResult = res?.result as unknown as ToolListResult;
-    expect(listResult.tools).toHaveLength(11);
+    expect(listResult.tools).toHaveLength(12);
     const toolNames = listResult.tools.map((t) => t.name);
     expect(toolNames).toContain('stego_plan');
     expect(toolNames).toContain('stego_hide');
@@ -90,6 +90,7 @@ describe('OMBRIX MCP Server', () => {
     expect(toolNames).toContain('stego_inspect');
     expect(toolNames).toContain('stego_code_mode');
     expect(toolNames).toContain('stego_api_docs');
+    expect(toolNames).toContain('stego_pick_carrier');
   });
 
   it('generates cryptographic keys via stego_keygen', async () => {
@@ -260,5 +261,38 @@ describe('OMBRIX MCP Server', () => {
     expect(parsed.detectors.samplePairAnalysis).toBeDefined();
     expect(parsed.detectors.chiSquarePoVs).toBeDefined();
     expect(parsed.detectors.laplacianResidual).toBeDefined();
+  });
+
+  it('selects latest carrier via stego_pick_carrier', async () => {
+    const res = await handleJsonRpc({
+      jsonrpc: '2.0',
+      id: 10,
+      method: 'tools/call',
+      params: {
+        name: 'stego_pick_carrier',
+        arguments: {
+          useLatest: true,
+          startDir: tmpDir,
+        },
+      },
+    });
+
+    const callResult = res?.result as unknown as ToolCallResult;
+    const parsed = JSON.parse(getText(callResult)) as {
+      status: string;
+      ok: boolean;
+      path: string;
+      selectionMethod: string;
+      dimensions: { width: number; height: number };
+      capacity: { usableBytes: number };
+    };
+
+    expect(parsed.status).toBe('success');
+    expect(parsed.ok).toBe(true);
+    expect([testPngPath, path.join(tmpDir, 'stego-out.png')]).toContain(parsed.path);
+    expect(parsed.selectionMethod).toBe('latest');
+    expect(parsed.dimensions.width).toBe(64);
+    expect(parsed.dimensions.height).toBe(64);
+    expect(parsed.capacity.usableBytes).toBeGreaterThan(0);
   });
 });

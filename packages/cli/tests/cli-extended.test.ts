@@ -157,4 +157,24 @@ describe('OMBRIX CLI - Extended Features & MCP Installer Suite', () => {
     expect(res.stdout).toContain('Carrier ready with pixels: 1024');
     expect(res.stdout).toContain('384');
   });
+
+  it('resolves virtual /mnt/data/... and fuzzy path in CLI inspect', async () => {
+    // Copy carrier to a known filename in process.cwd() temporarily
+    const cwdTestFile = path.join(process.cwd(), 'cli-fuzzy-test.png');
+    fs.copyFileSync(carrierPath, cwdTestFile);
+
+    try {
+      // Pass a Claude Desktop-style virtual path
+      const res = await runCli(['inspect', '/mnt/data/cli-fuzzy-test.png']);
+      expect(res.exitCode).toBe(0);
+      expect(res.stdout).toContain('OMBRIX Carrier Image Inspection');
+      expect(res.stdout).toContain('cli-fuzzy-test.png');
+    } finally {
+      try {
+        fs.unlinkSync(cwdTestFile);
+      } catch {
+        // ignore
+      }
+    }
+  });
 });

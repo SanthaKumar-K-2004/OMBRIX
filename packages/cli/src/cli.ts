@@ -14,7 +14,13 @@ import {
   toHex,
 } from '@ombrix/crypto-adapter';
 import { Ombrix, type StegoMethod } from '@ombrix/edge-sdk';
-import { executeCodeMode, startMcpServer } from '@ombrix/mcp-server';
+import {
+  executeCodeMode,
+  findLatestCarrierImage,
+  openNativeFileDialog,
+  resolveFuzzyCarrierPath,
+  startMcpServer,
+} from '@ombrix/mcp-server';
 import {
   haarDwtStego,
   hyperMatrixMethod,
@@ -99,6 +105,8 @@ EMBED OPTIONS:
   --photo-mode <mode>         Photo key mode: perceptual (default) or raw
   -m, --method <name>         Algorithm: hyper-matrix (default), robust, lsb, matching, pvd, dwt, dct
   -o, --output <path>         Output stego PNG path
+  --dialog                    Open native OS 1-click file picker to select carrier
+  latest                      Target keyword to automatically select newest screenshot/download
   --recipient-key <key>       X25519 public key (Base64) for authenticated encryption
   --signing-key <key>         Ed25519 private key (Base64) for detached digital signature
 
@@ -108,6 +116,8 @@ EXTRACT OPTIONS:
   --photo-mode <mode>         Photo key mode: perceptual (default) or raw
   -o, --output <path>         Write extracted payload to file (default: stdout)
   -m, --method <name>         Algorithm (or auto for smart detection)
+  --dialog                    Open native OS 1-click file picker to select stego image
+  latest                      Target keyword to automatically select newest screenshot/download
   --recipient-key <key>       X25519 private key (Base64) for payload decryption
   --sender-key <key>          Ed25519 public key (Base64) to verify signature
 
@@ -139,6 +149,44 @@ function resolveMethod(name?: string): StegoMethod {
     default:
       return hyperMatrixMethod;
   }
+}
+
+async function resolveCliImagePath(
+  targetInput?: string,
+  options?: { dialog?: boolean; useLatest?: boolean },
+): Promise<string> {
+  if (options?.dialog || targetInput === '--dialog') {
+    const picked = await openNativeFileDialog();
+    if (!picked) {
+      throw new Error('Native file selection dialog was cancelled.');
+    }
+    return picked;
+  }
+
+  if (options?.useLatest || targetInput === 'latest' || targetInput === ':latest') {
+    const latest = findLatestCarrierImage();
+    if (!latest) {
+      throw new Error(
+        'Could not locate any recent PNG images in Screenshots, Downloads, or Pictures.',
+      );
+    }
+    return latest;
+  }
+
+  if (!targetInput) {
+    throw new Error('Missing <carrierPath>. Pass a file path, "latest", or "--dialog".');
+  }
+
+  if (fs.existsSync(targetInput)) {
+    return path.resolve(targetInput);
+  }
+
+  const fuzzy = resolveFuzzyCarrierPath(targetInput);
+  if (fuzzy) {
+    return fuzzy;
+  }
+
+  throw new Error(`File not found: '${targetInput}'. Hint: Use 'latest' or '--dialog'.`);
 }
 
 export async function runCli(args: string[]): Promise<CliResult> {
@@ -179,10 +227,25 @@ export async function runCli(args: string[]): Promise<CliResult> {
   try {
     switch (command) {
       case 'embed': {
-        const carrierPath = cmdArgs[0];
-        if (!carrierPath || carrierPath.startsWith('-')) {
-          err('Error: Missing <carrierPath> for embed command');
-          return { exitCode: 1, stdout, stderr };
+        let carrierInput: string | undefined = cmdArgs[0];
+        let useDialog = false;
+        let useLatest = false;
+        let argStartIndex = 1;
+
+        if (!carrierInput || carrierInput.startsWith('-')) {
+          if (carrierInput === '--dialog') {
+            useDialog = true;
+            carrierInput = undefined;
+          } else if (carrierInput === '--latest') {
+            useLatest = true;
+            carrierInput = undefined;
+          } else {
+            argStartIndex = 0;
+            carrierInput = undefined;
+          }
+        } else if (carrierInput === 'latest' || carrierInput === ':latest') {
+          useLatest = true;
+          carrierInput = undefined;
         }
 
         let payloadStr: string | undefined;
@@ -196,9 +259,13 @@ export async function runCli(args: string[]): Promise<CliResult> {
         let recipientKey: string | undefined;
         let signingKey: string | undefined;
 
-        for (let i = 1; i < cmdArgs.length; i++) {
+        for (let i = argStartIndex; i < cmdArgs.length; i++) {
           const arg = cmdArgs[i];
-          if ((arg === '-p' || arg === '--payload') && i + 1 < cmdArgs.length) {
+          if (arg === '--dialog') {
+            useDialog = true;
+          } else if (arg === '--latest') {
+            useLatest = true;
+          } else if ((arg === '-p' || arg === '--payload') && i + 1 < cmdArgs.length) {
             payloadStr = cmdArgs[++i];
           } else if ((arg === '-f' || arg === '--file') && i + 1 < cmdArgs.length) {
             filePath = cmdArgs[++i];
@@ -222,6 +289,17 @@ export async function runCli(args: string[]): Promise<CliResult> {
           } else if (arg === '--signing-key' && i + 1 < cmdArgs.length) {
             signingKey = cmdArgs[++i];
           }
+        }
+
+        let carrierPath: string;
+        try {
+          carrierPath = await resolveCliImagePath(carrierInput, {
+            dialog: useDialog,
+            useLatest,
+          });
+        } catch (e: unknown) {
+          err(`Error: ${(e as Error).message}`);
+          return { exitCode: 1, stdout, stderr };
         }
 
         if (keyImagePath) {
@@ -308,10 +386,25 @@ export async function runCli(args: string[]): Promise<CliResult> {
       }
 
       case 'extract': {
-        const stegoPath = cmdArgs[0];
-        if (!stegoPath || stegoPath.startsWith('-')) {
-          err('Error: Missing <stegoPath> for extract command');
-          return { exitCode: 1, stdout, stderr };
+        let stegoInput: string | undefined = cmdArgs[0];
+        let useDialog = false;
+        let useLatest = false;
+        let argStartIndex = 1;
+
+        if (!stegoInput || stegoInput.startsWith('-')) {
+          if (stegoInput === '--dialog') {
+            useDialog = true;
+            stegoInput = undefined;
+          } else if (stegoInput === '--latest') {
+            useLatest = true;
+            stegoInput = undefined;
+          } else {
+            argStartIndex = 0;
+            stegoInput = undefined;
+          }
+        } else if (stegoInput === 'latest' || stegoInput === ':latest') {
+          useLatest = true;
+          stegoInput = undefined;
         }
 
         let outputPath: string | undefined;
@@ -322,9 +415,13 @@ export async function runCli(args: string[]): Promise<CliResult> {
         let recipientKey: string | undefined;
         let senderKey: string | undefined;
 
-        for (let i = 1; i < cmdArgs.length; i++) {
+        for (let i = argStartIndex; i < cmdArgs.length; i++) {
           const arg = cmdArgs[i];
-          if ((arg === '-o' || arg === '--output') && i + 1 < cmdArgs.length) {
+          if (arg === '--dialog') {
+            useDialog = true;
+          } else if (arg === '--latest') {
+            useLatest = true;
+          } else if ((arg === '-o' || arg === '--output') && i + 1 < cmdArgs.length) {
             outputPath = cmdArgs[++i];
           } else if ((arg === '-m' || arg === '--method') && i + 1 < cmdArgs.length) {
             methodStr = cmdArgs[++i];
@@ -343,6 +440,17 @@ export async function runCli(args: string[]): Promise<CliResult> {
           } else if (arg === '--sender-key' && i + 1 < cmdArgs.length) {
             senderKey = cmdArgs[++i];
           }
+        }
+
+        let stegoPath: string;
+        try {
+          stegoPath = await resolveCliImagePath(stegoInput, {
+            dialog: useDialog,
+            useLatest,
+          });
+        } catch (e: unknown) {
+          err(`Error: ${(e as Error).message}`);
+          return { exitCode: 1, stdout, stderr };
         }
 
         if (keyImagePath) {
@@ -469,9 +577,17 @@ export async function runCli(args: string[]): Promise<CliResult> {
       }
 
       case 'scan': {
-        const imagePath = cmdArgs[0];
-        if (!imagePath || imagePath.startsWith('-')) {
-          err('Error: Missing <imagePath> for scan command');
+        const imageInput = cmdArgs[0];
+        const useDialog = cmdArgs.includes('--dialog');
+        const useLatest =
+          cmdArgs.includes('--latest') || imageInput === 'latest' || imageInput === ':latest';
+        const target = useDialog || useLatest ? undefined : imageInput;
+
+        let imagePath: string;
+        try {
+          imagePath = await resolveCliImagePath(target, { dialog: useDialog, useLatest });
+        } catch (e: unknown) {
+          err(`Error: ${(e as Error).message}`);
           return { exitCode: 1, stdout, stderr };
         }
 
@@ -506,9 +622,17 @@ export async function runCli(args: string[]): Promise<CliResult> {
       }
 
       case 'inspect': {
-        const imgPath = cmdArgs[0];
-        if (!imgPath || imgPath.startsWith('-')) {
-          err('Error: Missing <imagePath> for inspect command');
+        const imageInput = cmdArgs[0];
+        const useDialog = cmdArgs.includes('--dialog');
+        const useLatest =
+          cmdArgs.includes('--latest') || imageInput === 'latest' || imageInput === ':latest';
+        const target = useDialog || useLatest ? undefined : imageInput;
+
+        let imgPath: string;
+        try {
+          imgPath = await resolveCliImagePath(target, { dialog: useDialog, useLatest });
+        } catch (e: unknown) {
+          err(`Error: ${(e as Error).message}`);
           return { exitCode: 1, stdout, stderr };
         }
 
@@ -772,9 +896,17 @@ export async function runCli(args: string[]): Promise<CliResult> {
       }
 
       case 'benchmark': {
-        const carrierPath = cmdArgs[0];
-        if (!carrierPath || carrierPath.startsWith('-')) {
-          err('Error: Missing <carrierPath> for benchmark command');
+        const carrierInput = cmdArgs[0];
+        const useDialog = cmdArgs.includes('--dialog');
+        const useLatest =
+          cmdArgs.includes('--latest') || carrierInput === 'latest' || carrierInput === ':latest';
+        const target = useDialog || useLatest ? undefined : carrierInput;
+
+        let carrierPath: string;
+        try {
+          carrierPath = await resolveCliImagePath(target, { dialog: useDialog, useLatest });
+        } catch (e: unknown) {
+          err(`Error: ${(e as Error).message}`);
           return { exitCode: 1, stdout, stderr };
         }
 

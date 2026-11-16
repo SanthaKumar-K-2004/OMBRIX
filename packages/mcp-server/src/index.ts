@@ -6,6 +6,12 @@ export { startMcpServer, handleJsonRpc } from './server.js';
 export { startSseServer } from './sse.js';
 export { MCP_TOOLS, executeTool } from './tools.js';
 export { executeCodeMode, getCodeModeApiDocs } from './code-mode.js';
+export {
+  openNativeFileDialog,
+  findLatestCarrierImage,
+  resolveFuzzyCarrierPath,
+  hasGuiEnvironment,
+} from './file-dialog.js';
 
 // Auto-run when invoked directly as the MCP server entrypoint
 const argv1 = process.argv[1] || '';
