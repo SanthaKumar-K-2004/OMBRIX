@@ -33,6 +33,73 @@ function resolveMethod(methodId?: string): StegoMethod {
   }
 }
 
+function isLikelyValidPayload(bytes: Uint8Array): boolean {
+  if (!bytes || bytes.length === 0) return false;
+
+  // 1. OMBPASS encrypted container (V1, V2)
+  const isPasskeyV1 =
+    bytes.length >= 48 &&
+    bytes[0] === 0x4f &&
+    bytes[1] === 0x4d &&
+    bytes[2] === 0x42 &&
+    bytes[3] === 0x50 &&
+    bytes[4] === 0x41 &&
+    bytes[5] === 0x53 &&
+    bytes[6] === 0x53 &&
+    bytes[7] === 0x01;
+  const isPasskeyV2 =
+    bytes.length >= 64 &&
+    bytes[0] === 0x4f &&
+    bytes[1] === 0x4d &&
+    bytes[2] === 0x42 &&
+    bytes[3] === 0x50 &&
+    bytes[4] === 0x41 &&
+    bytes[5] === 0x53 &&
+    bytes[6] === 0x53 &&
+    bytes[7] === 0x02;
+  if (isPasskeyV1 || isPasskeyV2) return true;
+
+  // 2. Canonical OMB1 envelope
+  const isOmb1 =
+    bytes.length >= 4 &&
+    bytes[0] === 0x4f &&
+    bytes[1] === 0x4d &&
+    bytes[2] === 0x42 &&
+    bytes[3] === 0x31;
+  if (isOmb1) return true;
+
+  // 3. Chameleon container (CHAM)
+  const isCham =
+    bytes.length >= 4 &&
+    bytes[0] === 0x43 &&
+    bytes[1] === 0x48 &&
+    bytes[2] === 0x41 &&
+    bytes[3] === 0x4d;
+  if (isCham) return true;
+
+  // 4. File payload container (OMBF)
+  const isOmbFile =
+    bytes.length >= 4 &&
+    bytes[0] === 0x4f &&
+    bytes[1] === 0x4d &&
+    bytes[2] === 0x42 &&
+    bytes[3] === 0x46;
+  if (isOmbFile) return true;
+
+  // 5. Clean UTF-8 text (no replacement character, reasonable printable ASCII range)
+  const text = new TextDecoder().decode(bytes);
+  if (text.includes('\ufffd')) return false;
+
+  let controlChars = 0;
+  for (let i = 0; i < Math.min(bytes.length, 100); i++) {
+    const b = bytes[i] ?? 0;
+    if (b < 32 && b !== 9 && b !== 10 && b !== 13) {
+      controlChars++;
+    }
+  }
+  return controlChars === 0;
+}
+
 export class StegoWorkerHandler {
   private activeJobs = new Map<string, AbortController>();
 
@@ -143,7 +210,7 @@ export class StegoWorkerHandler {
 
           for (const method of probeMethods) {
             try {
-              extracted = await method.extract(
+              const candidate = await method.extract(
                 carrier,
                 message.options,
                 controller.signal,
@@ -155,8 +222,16 @@ export class StegoWorkerHandler {
                   });
                 },
               );
-              if (extracted && extracted.length > 0) {
-                break;
+              if (candidate && candidate.length > 0) {
+                // If it is an unauthenticated legacy method, discard false-positive noise extractions
+                const isChecksummed =
+                  method === hyperMatrixMethod ||
+                  method === stealthMatrixMethod ||
+                  method === robustResilientStego;
+                if (isChecksummed || isLikelyValidPayload(candidate)) {
+                  extracted = candidate;
+                  break;
+                }
               }
             } catch {
               // Method probe failed, try next method in probe sequence
