@@ -8081,56 +8081,59 @@ var HyperMatrixMethod = class {
       throw new InvalidCarrierError("Invalid carrier image buffer dimensions.");
     }
     let lsbError = null;
-    try {
-      const { scatterKey, cipherKey, authKey } = deriveHyperKeys(options?.passphrase);
-      const coords = buildHyperPermutation(carrier, scatterKey);
-      if (coords.length >= HEADER_OVERHEAD_BYTES2 * 8) {
-        const headerBytes = new Uint8Array(HEADER_OVERHEAD_BYTES2);
-        for (let b2 = 0; b2 < HEADER_OVERHEAD_BYTES2 * 8; b2++) {
-          const coord = coords[b2];
-          const bit = carrier.data[coord] & 1;
-          const byteIdx = Math.floor(b2 / 8);
-          const bitOffset = 7 - b2 % 8;
-          headerBytes[byteIdx] = (headerBytes[byteIdx] | bit << bitOffset) & 255;
-        }
-        if (headerBytes[0] === HYPER_MATRIX_MAGIC[0] && headerBytes[1] === HYPER_MATRIX_MAGIC[1] && headerBytes[2] === HYPER_MATRIX_MAGIC[2] && headerBytes[3] === HYPER_MATRIX_MAGIC[3]) {
-          const payloadLength = (headerBytes[4] << 24 | headerBytes[5] << 16 | headerBytes[6] << 8 | headerBytes[7]) >>> 0;
-          const extractedAuthTag = headerBytes.slice(8, 16);
-          const totalBitsNeeded = (HEADER_OVERHEAD_BYTES2 + payloadLength) * 8;
-          if (totalBitsNeeded <= coords.length) {
-            const ciphertext = new Uint8Array(payloadLength);
-            const startBit = HEADER_OVERHEAD_BYTES2 * 8;
-            for (let b2 = 0; b2 < payloadLength * 8; b2++) {
-              if (b2 % CANCEL_CHECK_INTERVAL3 === 0) {
-                if (signal?.aborted) throw new StegoAbortError("Extraction was cancelled.");
-                if (onProgress) onProgress(b2 / (payloadLength * 8));
+    const attempts = options?.passphrase?.trim() ? [options.passphrase.trim(), void 0] : [void 0];
+    for (const passAttempt of attempts) {
+      try {
+        const { scatterKey, cipherKey, authKey } = deriveHyperKeys(passAttempt);
+        const coords = buildHyperPermutation(carrier, scatterKey);
+        if (coords.length >= HEADER_OVERHEAD_BYTES2 * 8) {
+          const headerBytes = new Uint8Array(HEADER_OVERHEAD_BYTES2);
+          for (let b2 = 0; b2 < HEADER_OVERHEAD_BYTES2 * 8; b2++) {
+            const coord = coords[b2];
+            const bit = carrier.data[coord] & 1;
+            const byteIdx = Math.floor(b2 / 8);
+            const bitOffset = 7 - b2 % 8;
+            headerBytes[byteIdx] = (headerBytes[byteIdx] | bit << bitOffset) & 255;
+          }
+          if (headerBytes[0] === HYPER_MATRIX_MAGIC[0] && headerBytes[1] === HYPER_MATRIX_MAGIC[1] && headerBytes[2] === HYPER_MATRIX_MAGIC[2] && headerBytes[3] === HYPER_MATRIX_MAGIC[3]) {
+            const payloadLength = (headerBytes[4] << 24 | headerBytes[5] << 16 | headerBytes[6] << 8 | headerBytes[7]) >>> 0;
+            const extractedAuthTag = headerBytes.slice(8, 16);
+            const totalBitsNeeded = (HEADER_OVERHEAD_BYTES2 + payloadLength) * 8;
+            if (totalBitsNeeded <= coords.length) {
+              const ciphertext = new Uint8Array(payloadLength);
+              const startBit = HEADER_OVERHEAD_BYTES2 * 8;
+              for (let b2 = 0; b2 < payloadLength * 8; b2++) {
+                if (b2 % CANCEL_CHECK_INTERVAL3 === 0) {
+                  if (signal?.aborted) throw new StegoAbortError("Extraction was cancelled.");
+                  if (onProgress) onProgress(b2 / (payloadLength * 8));
+                }
+                const coord = coords[startBit + b2];
+                const bit = carrier.data[coord] & 1;
+                const byteIdx = Math.floor(b2 / 8);
+                const bitOffset = 7 - b2 % 8;
+                ciphertext[byteIdx] = (ciphertext[byteIdx] | bit << bitOffset) & 255;
               }
-              const coord = coords[startBit + b2];
-              const bit = carrier.data[coord] & 1;
-              const byteIdx = Math.floor(b2 / 8);
-              const bitOffset = 7 - b2 % 8;
-              ciphertext[byteIdx] = (ciphertext[byteIdx] | bit << bitOffset) & 255;
-            }
-            const expectedAuthTagFull = hmacSha256(authKey, ciphertext);
-            const expectedAuthTag = expectedAuthTagFull.slice(0, 8);
-            let authMismatch = 0;
-            for (let i2 = 0; i2 < 8; i2++) {
-              authMismatch |= (extractedAuthTag[i2] ?? 0) ^ (expectedAuthTag[i2] ?? 0);
-            }
-            if (authMismatch === 0) {
-              const decryptedPayload = new Uint8Array(payloadLength);
-              const cipherPrng = new ChaCha20Prng(cipherKey);
-              for (let i2 = 0; i2 < payloadLength; i2++) {
-                decryptedPayload[i2] = (ciphertext[i2] ^ cipherPrng.nextByte()) & 255;
+              const expectedAuthTagFull = hmacSha256(authKey, ciphertext);
+              const expectedAuthTag = expectedAuthTagFull.slice(0, 8);
+              let authMismatch = 0;
+              for (let i2 = 0; i2 < 8; i2++) {
+                authMismatch |= (extractedAuthTag[i2] ?? 0) ^ (expectedAuthTag[i2] ?? 0);
               }
-              if (onProgress) onProgress(1);
-              return decryptedPayload;
+              if (authMismatch === 0) {
+                const decryptedPayload = new Uint8Array(payloadLength);
+                const cipherPrng = new ChaCha20Prng(cipherKey);
+                for (let i2 = 0; i2 < payloadLength; i2++) {
+                  decryptedPayload[i2] = (ciphertext[i2] ^ cipherPrng.nextByte()) & 255;
+                }
+                if (onProgress) onProgress(1);
+                return decryptedPayload;
+              }
             }
           }
         }
+      } catch (err) {
+        lsbError = err instanceof Error ? err : new Error(String(err));
       }
-    } catch (err) {
-      lsbError = err instanceof Error ? err : new Error(String(err));
     }
     try {
       const robustResult = await robustResilientStego.extract(carrier, options, signal, onProgress);
@@ -9285,9 +9288,13 @@ function createOmbrixSandboxApi(logs) {
         let isEncrypted = false;
         let signatureVerified = void 0;
         if (method === "hyper-matrix" || method === "hypermatrix") {
-          rawExtracted = await hyperMatrixMethod.extract(carrier);
+          rawExtracted = await hyperMatrixMethod.extract(carrier, {
+            passphrase: options.passkey
+          });
         } else if (method === "robust-resilient" || method === "robust") {
-          rawExtracted = await robustResilientStego.extract(carrier);
+          rawExtracted = await robustResilientStego.extract(carrier, {
+            passphrase: options.passkey
+          });
         } else if (method === "dwt") {
           rawExtracted = await haarDwtStego.extract(carrier);
         } else if (method === "pvd") {
@@ -9307,16 +9314,24 @@ function createOmbrixSandboxApi(logs) {
           signatureVerified = res.signatureVerified;
         } else {
           try {
-            rawExtracted = await hyperMatrixMethod.extract(carrier);
-          } catch {
-            const res = await Ombrix.extract(carrier, {
-              recipientPrivateKey: options.recipientKey,
-              senderSigningPublicKey: options.senderKey
+            rawExtracted = await hyperMatrixMethod.extract(carrier, {
+              passphrase: options.passkey
             });
-            rawExtracted = res.payload;
-            isSigned = res.isSigned;
-            isEncrypted = res.isEncrypted;
-            signatureVerified = res.signatureVerified;
+          } catch {
+            try {
+              rawExtracted = await robustResilientStego.extract(carrier, {
+                passphrase: options.passkey
+              });
+            } catch {
+              const res = await Ombrix.extract(carrier, {
+                recipientPrivateKey: options.recipientKey,
+                senderSigningPublicKey: options.senderKey
+              });
+              rawExtracted = res.payload;
+              isSigned = res.isSigned;
+              isEncrypted = res.isEncrypted;
+              signatureVerified = res.signatureVerified;
+            }
           }
         }
         let decryptedBytes = rawExtracted;

@@ -288,9 +288,13 @@ export async function runCli(args: string[]): Promise<CliResult> {
 
         const normMethod = methodStr?.toLowerCase();
         if (normMethod === 'hyper-matrix' || normMethod === 'hypermatrix') {
-          extractedBytes = await hyperMatrixMethod.extract(stegoCarrier);
+          extractedBytes = await hyperMatrixMethod.extract(stegoCarrier, {
+            passphrase: passkey,
+          });
         } else if (normMethod === 'robust-resilient' || normMethod === 'robust') {
-          extractedBytes = await robustResilientStego.extract(stegoCarrier);
+          extractedBytes = await robustResilientStego.extract(stegoCarrier, {
+            passphrase: passkey,
+          });
         } else if (normMethod === 'pvd') {
           extractedBytes = await Ombrix.extractPvd(stegoCarrier);
         } else if (normMethod === 'dwt') {
@@ -321,20 +325,30 @@ export async function runCli(args: string[]): Promise<CliResult> {
               isSigned = res.isSigned;
               signatureVerified = res.signatureVerified ?? false;
             } catch {
-              extractedBytes = await hyperMatrixMethod.extract(stegoCarrier);
+              extractedBytes = await hyperMatrixMethod.extract(stegoCarrier, {
+                passphrase: passkey,
+              });
             }
           } else {
             try {
-              extractedBytes = await hyperMatrixMethod.extract(stegoCarrier);
-            } catch {
-              const res = await Ombrix.extract(stegoCarrier, {
-                recipientPrivateKey: recipientKey,
-                senderSigningPublicKey: senderKey,
+              extractedBytes = await hyperMatrixMethod.extract(stegoCarrier, {
+                passphrase: passkey,
               });
-              extractedBytes = res.payload;
-              isEncrypted = res.isEncrypted;
-              isSigned = res.isSigned;
-              signatureVerified = res.signatureVerified ?? false;
+            } catch {
+              try {
+                extractedBytes = await robustResilientStego.extract(stegoCarrier, {
+                  passphrase: passkey,
+                });
+              } catch {
+                const res = await Ombrix.extract(stegoCarrier, {
+                  recipientPrivateKey: recipientKey,
+                  senderSigningPublicKey: senderKey,
+                });
+                extractedBytes = res.payload;
+                isEncrypted = res.isEncrypted;
+                isSigned = res.isSigned;
+                signatureVerified = res.signatureVerified ?? false;
+              }
             }
           }
         }

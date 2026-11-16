@@ -243,81 +243,88 @@ export class HyperMatrixMethod implements StegoMethod {
     let lsbError: Error | null = null;
 
     // 1. Primary Attempt: High-Capacity Wavelet LSB Extraction
-    try {
-      const { scatterKey, cipherKey, authKey } = deriveHyperKeys(options?.passphrase);
-      const coords = buildHyperPermutation(carrier, scatterKey);
+    // Support dual attempt: if passphrase is provided, try keyed first, then unkeyed default seed
+    const attempts = options?.passphrase?.trim()
+      ? [options.passphrase.trim(), undefined]
+      : [undefined];
 
-      if (coords.length >= HEADER_OVERHEAD_BYTES * 8) {
-        // Extract 16-byte header
-        const headerBytes = new Uint8Array(HEADER_OVERHEAD_BYTES);
-        for (let b = 0; b < HEADER_OVERHEAD_BYTES * 8; b++) {
-          const coord = coords[b]!;
-          const bit = carrier.data[coord]! & 1;
-          const byteIdx = Math.floor(b / 8);
-          const bitOffset = 7 - (b % 8);
-          headerBytes[byteIdx] = (headerBytes[byteIdx]! | (bit << bitOffset)) & 0xff;
-        }
+    for (const passAttempt of attempts) {
+      try {
+        const { scatterKey, cipherKey, authKey } = deriveHyperKeys(passAttempt);
+        const coords = buildHyperPermutation(carrier, scatterKey);
 
-        // Validate HYPR magic
-        if (
-          headerBytes[0] === HYPER_MATRIX_MAGIC[0] &&
-          headerBytes[1] === HYPER_MATRIX_MAGIC[1] &&
-          headerBytes[2] === HYPER_MATRIX_MAGIC[2] &&
-          headerBytes[3] === HYPER_MATRIX_MAGIC[3]
-        ) {
-          const payloadLength =
-            ((headerBytes[4]! << 24) |
-              (headerBytes[5]! << 16) |
-              (headerBytes[6]! << 8) |
-              headerBytes[7]!) >>>
-            0;
+        if (coords.length >= HEADER_OVERHEAD_BYTES * 8) {
+          // Extract 16-byte header
+          const headerBytes = new Uint8Array(HEADER_OVERHEAD_BYTES);
+          for (let b = 0; b < HEADER_OVERHEAD_BYTES * 8; b++) {
+            const coord = coords[b]!;
+            const bit = carrier.data[coord]! & 1;
+            const byteIdx = Math.floor(b / 8);
+            const bitOffset = 7 - (b % 8);
+            headerBytes[byteIdx] = (headerBytes[byteIdx]! | (bit << bitOffset)) & 0xff;
+          }
 
-          const extractedAuthTag = headerBytes.slice(8, 16);
-          const totalBitsNeeded = (HEADER_OVERHEAD_BYTES + payloadLength) * 8;
+          // Validate HYPR magic
+          if (
+            headerBytes[0] === HYPER_MATRIX_MAGIC[0] &&
+            headerBytes[1] === HYPER_MATRIX_MAGIC[1] &&
+            headerBytes[2] === HYPER_MATRIX_MAGIC[2] &&
+            headerBytes[3] === HYPER_MATRIX_MAGIC[3]
+          ) {
+            const payloadLength =
+              ((headerBytes[4]! << 24) |
+                (headerBytes[5]! << 16) |
+                (headerBytes[6]! << 8) |
+                headerBytes[7]!) >>>
+              0;
 
-          if (totalBitsNeeded <= coords.length) {
-            // Extract encrypted ciphertext bits
-            const ciphertext = new Uint8Array(payloadLength);
-            const startBit = HEADER_OVERHEAD_BYTES * 8;
+            const extractedAuthTag = headerBytes.slice(8, 16);
+            const totalBitsNeeded = (HEADER_OVERHEAD_BYTES + payloadLength) * 8;
 
-            for (let b = 0; b < payloadLength * 8; b++) {
-              if (b % CANCEL_CHECK_INTERVAL === 0) {
-                if (signal?.aborted) throw new StegoAbortError('Extraction was cancelled.');
-                if (onProgress) onProgress(b / (payloadLength * 8));
+            if (totalBitsNeeded <= coords.length) {
+              // Extract encrypted ciphertext bits
+              const ciphertext = new Uint8Array(payloadLength);
+              const startBit = HEADER_OVERHEAD_BYTES * 8;
+
+              for (let b = 0; b < payloadLength * 8; b++) {
+                if (b % CANCEL_CHECK_INTERVAL === 0) {
+                  if (signal?.aborted) throw new StegoAbortError('Extraction was cancelled.');
+                  if (onProgress) onProgress(b / (payloadLength * 8));
+                }
+
+                const coord = coords[startBit + b]!;
+                const bit = carrier.data[coord]! & 1;
+                const byteIdx = Math.floor(b / 8);
+                const bitOffset = 7 - (b % 8);
+                ciphertext[byteIdx] = (ciphertext[byteIdx]! | (bit << bitOffset)) & 0xff;
               }
 
-              const coord = coords[startBit + b]!;
-              const bit = carrier.data[coord]! & 1;
-              const byteIdx = Math.floor(b / 8);
-              const bitOffset = 7 - (b % 8);
-              ciphertext[byteIdx] = (ciphertext[byteIdx]! | (bit << bitOffset)) & 0xff;
-            }
+              // Verify HMAC-SHA256 authentication tag
+              const expectedAuthTagFull = hmacSha256(authKey, ciphertext);
+              const expectedAuthTag = expectedAuthTagFull.slice(0, 8);
 
-            // Verify HMAC-SHA256 authentication tag
-            const expectedAuthTagFull = hmacSha256(authKey, ciphertext);
-            const expectedAuthTag = expectedAuthTagFull.slice(0, 8);
-
-            let authMismatch = 0;
-            for (let i = 0; i < 8; i++) {
-              authMismatch |= (extractedAuthTag[i] ?? 0) ^ (expectedAuthTag[i] ?? 0);
-            }
-
-            if (authMismatch === 0) {
-              // Decrypt ciphertext via ChaCha20 stream cipher
-              const decryptedPayload = new Uint8Array(payloadLength);
-              const cipherPrng = new ChaCha20Prng(cipherKey);
-              for (let i = 0; i < payloadLength; i++) {
-                decryptedPayload[i] = (ciphertext[i]! ^ cipherPrng.nextByte()) & 0xff;
+              let authMismatch = 0;
+              for (let i = 0; i < 8; i++) {
+                authMismatch |= (extractedAuthTag[i] ?? 0) ^ (expectedAuthTag[i] ?? 0);
               }
 
-              if (onProgress) onProgress(1.0);
-              return decryptedPayload;
+              if (authMismatch === 0) {
+                // Decrypt ciphertext via ChaCha20 stream cipher
+                const decryptedPayload = new Uint8Array(payloadLength);
+                const cipherPrng = new ChaCha20Prng(cipherKey);
+                for (let i = 0; i < payloadLength; i++) {
+                  decryptedPayload[i] = (ciphertext[i]! ^ cipherPrng.nextByte()) & 0xff;
+                }
+
+                if (onProgress) onProgress(1.0);
+                return decryptedPayload;
+              }
             }
           }
         }
+      } catch (err: unknown) {
+        lsbError = err instanceof Error ? err : new Error(String(err));
       }
-    } catch (err: unknown) {
-      lsbError = err instanceof Error ? err : new Error(String(err));
     }
 
     // 2. Seamless Fallback: Resilient Robust Carrier Extraction (Lossy Channel / JPEG Recovery)

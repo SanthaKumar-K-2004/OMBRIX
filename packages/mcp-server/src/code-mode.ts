@@ -261,9 +261,13 @@ export function createOmbrixSandboxApi(logs: string[]) {
         let signatureVerified: boolean | undefined = undefined;
 
         if (method === 'hyper-matrix' || method === 'hypermatrix') {
-          rawExtracted = await hyperMatrixMethod.extract(carrier);
+          rawExtracted = await hyperMatrixMethod.extract(carrier, {
+            passphrase: options.passkey,
+          });
         } else if (method === 'robust-resilient' || method === 'robust') {
-          rawExtracted = await robustResilientStego.extract(carrier);
+          rawExtracted = await robustResilientStego.extract(carrier, {
+            passphrase: options.passkey,
+          });
         } else if (method === 'dwt') {
           rawExtracted = await haarDwtStego.extract(carrier);
         } else if (method === 'pvd') {
@@ -284,16 +288,24 @@ export function createOmbrixSandboxApi(logs: string[]) {
         } else {
           // Auto-detection
           try {
-            rawExtracted = await hyperMatrixMethod.extract(carrier);
-          } catch {
-            const res = await Ombrix.extract(carrier, {
-              recipientPrivateKey: options.recipientKey,
-              senderSigningPublicKey: options.senderKey,
+            rawExtracted = await hyperMatrixMethod.extract(carrier, {
+              passphrase: options.passkey,
             });
-            rawExtracted = res.payload;
-            isSigned = res.isSigned;
-            isEncrypted = res.isEncrypted;
-            signatureVerified = res.signatureVerified;
+          } catch {
+            try {
+              rawExtracted = await robustResilientStego.extract(carrier, {
+                passphrase: options.passkey,
+              });
+            } catch {
+              const res = await Ombrix.extract(carrier, {
+                recipientPrivateKey: options.recipientKey,
+                senderSigningPublicKey: options.senderKey,
+              });
+              rawExtracted = res.payload;
+              isSigned = res.isSigned;
+              isEncrypted = res.isEncrypted;
+              signatureVerified = res.signatureVerified;
+            }
           }
         }
 

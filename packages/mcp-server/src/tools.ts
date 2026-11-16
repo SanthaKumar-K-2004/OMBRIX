@@ -677,9 +677,13 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
       try {
         let testExtracted: Uint8Array;
         if (effectiveMethod === 'hyper-matrix') {
-          testExtracted = await hyperMatrixMethod.extract(stegoCarrier);
+          testExtracted = await hyperMatrixMethod.extract(stegoCarrier, {
+            passphrase: passkey,
+          });
         } else if (effectiveMethod === 'robust-resilient') {
-          testExtracted = await robustResilientStego.extract(stegoCarrier);
+          testExtracted = await robustResilientStego.extract(stegoCarrier, {
+            passphrase: passkey,
+          });
         } else if (effectiveMethod === 'dwt') {
           testExtracted = await haarDwtStego.extract(stegoCarrier);
         } else if (effectiveMethod === 'pvd') {
@@ -787,17 +791,25 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
         paramName: 'stego',
       });
 
+      const resolvedKey = resolvePasskey({ passkey, passkeyEnv, passkeyFile });
+
       let extractedRaw: Uint8Array | null = null;
       let detectedMethod = String(method).toLowerCase();
 
       if (detectedMethod === 'auto') {
         // Sequential multi-algorithm discovery
         const candidateMethods: Array<{ name: string; extract: () => Promise<Uint8Array> }> = [
-          { name: 'hyper-matrix', extract: () => hyperMatrixMethod.extract(carrier) },
+          {
+            name: 'hyper-matrix',
+            extract: () => hyperMatrixMethod.extract(carrier, { passphrase: resolvedKey }),
+          },
           { name: 'matching', extract: () => pngLsbMatching.extract(carrier) },
           { name: 'pvd', extract: () => pvdStego.extract(carrier) },
           { name: 'dwt', extract: () => haarDwtStego.extract(carrier) },
-          { name: 'robust-resilient', extract: () => robustResilientStego.extract(carrier) },
+          {
+            name: 'robust-resilient',
+            extract: () => robustResilientStego.extract(carrier, { passphrase: resolvedKey }),
+          },
           { name: 'dct', extract: () => jpegDctStego.extract(carrier) },
           { name: 'lsb', extract: () => pngLsbSequential.extract(carrier) },
         ];
@@ -851,9 +863,9 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
       } else {
         // Explicit algorithm extraction
         if (detectedMethod === 'hyper-matrix') {
-          extractedRaw = await hyperMatrixMethod.extract(carrier);
+          extractedRaw = await hyperMatrixMethod.extract(carrier, { passphrase: resolvedKey });
         } else if (detectedMethod === 'robust-resilient') {
-          extractedRaw = await robustResilientStego.extract(carrier);
+          extractedRaw = await robustResilientStego.extract(carrier, { passphrase: resolvedKey });
         } else if (detectedMethod === 'dwt') {
           extractedRaw = await haarDwtStego.extract(carrier);
         } else if (detectedMethod === 'pvd') {
@@ -872,7 +884,6 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
       // Decrypt if passkey-protected
       let wasEncrypted = false;
       let finalBytes = extractedRaw;
-      const resolvedKey = resolvePasskey({ passkey, passkeyEnv, passkeyFile });
 
       if (isPasskeyEncrypted(extractedRaw)) {
         wasEncrypted = true;
